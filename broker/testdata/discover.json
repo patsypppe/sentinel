@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "server/discover",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/clientInfo": {
+        "name": "curl",
+        "version": "8"
+      }
+    }
+  }
+}

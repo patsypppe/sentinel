@@ -27,11 +27,11 @@ lint: ## golangci-lint over the broker
 
 .PHONY: test-go
 test-go: ## Go unit tests
-	$(GO) test $(BROKER_PKGS)
+	$(GO) test -race $(BROKER_PKGS)
 
 .PHONY: test-go-integration
 test-go-integration: ## Go tests that need Postgres (build tag: integration)
-	$(GO) test -tags=integration -count=1 $(BROKER_PKGS)
+	$(GO) test -race -tags=integration -count=1 $(BROKER_PKGS)
 
 .PHONY: lint-py
 lint-py: ## ruff
