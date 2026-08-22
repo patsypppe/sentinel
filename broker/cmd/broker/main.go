@@ -21,6 +21,7 @@ import (
 
 	"github.com/patsypppe/sentinel/broker/internal/config"
 	"github.com/patsypppe/sentinel/broker/internal/envelope"
+	"github.com/patsypppe/sentinel/broker/internal/handles"
 	"github.com/patsypppe/sentinel/broker/internal/registry"
 	"github.com/patsypppe/sentinel/broker/internal/store"
 	"github.com/patsypppe/sentinel/broker/internal/tools/warehouse"
@@ -68,22 +69,30 @@ func serverInfo() envelope.Info {
 	}
 }
 
+const (
+	// handleSweepInterval is how often expired handles are collected.
+	handleSweepInterval = 5 * time.Minute
+	// handleRetention keeps expired and revoked rows readable to an audit after
+	// they stop resolving. Retention is not revival: they are unresolvable the
+	// moment they expire.
+	handleRetention = 24 * time.Hour
+)
+
 const instructions = "Stateless MCP broker. Cross-call state is a server-minted handle " +
 	"passed as an ordinary tool argument; possession of a handle is not authentication. " +
 	"Irreversible tools return resultType=input_required and are completed by retrying " +
 	"the original request with inputResponses and the sealed requestState."
 
-// pendingMinter stands in for the state-handle store until WP-5.
+// databaselessMinter is used only by `broker manifest`, which reports the
+// declaration surface and never executes a tool.
 //
-// It fails loudly rather than silently truncating: an over-cap result is the
-// one case that needs a handle, and returning a short answer that looks
-// complete is the failure mode the handle mechanism exists to prevent. The
-// error says exactly what is missing.
-type pendingMinter struct{}
+// It fails loudly rather than returning a plausible-looking identifier: an
+// over-cap result is the one case that needs a handle, and a short answer that
+// looks complete is exactly the failure the handle mechanism exists to prevent.
+type databaselessMinter struct{}
 
-func (pendingMinter) Mint(context.Context, registry.Principal, string, json.RawMessage, time.Duration) (string, error) {
-	return "", errors.New("the state-handle store is not wired yet (WP-5); " +
-		"narrow the query so the result fits within the tool's token cap")
+func (databaselessMinter) Mint(context.Context, registry.Principal, string, json.RawMessage, time.Duration) (string, error) {
+	return "", errors.New("no database connection: handles cannot be minted without one")
 }
 
 // buildRegistry assembles the tool surface.
@@ -98,7 +107,7 @@ func buildRegistry(cfg config.Config, st *store.Store) (*registry.Registry, erro
 		// none of it depends on a connection.
 		return registry.New(
 			warehouse.NewDescribeTool(nil),
-			warehouse.NewQueryTool(nil, pendingMinter{}, warehouse.QueryOptions{
+			warehouse.NewQueryTool(nil, databaselessMinter{}, warehouse.QueryOptions{
 				TokenCap: cfg.DefaultTokenCap,
 			}),
 		)
@@ -106,7 +115,7 @@ func buildRegistry(cfg config.Config, st *store.Store) (*registry.Registry, erro
 	pool := st.Pool()
 	return registry.New(
 		warehouse.NewDescribeTool(pool),
-		warehouse.NewQueryTool(pool, pendingMinter{}, warehouse.QueryOptions{
+		warehouse.NewQueryTool(pool, handles.NewStore(pool), warehouse.QueryOptions{
 			TokenCap:  cfg.DefaultTokenCap,
 			HandleTTL: cfg.HandleDefaultTTL,
 		}),
@@ -200,6 +209,22 @@ func serve(out io.Writer) error {
 			return fmt.Errorf("database: %w", err)
 		}
 		defer st.Close()
+	}
+
+	// Sweep expired handles in the background. The grace period keeps recently
+	// expired rows readable to an audit for a while: resolution already refuses
+	// them, so retention costs nothing and answers "was this handle ever real?"
+	// after the fact.
+	if st != nil {
+		hs := handles.NewStore(st.Pool())
+		go hs.RunCollector(ctx, handleSweepInterval, handleRetention, func(n int64, err error) {
+			switch {
+			case err != nil:
+				log.Error("handle sweep failed", "err", err)
+			case n > 0:
+				log.Info("handles collected", "count", n)
+			}
+		})
 	}
 
 	reg, err := buildRegistry(cfg, st)
