@@ -8,12 +8,12 @@ rather than earning it. The same goes for a server that claims determinism. Wher
 a measurement is not yet possible, this file says so and names the work package
 that will supply it, rather than omitting the row.
 
-Generated in 0.9s.
+Generated in 2.6s.
 
 | Measurement | Result |
 |---|---|
-| Manifest token count | **2** tokens across **0** tool(s) — _WP-4 registers the first tools; the before/after consolidation comparison lands with them._ |
-| Per-tool `concise` vs `detailed` token counts | not yet measured — _WP-4 lands `response_format` on the warehouse tools._ |
+| Manifest token count | **1045** tokens across **2** tool(s) |
+| Per-tool `concise` vs `detailed` token counts | up to **49.3%** fewer tokens in `concise` |
 | `tools/list` determinism | **1** distinct hash |
 | MUST recall against the non-conformant fixture | not yet measured — _WP-9 lands the fixtures and the rule catalog._ |
 | False positives against the conformant fixture | not yet measured — _WP-9 lands the fixtures and the rule catalog._ |
@@ -23,25 +23,35 @@ Generated in 0.9s.
 
 ## Manifest token count
 
-**Result:** **2** tokens across **0** tool(s)
+**Result:** **1045** tokens across **2** tool(s)
 
 **Method:** `broker manifest`, tokenizer `sentinel/approx-v1` — a deterministic, dependency-free approximation defined in `broker/internal/registry/tokens.go`, not a model tokenizer. It is in-repo on purpose: this measurement must be reproducible by anyone who clones the repository, on a machine with no model API key, which is why this project has none.
 
-**Not yet measured.** WP-4 registers the first tools; the before/after consolidation comparison lands with them.
+| Tool | Tokens |
+|---|---|
+| `warehouse.describe` | 385 tokens |
+| `warehouse.query` | 481 tokens |
 
 ## Per-tool `concise` vs `detailed` token counts
 
-**Result:** not yet measured
+**Result:** up to **49.3%** fewer tokens in `concise`
 
-**Method:** Same tokenizer as the manifest count, applied to each tool's response in both modes.
+**Value:** `concise` names each column once; `detailed` repeats every key on every row, so the saving grows with row count. Below two rows `concise` costs slightly *more* — the standalone column list has nothing to amortize over — and the default is left as `concise` anyway, because switching shape based on row count would make the response schema depend on the data.
 
-**Not yet measured.** WP-4 lands `response_format` on the warehouse tools.
+**Method:** Tokenizer `sentinel/approx-v1`, applied to a fixed five-column result rendered both ways. Read from the `MEASURE` markers emitted by `TestConciseIsSmallerThanDetailed`, so the published figure is computed by the same code the test asserts on.
+
+| Tool | Tokens |
+|---|---|
+| 2 rows | concise **98**, detailed **113** — 13.3% saved |
+| 5 rows | concise **182**, detailed **281** — 35.2% saved |
+| 20 rows | concise **602**, detailed **1121** — 46.3% saved |
+| 100 rows | concise **2842**, detailed **5601** — 49.3% saved |
 
 ## `tools/list` determinism
 
 **Result:** **1** distinct hash
 
-**Value:** `sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`
+**Value:** `sha256:9988231eabc3ea018ee997ba5369a66976cb349db025ea34065b45f5d0a7f778`
 
 **Method:** Distinct SHA-256 count across 100 hashes of the served manifest, plus 5 **cold rebuilds in separate processes** — the harder test, because it re-runs the map iteration that determinism usually dies in.
 

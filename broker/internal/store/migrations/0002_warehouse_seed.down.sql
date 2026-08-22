@@ -1,0 +1,2 @@
+DROP SCHEMA IF EXISTS warehouse_restricted CASCADE;
+DROP SCHEMA IF EXISTS warehouse CASCADE;

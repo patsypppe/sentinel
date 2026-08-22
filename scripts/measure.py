@@ -154,16 +154,65 @@ def measure_false_positives() -> Measurement:
     )
 
 
+#: The marker `format_test.go` emits for this script. A deliberate contract:
+#: computing the published figure from the same code the test asserts on means
+#: MEASUREMENTS.md and the test suite cannot drift apart.
+MEASURE_MARKER = "MEASURE response_format "
+
+
 def measure_response_format() -> Measurement:
-    return Measurement(
+    m = Measurement(
         name="Per-tool `concise` vs `detailed` token counts",
         method=(
-            "Same tokenizer as the manifest count, applied to each tool's "
-            "response in both modes."
+            "Tokenizer `sentinel/approx-v1`, applied to a fixed five-column "
+            "result rendered both ways. Read from the `MEASURE` markers emitted "
+            "by `TestConciseIsSmallerThanDetailed`, so the published figure is "
+            "computed by the same code the test asserts on."
         ),
         value="not yet measured",
-        pending="WP-4 lands `response_format` on the warehouse tools.",
     )
+
+    try:
+        proc = _run([
+            GO, "test", "./broker/internal/tools/warehouse/...",
+            "-run", "TestConciseIsSmallerThanDetailed", "-v", "-count=1",
+        ])
+    except subprocess.CalledProcessError as exc:
+        m.pending = "the response-format test did not pass, so its numbers are not reportable."
+        m.detail = (exc.stderr or exc.stdout).strip()[:400]
+        return m
+
+    best = 0.0
+    for line in proc.stdout.splitlines():
+        idx = line.find(MEASURE_MARKER)
+        if idx < 0:
+            continue
+        fields = dict(
+            part.split("=", 1) for part in line[idx + len(MEASURE_MARKER):].split()
+        )
+        rows, concise, detailed = (
+            int(fields["rows"]), int(fields["concise"]), int(fields["detailed"])
+        )
+        saving = 100 * (detailed - concise) / detailed
+        best = max(best, saving)
+        m.rows.append((
+            f"{rows} rows",
+            f"concise **{concise}**, detailed **{detailed}** — {saving:.1f}% saved",
+        ))
+
+    if not m.rows:
+        m.pending = "no MEASURE markers were emitted; the test's log contract has changed."
+        return m
+
+    m.value = f"up to **{best:.1f}%** fewer tokens in `concise`"
+    m.detail = (
+        "`concise` names each column once; `detailed` repeats every key on every row, "
+        "so the saving grows with row count. Below two rows `concise` costs slightly "
+        "*more* — the standalone column list has nothing to amortize over — and the "
+        "default is left as `concise` anyway, because switching shape based on row "
+        "count would make the response schema depend on the data."
+    )
+    return m
 
 
 def render(measurements: list[Measurement], timings: dict[str, float]) -> str:
