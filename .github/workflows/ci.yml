@@ -1,0 +1,63 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: broker (go)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache-dependency-path: broker/go.sum
+      - name: go vet
+        run: go vet ./broker/...
+      - name: go test
+        run: go test -race -count=1 ./broker/...
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.13.1
+          args: ./broker/... --timeout=5m
+
+  python:
+    name: harness (python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --python 3.12 --frozen
+      - name: ruff
+        run: uv run ruff check .
+      - name: mypy
+        run: uv run mypy
+      - name: pytest (unit)
+        run: uv run pytest tests -m unit -q
+
+  e2e:
+    name: end-to-end
+    runs-on: ubuntu-latest
+    needs: [go, python]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --python 3.12 --frozen
+      - name: compose up
+        run: docker compose up -d --build --wait postgres broker envoy
+      - name: e2e suite
+        run: uv run pytest tests/e2e -m e2e -q
+      - name: broker logs on failure
+        if: failure()
+        run: docker compose logs --no-color

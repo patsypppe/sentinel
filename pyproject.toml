@@ -1,0 +1,55 @@
+# Workspace root. The shippable Python package is `harness/` (the `sentinel`
+# conformance CLI); this file exists so `uv run pytest tests/...` and
+# `uv run sentinel ...` both work from the repository root, and so the dev
+# toolchain is declared in exactly one place.
+[project]
+name = "sentinel-workspace"
+version = "0.0.0"
+description = "Workspace root for the Sentinel conformance harness."
+requires-python = ">=3.12,<3.13"
+dependencies = ["sentinel"]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["harness"]
+
+[tool.uv.sources]
+sentinel = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-timeout>=2.3",
+    "ruff>=0.7",
+    "mypy>=1.13",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# `fixtures` is on the path so the two oracle servers are importable by the
+# harness's own test suite without being part of the shipped package.
+pythonpath = [".", "fixtures"]
+asyncio_mode = "auto"
+timeout = 120
+markers = [
+    "unit: no network, no containers — runs on every commit",
+    "integration: needs a live broker or postgres",
+    "e2e: needs docker compose to be up",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["harness/src", "fixtures", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "harness/src"
+packages = ["sentinel"]
