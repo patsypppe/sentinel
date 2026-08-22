@@ -25,6 +25,11 @@ dev = [
     "pytest-timeout>=2.3",
     "ruff>=0.7",
     "mypy>=1.13",
+    # The Envoy config test parses envoy.yaml rather than grepping it, so it
+    # asserts on the actual filter chain instead of on text that happens to be
+    # absent.
+    "pyyaml>=6.0",
+    "types-pyyaml>=6.0",
 ]
 
 [tool.pytest.ini_options]

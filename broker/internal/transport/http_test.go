@@ -33,13 +33,34 @@ func testServer(t *testing.T) *httptest.Server {
 	return srv
 }
 
+// post sends a request with headers derived from the body, the way a
+// conformant client does. Tests that violate the contract on purpose use
+// postRaw instead, so every violation is visible at the call site.
 func post(t *testing.T, srv *httptest.Server, body string) envelope.Response {
+	t.Helper()
+
+	var req envelope.Request
+	_ = json.Unmarshal([]byte(body), &req)
+	name, _ := ExpectedMcpName(req)
+	if name == "" {
+		name = req.Method
+	}
+	return postRaw(t, srv, body, map[string]string{
+		HeaderMcpMethod: req.Method,
+		HeaderMcpName:   name,
+	})
+}
+
+func postRaw(t *testing.T, srv *httptest.Server, body string, headers map[string]string) envelope.Response {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodPost, srv.URL+"/mcp", bytes.NewBufferString(body))
 	if err != nil {
 		t.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	resp, err := srv.Client().Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -223,5 +244,56 @@ func TestLegacyFallbackRecordsDeprecation(t *testing.T) {
 
 	if len(recorded) != 1 {
 		t.Fatalf("recorded %v, want exactly one deprecation event", recorded)
+	}
+}
+
+// TestHeaderContractEnforcedOverHTTP: the unit tests above prove the validator;
+// this proves it is actually wired into the pipeline, which is a different
+// failure mode and the one that reaches production.
+func TestHeaderContractEnforcedOverHTTP(t *testing.T) {
+	srv := testServer(t)
+	body := `{"jsonrpc":"2.0","id":1,"method":"server/discover"}`
+
+	t.Run("no headers at all", func(t *testing.T) {
+		resp := postRaw(t, srv, body, nil)
+		if resp.Error == nil || resp.Error.Code != envelope.CodeHeaderMismatch {
+			t.Fatalf("want %d, got %+v", envelope.CodeHeaderMismatch, resp.Error)
+		}
+	})
+
+	t.Run("header disagrees with body", func(t *testing.T) {
+		resp := postRaw(t, srv, body, map[string]string{
+			HeaderMcpMethod: "tools/list",
+			HeaderMcpName:   "tools/list",
+		})
+		if resp.Error == nil || resp.Error.Code != envelope.CodeHeaderMismatch {
+			t.Fatalf("want %d, got %+v", envelope.CodeHeaderMismatch, resp.Error)
+		}
+	})
+
+	t.Run("headers agree", func(t *testing.T) {
+		resp := postRaw(t, srv, body, map[string]string{
+			HeaderMcpMethod: "server/discover",
+			HeaderMcpName:   "server/discover",
+		})
+		if resp.Error != nil {
+			t.Fatalf("conformant headers rejected: %d %s", resp.Error.Code, resp.Error.Message)
+		}
+	})
+}
+
+// TestHeaderContractIsCheckedBeforeNegotiation. Ordering matters: §9.1 puts the
+// header contract first so a gateway's routing decision is validated before any
+// protocol work happens. A request with both a bad header and no version must
+// report the header problem, not the version one.
+func TestHeaderContractIsCheckedBeforeNegotiation(t *testing.T) {
+	srv := testServer(t)
+	resp := postRaw(t, srv, `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`, nil)
+	if resp.Error == nil {
+		t.Fatal("want an error")
+	}
+	if resp.Error.Code != envelope.CodeHeaderMismatch {
+		t.Fatalf("code = %d, want %d: the header contract is validated before negotiation",
+			resp.Error.Code, envelope.CodeHeaderMismatch)
 	}
 }

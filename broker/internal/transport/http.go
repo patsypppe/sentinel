@@ -93,7 +93,13 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. The header contract (§8.2) is validated here, landing in WP-2.
+	// 1. Header contract (§8.2). Validated against the body so a gateway that
+	//    routed on the headers and a server that acted on the body can never
+	//    disagree about what happened.
+	if rpcErr := ValidateHeaders(r.Header, req); rpcErr != nil {
+		s.writeError(w, req.ID, rpcErr)
+		return
+	}
 
 	// 2. Envelope.
 	meta, err := envelope.ExtractMeta(req.Params)
