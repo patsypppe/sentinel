@@ -8,6 +8,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/patsypppe/sentinel/broker/internal/config"
 	"github.com/patsypppe/sentinel/broker/internal/envelope"
+	"github.com/patsypppe/sentinel/broker/internal/registry"
 	"github.com/patsypppe/sentinel/broker/internal/transport"
 	"github.com/patsypppe/sentinel/broker/internal/version"
 )
@@ -33,7 +35,7 @@ func main() {
 
 func run(args []string, out io.Writer, in io.Reader) error {
 	if len(args) == 0 {
-		return errors.New("usage: broker <serve|stdio|version>")
+		return errors.New("usage: broker <serve|stdio|manifest|version>")
 	}
 
 	switch args[0] {
@@ -44,6 +46,9 @@ func run(args []string, out io.Writer, in io.Reader) error {
 
 	case "serve":
 		return serve(out)
+
+	case "manifest":
+		return printManifest(out)
 
 	case "stdio":
 		return serveStdio(in, out)
@@ -66,13 +71,67 @@ const instructions = "Stateless MCP broker. Cross-call state is a server-minted 
 	"Irreversible tools return resultType=input_required and are completed by retrying " +
 	"the original request with inputResponses and the sealed requestState."
 
+// buildRegistry assembles the tool surface. Tools land in WP-4; the registry
+// machinery, the manifest and its hash are real from here.
+func buildRegistry(cfg config.Config) (*registry.Registry, error) {
+	_ = cfg
+	return registry.New()
+}
+
 // buildMux registers every method this server implements. Removed methods are
 // deliberately absent from registration and answered by the dispatcher with a
 // method-not-found carrying the revision that removed them.
-func buildMux(info envelope.Info) *transport.Mux {
+func buildMux(info envelope.Info, reg *registry.Registry, cfg config.Config) *transport.Mux {
+	toolsListPolicy := envelope.CachePolicy{
+		TTLMs: cfg.ToolsListCacheTTLMs,
+		// private, because the visible tool set varies with the principal's
+		// scopes. public here would let a shared intermediary serve one
+		// tenant's tool list to another.
+		Scope: envelope.ScopePrivate,
+	}
+
 	mux := transport.NewMux()
 	mux.Handle(envelope.MethodDiscover, transport.DiscoverHandler(info, instructions))
+	mux.Handle(envelope.MethodToolsList, transport.ToolsListHandler(reg, toolsListPolicy))
+	mux.Handle(envelope.MethodResourcesList, transport.ResourcesListHandler(toolsListPolicy))
+	mux.Handle(envelope.MethodResourceTemplatesList, transport.ResourceTemplatesListHandler(toolsListPolicy))
+	mux.Handle(envelope.MethodResourcesRead, transport.ResourcesReadHandler(toolsListPolicy))
+	mux.Handle(envelope.MethodPromptsList, transport.PromptsListHandler(toolsListPolicy))
 	return mux
+}
+
+// manifestReport is what `broker manifest` prints. scripts/measure.py consumes
+// it, so it is a stable contract rather than a debug dump.
+type manifestReport struct {
+	ManifestHash string          `json:"manifestHash"`
+	ToolCount    int             `json:"toolCount"`
+	Tokenizer    string          `json:"tokenizer"`
+	Tokens       int             `json:"tokens"`
+	PerTool      map[string]int  `json:"perTool"`
+	Manifest     json.RawMessage `json:"manifest"`
+}
+
+func printManifest(out io.Writer) error {
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
+	reg, err := buildRegistry(cfg)
+	if err != nil {
+		return fmt.Errorf("registry: %w", err)
+	}
+	tokens := reg.Tokens()
+
+	enc := json.NewEncoder(out)
+	enc.SetIndent("", "  ")
+	return enc.Encode(manifestReport{
+		ManifestHash: reg.ManifestHash(),
+		ToolCount:    reg.Len(),
+		Tokenizer:    tokens.Tokenizer,
+		Tokens:       tokens.Manifest,
+		PerTool:      tokens.PerTool,
+		Manifest:     reg.ManifestBytes(),
+	})
 }
 
 func serve(out io.Writer) error {
@@ -84,7 +143,17 @@ func serve(out io.Writer) error {
 	log := slog.New(slog.NewJSONHandler(out, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	info := serverInfo()
 
-	srv := transport.NewServer(buildMux(info), cfg, info, log,
+	reg, err := buildRegistry(cfg)
+	if err != nil {
+		return fmt.Errorf("registry: %w", err)
+	}
+	log.Info("tool manifest built",
+		"tools", reg.Len(),
+		"manifest_hash", reg.ManifestHash(),
+		"tokenizer", reg.Tokens().Tokenizer,
+		"tokens", reg.Tokens().Manifest)
+
+	srv := transport.NewServer(buildMux(info, reg, cfg), cfg, info, log,
 		transport.WithDeprecationRecorder(func(_ context.Context, event, method string) {
 			// §8.1 requires the event to be recorded when a request is served
 			// through the legacy fallback. WP-8 routes this into the audit log;
@@ -132,7 +201,11 @@ func serveStdio(in io.Reader, out io.Writer) error {
 		return fmt.Errorf("config: %w", err)
 	}
 	info := serverInfo()
-	s := transport.NewStdio(buildMux(info), info, envelope.NegotiationConfig{
+	reg, err := buildRegistry(cfg)
+	if err != nil {
+		return fmt.Errorf("registry: %w", err)
+	}
+	s := transport.NewStdio(buildMux(info, reg, cfg), info, envelope.NegotiationConfig{
 		Supported:     []string{envelope.RevisionCurrent},
 		LegacyVersion: envelope.RevisionLegacy,
 		AllowLegacy:   cfg.AllowLegacyUnversioned,
