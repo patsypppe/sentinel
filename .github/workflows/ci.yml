@@ -31,6 +31,26 @@ jobs:
           version: v2.13.1
           args: ./broker/... --timeout=5m
 
+  integration:
+    name: broker (postgres)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache-dependency-path: broker/go.sum
+      - name: postgres up
+        run: docker compose up -d --wait postgres
+      # The SQL guard's design is to use Postgres's own planner, so a guard
+      # tested against a mocked planner would be testing the mock — which is
+      # exactly the gap the design exists to close.
+      - name: integration tests
+        run: go test -race -tags=integration -count=1 ./broker/...
+      - name: postgres logs on failure
+        if: failure()
+        run: docker compose logs --no-color postgres
+
   python:
     name: harness (python)
     runs-on: ubuntu-latest
@@ -50,7 +70,7 @@ jobs:
   e2e:
     name: end-to-end
     runs-on: ubuntu-latest
-    needs: [go, python]
+    needs: [go, python, integration]
     steps:
       - uses: actions/checkout@v4
 
