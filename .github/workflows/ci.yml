@@ -23,7 +23,10 @@ jobs:
         run: go vet ./broker/...
       - name: go test
         run: go test -race -count=1 ./broker/...
-      - uses: golangci/golangci-lint-action@v6
+      # v7+ is required: golangci-lint v2 uses a config schema that v6 of the
+      # action refuses to parse ("golangci-lint v2 is not supported by
+      # golangci-lint-action v6").
+      - uses: golangci/golangci-lint-action@v7
         with:
           version: v2.13.1
           args: ./broker/... --timeout=5m
@@ -50,14 +53,33 @@ jobs:
     needs: [go, python]
     steps:
       - uses: actions/checkout@v4
+
+      # `pytest` exits 5 when it collects nothing, which would read as a red
+      # build for a suite that simply does not exist yet. Probe explicitly and
+      # say so in the log rather than swallowing exit 5 forever — the moment
+      # WP-2 lands tests/e2e/test_header_routing.py this gate starts running
+      # for real, with no workflow edit required.
+      - id: probe
+        run: |
+          if compgen -G "tests/e2e/test_*.py" > /dev/null; then
+            echo "have=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "have=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No e2e tests collected yet — WP-2 lands the first one."
+          fi
+
       - uses: astral-sh/setup-uv@v5
+        if: steps.probe.outputs.have == 'true'
         with:
           enable-cache: true
-      - run: uv sync --python 3.12 --frozen
+      - if: steps.probe.outputs.have == 'true'
+        run: uv sync --python 3.12 --frozen
       - name: compose up
+        if: steps.probe.outputs.have == 'true'
         run: docker compose up -d --build --wait postgres broker envoy
       - name: e2e suite
+        if: steps.probe.outputs.have == 'true'
         run: uv run pytest tests/e2e -m e2e -q
-      - name: broker logs on failure
-        if: failure()
+      - name: service logs on failure
+        if: failure() && steps.probe.outputs.have == 'true'
         run: docker compose logs --no-color
