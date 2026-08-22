@@ -22,6 +22,8 @@ import (
 	"github.com/patsypppe/sentinel/broker/internal/config"
 	"github.com/patsypppe/sentinel/broker/internal/envelope"
 	"github.com/patsypppe/sentinel/broker/internal/registry"
+	"github.com/patsypppe/sentinel/broker/internal/store"
+	"github.com/patsypppe/sentinel/broker/internal/tools/warehouse"
 	"github.com/patsypppe/sentinel/broker/internal/transport"
 	"github.com/patsypppe/sentinel/broker/internal/version"
 )
@@ -71,11 +73,44 @@ const instructions = "Stateless MCP broker. Cross-call state is a server-minted 
 	"Irreversible tools return resultType=input_required and are completed by retrying " +
 	"the original request with inputResponses and the sealed requestState."
 
-// buildRegistry assembles the tool surface. Tools land in WP-4; the registry
-// machinery, the manifest and its hash are real from here.
-func buildRegistry(cfg config.Config) (*registry.Registry, error) {
-	_ = cfg
-	return registry.New()
+// pendingMinter stands in for the state-handle store until WP-5.
+//
+// It fails loudly rather than silently truncating: an over-cap result is the
+// one case that needs a handle, and returning a short answer that looks
+// complete is the failure mode the handle mechanism exists to prevent. The
+// error says exactly what is missing.
+type pendingMinter struct{}
+
+func (pendingMinter) Mint(context.Context, registry.Principal, string, json.RawMessage, time.Duration) (string, error) {
+	return "", errors.New("the state-handle store is not wired yet (WP-5); " +
+		"narrow the query so the result fits within the tool's token cap")
+}
+
+// buildRegistry assembles the tool surface.
+//
+// Registration is compile-time and the registry validates all six properties of
+// every tool, so a tool that has not decided its reversibility, scopes or token
+// cap cannot reach this list.
+func buildRegistry(cfg config.Config, st *store.Store) (*registry.Registry, error) {
+	if st == nil {
+		// `broker manifest` reports the declaration surface, which does not
+		// need a database. The manifest is built from schemas and metadata, and
+		// none of it depends on a connection.
+		return registry.New(
+			warehouse.NewDescribeTool(nil),
+			warehouse.NewQueryTool(nil, pendingMinter{}, warehouse.QueryOptions{
+				TokenCap: cfg.DefaultTokenCap,
+			}),
+		)
+	}
+	pool := st.Pool()
+	return registry.New(
+		warehouse.NewDescribeTool(pool),
+		warehouse.NewQueryTool(pool, pendingMinter{}, warehouse.QueryOptions{
+			TokenCap:  cfg.DefaultTokenCap,
+			HandleTTL: cfg.HandleDefaultTTL,
+		}),
+	)
 }
 
 // buildMux registers every method this server implements. Removed methods are
@@ -116,7 +151,7 @@ func printManifest(out io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("config: %w", err)
 	}
-	reg, err := buildRegistry(cfg)
+	reg, err := buildRegistry(cfg, nil)
 	if err != nil {
 		return fmt.Errorf("registry: %w", err)
 	}
@@ -143,7 +178,31 @@ func serve(out io.Writer) error {
 	log := slog.New(slog.NewJSONHandler(out, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	info := serverInfo()
 
-	reg, err := buildRegistry(cfg)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if cfg.MigrateDatabaseURL != "" {
+		applied, err := store.Migrate(ctx, cfg.MigrateDatabaseURL)
+		if err != nil {
+			return fmt.Errorf("migrate: %w", err)
+		}
+		if len(applied) > 0 {
+			log.Info("migrations applied", "versions", applied)
+		}
+	}
+
+	var st *store.Store
+	if cfg.DatabaseURL != "" {
+		st, err = store.Open(ctx, cfg.DatabaseURL)
+		if err != nil {
+			// Fail closed. A broker that cannot reach its database cannot write
+			// an audit row, and an unauditable action does not happen.
+			return fmt.Errorf("database: %w", err)
+		}
+		defer st.Close()
+	}
+
+	reg, err := buildRegistry(cfg, st)
 	if err != nil {
 		return fmt.Errorf("registry: %w", err)
 	}
@@ -169,9 +228,6 @@ func serve(out io.Writer) error {
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -201,7 +257,17 @@ func serveStdio(in io.Reader, out io.Writer) error {
 		return fmt.Errorf("config: %w", err)
 	}
 	info := serverInfo()
-	reg, err := buildRegistry(cfg)
+
+	var st *store.Store
+	if cfg.DatabaseURL != "" {
+		st, err = store.Open(context.Background(), cfg.DatabaseURL)
+		if err != nil {
+			return fmt.Errorf("database: %w", err)
+		}
+		defer st.Close()
+	}
+
+	reg, err := buildRegistry(cfg, st)
 	if err != nil {
 		return fmt.Errorf("registry: %w", err)
 	}
