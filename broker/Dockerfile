@@ -1,4 +1,9 @@
 # syntax=docker/dockerfile:1
+# Pinned to the floor documented in docs/HANDOFF.md §4, not to "latest".
+#
+# This image runs with GOTOOLCHAIN=local, so it cannot paper over a dependency
+# that raises broker/go.mod above 1.23 — it just fails. CI sets GOTOOLCHAIN=local
+# everywhere for the same reason, so the failure arrives in the fast job instead.
 FROM golang:1.23-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum* ./

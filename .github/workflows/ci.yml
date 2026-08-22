@@ -9,6 +9,17 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# GOTOOLCHAIN=local pins every Go job to the version setup-go installed, so a
+# dependency that raises broker/go.mod above the floor documented in
+# docs/HANDOFF.md §4 fails HERE, in the 60-second job.
+#
+# With the default (auto), Go silently downloads whatever newer toolchain the
+# module asks for and the fast jobs stay green — the contradiction then surfaces
+# minutes later in the Docker build, which runs with GOTOOLCHAIN=local and
+# cannot. That is exactly how it was found.
+env:
+  GOTOOLCHAIN: local
+
 jobs:
   go:
     name: broker (go)
