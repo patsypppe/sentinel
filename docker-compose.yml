@@ -1,0 +1,81 @@
+# The honest topology. Every box the design talks about exists here, including
+# `smokescreen`, whose capability (SSRF containment, SN-CAP-22) is explicitly
+# out of scope for the MVP — see docs/HANDOFF.md §3.2. It is present so the
+# topology does not lie about where egress would be constrained, and the gap is
+# documented rather than hidden.
+
+name: sentinel
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: sentinel
+      POSTGRES_USER: sentinel
+      POSTGRES_PASSWORD: sentinel_dev_only
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel -d sentinel"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  broker:
+    build:
+      context: ./broker
+    environment:
+      BROKER_ADDR: ":8080"
+      BROKER_DATABASE_URL: postgres://broker_app:broker_app_dev_only@postgres:5432/sentinel?sslmode=disable
+      BROKER_MIGRATE_DATABASE_URL: postgres://sentinel:sentinel_dev_only@postgres:5432/sentinel?sslmode=disable
+      # Audience validation (SN-CAP-21). Static issuer + locally-minted token:
+      # full OAuth is out of scope, the MUST NOT is not.
+      BROKER_OAUTH_ISSUER: https://issuer.sentinel.local
+      BROKER_OAUTH_AUDIENCE: https://broker.sentinel.local
+      BROKER_OTEL_ENDPOINT: otel-collector:4317
+      # Downstream egress would traverse smokescreen once SN-CAP-22 lands.
+      HTTPS_PROXY: http://smokescreen:4750
+      NO_PROXY: postgres,otel-collector,localhost,127.0.0.1
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  envoy:
+    image: envoyproxy/envoy:v1.31-latest
+    # Routes and authorizes on `Mcp-Method` / `Mcp-Name` alone. There is no
+    # body-parsing filter anywhere in this config, and a test asserts it.
+    volumes:
+      - ./envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
+    ports:
+      - "10000:10000"  # trusted listener  — full method surface
+      - "10001:10001"  # untrusted listener — ops.* denied at the gateway
+      - "9901:9901"    # admin
+    depends_on:
+      - broker
+
+  smokescreen:
+    # Egress proxy. Present for topology honesty; SSRF containment (SN-CAP-22)
+    # is out of scope for the MVP because it is only reachable through OAuth
+    # metadata discovery, which is also out of scope. Documented, not hidden.
+    image: stripe/smokescreen:latest
+    command: ["--listen-port", "4750", "--deny-range", "127.0.0.1/32"]
+    expose:
+      - "4750"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    command: ["--config=/etc/otel/collector.yaml"]
+    volumes:
+      - ./deploy/otel/collector.yaml:/etc/otel/collector.yaml:ro
+    expose:
+      - "4317"
+      - "4318"
+
+volumes:
+  pgdata:
