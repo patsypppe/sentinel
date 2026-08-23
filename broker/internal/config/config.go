@@ -54,6 +54,11 @@ type Config struct {
 	OAuthIssuer   string
 	OAuthAudience string
 	OAuthJWKSPath string
+	// OAuthDevSeed derives a deterministic development keypair so the demo can
+	// mint tokens with no key files to distribute. Development only: a seed in
+	// an environment variable is a private key in an environment variable.
+	// OAuthJWKSPath takes precedence when both are set.
+	OAuthDevSeed string
 
 	OTELEndpoint string
 }
@@ -91,6 +96,7 @@ func FromEnv() (Config, error) {
 	str("BROKER_OAUTH_ISSUER", &c.OAuthIssuer)
 	str("BROKER_OAUTH_AUDIENCE", &c.OAuthAudience)
 	str("BROKER_OAUTH_JWKS_PATH", &c.OAuthJWKSPath)
+	str("BROKER_OAUTH_DEV_SEED", &c.OAuthDevSeed)
 	str("BROKER_OTEL_ENDPOINT", &c.OTELEndpoint)
 
 	// The AEAD key that seals requestState. Hex-encoded, 32 bytes.

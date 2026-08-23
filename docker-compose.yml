@@ -36,9 +36,15 @@ services:
       BROKER_OAUTH_ISSUER: https://issuer.sentinel.local
       BROKER_OAUTH_AUDIENCE: https://broker.sentinel.local
       BROKER_OTEL_ENDPOINT: otel-collector:4317
-      # Local development only. WP-7 replaces this with audience validation;
-      # without either, the broker refuses every authenticated method.
-      BROKER_DEV_AUTH: "1"
+      # Real token validation against a SEED-DERIVED development key.
+      #
+      # Signature, issuer, audience and expiry are all checked for real; only
+      # the key's provenance is a development shortcut, so the stack exercises
+      # the actual validation path rather than a bypass. `broker mint-token`
+      # reaches the same key from the same seed.
+      #
+      # Production uses BROKER_OAUTH_JWKS_PATH, which takes precedence.
+      BROKER_OAUTH_DEV_SEED: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       # A fixed seal key so requestState survives a container restart. An unset
       # key generates an ephemeral one and every in-flight approval becomes
       # unreplayable on restart.
