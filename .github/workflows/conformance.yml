@@ -1,0 +1,144 @@
+# The broker, graded by its own harness — and the harness, graded by the fixture.
+#
+# docs/HANDOFF.md §12: "Both directions in CI, because a gate that can only pass
+# proves nothing." A conformance job that only ever scans a conformant server
+# cannot tell a working scanner from one that reports success unconditionally,
+# and it would stay green through a catalog that had been accidentally emptied.
+
+name: conformance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  # For uploading the SARIF to code scanning.
+  security-events: write
+
+concurrency:
+  group: conformance-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOTOOLCHAIN: local
+  # A fixed development seed so the workflow can mint a token the broker will
+  # accept. Signature, issuer, audience and expiry are all validated for real;
+  # only the key's provenance is a shortcut, and it is not a secret.
+  DEV_SEED: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  ISSUER: https://issuer.sentinel.local
+  AUDIENCE: https://broker.sentinel.local
+
+jobs:
+  scan:
+    name: scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache-dependency-path: broker/go.sum
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --python 3.12 --frozen
+
+      - name: bring up the broker
+        run: docker compose up -d --build --wait postgres broker
+
+      - name: mint a token for the scan
+        run: |
+          TOKEN=$(BROKER_OAUTH_DEV_SEED="$DEV_SEED" \
+                  BROKER_OAUTH_ISSUER="$ISSUER" \
+                  BROKER_OAUTH_AUDIENCE="$AUDIENCE" \
+                  go run ./broker/cmd/broker mint-token \
+                    --principal 00000000-0000-0000-0000-0000000000a2 \
+                    --audience "$AUDIENCE" \
+                    --scopes "ops:plan ops:apply warehouse:read warehouse:describe" \
+                    --ttl 1h)
+          echo "::add-mask::$TOKEN"
+          echo "SCAN_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      # Direction 1: the broker must PASS.
+      - name: scan the broker
+        run: |
+          uv run sentinel scan \
+            --endpoint http://localhost:8080/mcp \
+            --token "$SCAN_TOKEN" \
+            --gate must --format sarif --out broker.sarif --no-color \
+            --sarif-anchor broker/cmd/broker/main.go
+
+      - name: upload the scan to code scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: broker.sarif
+          category: mcp-conformance
+
+      # Direction 2: the non-conformant fixture must FAIL.
+      #
+      # Without this the job proves only that the harness can say yes.
+      - name: the non-conformant fixture must fail the gate
+        run: |
+          uv run sentinel fixture serve --profile nonconformant &
+          for _ in $(seq 1 30); do
+            curl -sf -o /dev/null http://127.0.0.1:9000/mcp \
+              -H 'Mcp-Method: server/discover' -H 'Mcp-Name: server/discover' \
+              -d '{"jsonrpc":"2.0","id":1,"method":"server/discover"}' && break
+            sleep 1
+          done
+
+          if uv run sentinel scan --endpoint http://127.0.0.1:9000/mcp --gate must --no-color; then
+            echo "::error::the non-conformant fixture PASSED the MUST gate — the harness is broken"
+            exit 1
+          fi
+          echo "the non-conformant fixture failed the gate, as it must"
+
+      # Direction 3: the conformant fixture must pass, which separates
+      # "the rules work" from "the rules reject everything".
+      - name: the conformant fixture must pass the gate
+        run: |
+          uv run sentinel fixture serve --profile conformant &
+          for _ in $(seq 1 30); do
+            curl -sf -o /dev/null http://127.0.0.1:9001/mcp \
+              -H 'Mcp-Method: server/discover' -H 'Mcp-Name: server/discover' \
+              -d '{"jsonrpc":"2.0","id":1,"method":"server/discover"}' && break
+            sleep 1
+          done
+          uv run sentinel scan --endpoint http://127.0.0.1:9001/mcp --gate must --no-color
+
+      - name: broker logs on failure
+        if: failure()
+        run: docker compose logs --no-color broker
+
+  measure:
+    name: measurements are current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache-dependency-path: broker/go.sum
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --python 3.12 --frozen
+
+      # MEASUREMENTS.md is committed, and stale numbers are worse than none —
+      # a reader has no way to tell how old they are. This regenerates them and
+      # reports a diff rather than failing: the timing rows legitimately vary
+      # between machines, so a hard failure would be noise.
+      - name: regenerate
+        run: uv run python scripts/measure.py
+
+      - name: report drift
+        run: |
+          if git diff --quiet MEASUREMENTS.md; then
+            echo "MEASUREMENTS.md is current"
+          else
+            echo "::notice::MEASUREMENTS.md differs from a fresh run:"
+            git diff --stat MEASUREMENTS.md
+            git diff MEASUREMENTS.md | head -60
+          fi
