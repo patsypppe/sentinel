@@ -23,6 +23,10 @@ type Server struct {
 	info   envelope.Info
 	negCfg envelope.NegotiationConfig
 	log    *slog.Logger
+	// auth is the only source of a principal. Nil means every authenticated
+	// method is refused, which is the correct failure mode for an
+	// authentication layer that has not been configured.
+	auth Authenticator
 	// onDeprecatedFeature is called when a request is served through the legacy
 	// fallback. §8.1 requires the event to be recorded; wiring it as a callback
 	// keeps the transport free of a dependency on the audit writer.
@@ -30,6 +34,13 @@ type Server struct {
 }
 
 type Option func(*Server)
+
+// WithAuthenticator wires the principal source. Without one, every method that
+// needs a principal is refused — an authentication layer that has not been
+// configured must fail closed, not open.
+func WithAuthenticator(a Authenticator) Option {
+	return func(s *Server) { s.auth = a }
+}
 
 // WithDeprecationRecorder wires the `deprecated.feature_used` sink.
 func WithDeprecationRecorder(f func(ctx context.Context, event, method string)) Option {
@@ -118,9 +129,10 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		s.onDeprecatedFeature(r.Context(), outcome.DeprecationEvent, req.Method)
 	}
 
-	// 4. Authentication and audience validation land here in WP-7.
-
-	// 5. Dispatch.
+	// 4. Dispatch lookup, before authentication, so an unknown method is
+	//    reported as unknown rather than as an authentication failure. Knowing
+	//    which methods exist is not a secret — server/discover publishes the
+	//    whole surface — so there is nothing to protect by conflating them.
 	handler, rpcErr := s.mux.Lookup(req.Method)
 	if rpcErr != nil {
 		s.writeError(w, req.ID, rpcErr)
@@ -134,13 +146,34 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		ClientInfo:      meta.ClientInfo,
 	})
 
+	// 5. Authentication and audience validation. WP-7 supplies the real
+	//    Authenticator; whatever it is, it is the only place a token is
+	//    accepted. Methods that need no principal — discovery and the list
+	//    endpoints — skip it, because requiring a token to find out what a
+	//    server supports would make it undiscoverable to a client that has not
+	//    yet learned which token to get.
+	if methodNeedsPrincipal(req.Method) {
+		if s.auth == nil {
+			s.writeError(w, req.ID, envelope.ErrInternal(
+				"this server has no authenticator configured and cannot serve authenticated methods"))
+			return
+		}
+		p, authErr := s.auth.Authenticate(r)
+		if authErr != nil {
+			s.writeError(w, req.ID, authErr)
+			return
+		}
+		ctx = WithPrincipal(ctx, p)
+	}
+
+	// 6. Dispatch.
 	result, rpcErr := handler(ctx, req.Params)
 	if rpcErr != nil {
 		s.writeError(w, req.ID, rpcErr)
 		return
 	}
 
-	// 6. The one place resultType and serverInfo are attached. A handler that
+	// 7. The one place resultType and serverInfo are attached. A handler that
 	//    built its own envelope would eventually forget a field and the harness
 	//    would catch it in public, so handlers are not given the chance.
 	resultType := envelope.ResultComplete
@@ -155,7 +188,7 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 7. The audit row lands here in WP-8, before the response is written.
+	// 8. The audit row lands here in WP-8, before the response is written.
 
 	s.write(w, envelope.NewResultResponse(req.ID, encoded))
 }
@@ -172,6 +205,25 @@ func (s *Server) write(w http.ResponseWriter, resp envelope.Response) {
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		s.log.Error("response could not be written", "err", err)
+	}
+}
+
+// methodNeedsPrincipal reports whether a method acts on a principal's behalf.
+//
+// Discovery and the list endpoints do not. Requiring a token to find out what a
+// server supports would make it undiscoverable to a client that has not yet
+// learned which token to get, which is the same failure as refusing
+// server/discover for an unsupported version.
+func methodNeedsPrincipal(method string) bool {
+	switch method {
+	case envelope.MethodDiscover,
+		envelope.MethodToolsList,
+		envelope.MethodResourcesList,
+		envelope.MethodResourceTemplatesList,
+		envelope.MethodPromptsList:
+		return false
+	default:
+		return true
 	}
 }
 

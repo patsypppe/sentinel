@@ -4,11 +4,17 @@
 package config
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strconv"
 	"time"
 )
+
+// SealKeySize is the AEAD key length for requestState. It mirrors
+// mrtr.KeySize; config does not import mrtr, because a configuration package
+// that depends on the thing it configures makes the dependency graph a circle.
+const SealKeySize = 32
 
 type Config struct {
 	Addr string
@@ -86,6 +92,25 @@ func FromEnv() (Config, error) {
 	str("BROKER_OAUTH_AUDIENCE", &c.OAuthAudience)
 	str("BROKER_OAUTH_JWKS_PATH", &c.OAuthJWKSPath)
 	str("BROKER_OTEL_ENDPOINT", &c.OTELEndpoint)
+
+	// The AEAD key that seals requestState. Hex-encoded, 32 bytes.
+	//
+	// An unset key generates an ephemeral one, which is correct for local
+	// development and wrong for anything with more than one process or a
+	// restart: every in-flight approval becomes unreplayable the moment the key
+	// changes. serve() logs a warning when it happens rather than letting it
+	// pass silently.
+	if v, ok := os.LookupEnv("BROKER_MRTR_SEAL_KEY"); ok {
+		key, err := hex.DecodeString(v)
+		if err != nil {
+			return c, fmt.Errorf("BROKER_MRTR_SEAL_KEY: not valid hex: %w", err)
+		}
+		if len(key) != SealKeySize {
+			return c, fmt.Errorf("BROKER_MRTR_SEAL_KEY: decodes to %d bytes, want %d",
+				len(key), SealKeySize)
+		}
+		c.MRTRSealKey = key
+	}
 
 	for _, d := range []struct {
 		key string
