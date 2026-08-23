@@ -8,11 +8,11 @@ rather than earning it. The same goes for a server that claims determinism. Wher
 a measurement is not yet possible, this file says so and names the work package
 that will supply it, rather than omitting the row.
 
-Generated in 2.6s.
+Generated in 3.3s.
 
 | Measurement | Result |
 |---|---|
-| Manifest token count | **1045** tokens across **2** tool(s) |
+| Manifest token count | **2032** tokens across **4** tool(s) |
 | Per-tool `concise` vs `detailed` token counts | up to **49.3%** fewer tokens in `concise` |
 | `tools/list` determinism | **1** distinct hash |
 | MUST recall against the non-conformant fixture | not yet measured — _WP-9 lands the fixtures and the rule catalog._ |
@@ -23,12 +23,14 @@ Generated in 2.6s.
 
 ## Manifest token count
 
-**Result:** **1045** tokens across **2** tool(s)
+**Result:** **2032** tokens across **4** tool(s)
 
 **Method:** `broker manifest`, tokenizer `sentinel/approx-v1` — a deterministic, dependency-free approximation defined in `broker/internal/registry/tokens.go`, not a model tokenizer. It is in-repo on purpose: this measurement must be reproducible by anyone who clones the repository, on a machine with no model API key, which is why this project has none.
 
 | Tool | Tokens |
 |---|---|
+| `ops.deployment_apply` | 389 tokens |
+| `ops.deployment_plan` | 427 tokens |
 | `warehouse.describe` | 385 tokens |
 | `warehouse.query` | 481 tokens |
 
@@ -51,7 +53,7 @@ Generated in 2.6s.
 
 **Result:** **1** distinct hash
 
-**Value:** `sha256:9988231eabc3ea018ee997ba5369a66976cb349db025ea34065b45f5d0a7f778`
+**Value:** `sha256:e9705439e794aa9ebfbf8847d8ab0eaf66b0bc5852bc589d3bc94900968a42e0`
 
 **Method:** Distinct SHA-256 count across 100 hashes of the served manifest, plus 5 **cold rebuilds in separate processes** — the harder test, because it re-runs the map iteration that determinism usually dies in.
 

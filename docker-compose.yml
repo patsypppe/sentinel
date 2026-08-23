@@ -36,6 +36,13 @@ services:
       BROKER_OAUTH_ISSUER: https://issuer.sentinel.local
       BROKER_OAUTH_AUDIENCE: https://broker.sentinel.local
       BROKER_OTEL_ENDPOINT: otel-collector:4317
+      # Local development only. WP-7 replaces this with audience validation;
+      # without either, the broker refuses every authenticated method.
+      BROKER_DEV_AUTH: "1"
+      # A fixed seal key so requestState survives a container restart. An unset
+      # key generates an ephemeral one and every in-flight approval becomes
+      # unreplayable on restart.
+      BROKER_MRTR_SEAL_KEY: "6465765f6f6e6c795f6b65795f6e6f745f666f725f70726f64756374696f6e21"
       # Downstream egress would traverse smokescreen once SN-CAP-22 lands.
       HTTPS_PROXY: http://smokescreen:4750
       NO_PROXY: postgres,otel-collector,localhost,127.0.0.1
