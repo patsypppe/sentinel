@@ -8,16 +8,16 @@ rather than earning it. The same goes for a server that claims determinism. Wher
 a measurement is not yet possible, this file says so and names the work package
 that will supply it, rather than omitting the row.
 
-Generated in 1.4s.
+Generated in 4.5s.
 
 | Measurement | Result |
 |---|---|
 | Manifest token count | **2032** tokens across **4** tool(s) |
 | Per-tool `concise` vs `detailed` token counts | up to **49.3%** fewer tokens in `concise` |
 | `tools/list` determinism | **1** distinct hash |
-| MUST recall against the non-conformant fixture | not yet measured — _WP-9 lands the fixtures and the rule catalog._ |
-| False positives against the conformant fixture | not yet measured — _WP-9 lands the fixtures and the rule catalog._ |
-| Scan wall-clock | not yet measured — _WP-9 lands the probe and rule catalog; WP-10 lands the timing harness._ |
+| MUST recall against the non-conformant fixture | **100%** (26 of 26 seeded violations detected) |
+| False positives against the conformant fixture | **0** |
+| Scan wall-clock | p50 **44 ms**, p95 **53 ms** |
 
 ---
 
@@ -59,25 +59,21 @@ Generated in 1.4s.
 
 ## MUST recall against the non-conformant fixture
 
-**Result:** not yet measured
+**Result:** **100%** (26 of 26 seeded violations detected)
 
-**Method:** Seeded violations detected ÷ seeded violations. The fixture tags each seeded violation with the rule ID it should trip, so the denominator is counted from the fixture rather than asserted.
-
-**Not yet measured.** WP-9 lands the fixtures and the rule catalog.
+**Method:** Seeded violations detected ÷ seeded violations. The fixture TAGS each violation in its own source and lists it in `SEEDED_VIOLATIONS`, and a test asserts the two agree — so the denominator describes what the fixture actually does rather than what the scanner happened to find. A scanner supplying its own denominator would be grading its own homework.
 
 ## False positives against the conformant fixture
 
-**Result:** not yet measured
+**Result:** **0**
 
-**Method:** Count of MUST failures reported against `fixtures/server/conformant.py`. Must be 0.
+**Value:** 5 MUST rule(s) reported INDETERMINATE against the same server. Those are not passes and are excluded from the gate — see the limitations section of the README.
 
-**Not yet measured.** WP-9 lands the fixtures and the rule catalog.
+**Method:** Count of rules reporting FAIL against `fixtures/server/conformant.py`, a minimal correct server. Must be 0: a rule that fails here is demanding something the specification does not.
 
 ## Scan wall-clock
 
-**Result:** not yet measured
+**Result:** p50 **44 ms**, p95 **53 ms**
 
-**Method:** p50 and p95 over repeated `sentinel scan` runs against the conformant fixture.
-
-**Not yet measured.** WP-9 lands the probe and rule catalog; WP-10 lands the timing harness.
+**Method:** p50 and p95 over 12 full scans of the conformant fixture, in-process and loopback. A remote target adds its own latency per rule; this is the harness's own cost, which is the part it controls.
 

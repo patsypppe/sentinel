@@ -116,42 +116,126 @@ def measure_determinism(report: dict[str, object]) -> Measurement:
     )
 
 
-def measure_scan_walltime() -> Measurement:
-    m = Measurement(
+def measure_scan_walltime(oracle: OracleRun) -> Measurement:
+    ordered = sorted(oracle.timings)
+    p50 = ordered[len(ordered) // 2]
+    p95 = ordered[min(len(ordered) - 1, int(len(ordered) * 0.95))]
+
+    return Measurement(
         name="Scan wall-clock",
         method=(
-            "p50 and p95 over repeated `sentinel scan` runs against the "
-            "conformant fixture."
+            f"p50 and p95 over {len(ordered)} full scans of the conformant fixture, "
+            "in-process and loopback. A remote target adds its own latency per rule; "
+            "this is the harness's own cost, which is the part it controls."
         ),
-        value="not yet measured",
-        pending="WP-9 lands the probe and rule catalog; WP-10 lands the timing harness.",
+        value=f"p50 **{p50 * 1000:.0f} ms**, p95 **{p95 * 1000:.0f} ms**",
     )
+
+
+@dataclass
+class OracleRun:
+    """One scan of each fixture, plus the scan timings."""
+
+    seeded: set[str]
+    detected: set[str]
+    false_positives: list[str]
+    indeterminate: list[str]
+    timings: list[float]
+
+
+def run_oracle(rounds: int = 12) -> OracleRun:
+    """Scan both fixtures in-process.
+
+    In-process rather than through a subprocess so the measurement cannot drift
+    from the test suite: `tests/harness/test_fixture_oracle.py` asserts on the
+    same functions this calls.
+    """
+    import sys
+
+    sys.path.insert(0, str(REPO / "fixtures"))
+    sys.path.insert(0, str(REPO / "harness" / "src"))
+
+    from sentinel.catalog.base import Outcome
+    from sentinel.grade import run_scan
+    from server.common import serve_background
+    from server.conformant import dispatch as conformant
+    from server.nonconformant import SEEDED_VIOLATIONS
+    from server.nonconformant import dispatch as nonconformant
+
+    def free_port() -> int:
+        import socket
+
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            return int(sock.getsockname()[1])
+
+    bad_port, good_port = free_port(), free_port()
+    bad, _ = serve_background(nonconformant, bad_port, banner="measure: nonconformant")
+    good, _ = serve_background(conformant, good_port, banner="measure: conformant")
+
+    try:
+        bad_report = run_scan(f"http://127.0.0.1:{bad_port}/mcp")
+        good_report = run_scan(f"http://127.0.0.1:{good_port}/mcp")
+
+        # Wall-clock is measured against the CONFORMANT fixture: a scan of a
+        # correct server is the case that runs in CI on every commit, so it is
+        # the number a reader is deciding about.
+        timings = [run_scan(f"http://127.0.0.1:{good_port}/mcp").elapsed_s for _ in range(rounds)]
+    finally:
+        for server in (bad, good):
+            server.shutdown()
+            server.server_close()
+
+    return OracleRun(
+        seeded=set(SEEDED_VIOLATIONS),
+        detected={f.rule.id for f in bad_report.must_failures},
+        false_positives=[f.rule.id for f in good_report.by_outcome(Outcome.FAIL)],
+        indeterminate=[f.rule.id for f in good_report.indeterminate],
+        timings=timings,
+    )
+
+
+def measure_recall(oracle: OracleRun) -> Measurement:
+    hit = oracle.seeded & oracle.detected
+    missed = sorted(oracle.seeded - oracle.detected)
+    recall = len(hit) / len(oracle.seeded) if oracle.seeded else 0.0
+
+    m = Measurement(
+        name="MUST recall against the non-conformant fixture",
+        method=(
+            "Seeded violations detected ÷ seeded violations. The fixture TAGS each "
+            "violation in its own source and lists it in `SEEDED_VIOLATIONS`, and a test "
+            "asserts the two agree — so the denominator describes what the fixture "
+            "actually does rather than what the scanner happened to find. A scanner "
+            "supplying its own denominator would be grading its own homework."
+        ),
+        value=f"**{recall:.0%}** ({len(hit)} of {len(oracle.seeded)} seeded violations detected)",
+    )
+    if missed:
+        m.detail = "Undetected: " + ", ".join(f"`{r}`" for r in missed)
     return m
 
 
-def measure_recall() -> Measurement:
-    return Measurement(
-        name="MUST recall against the non-conformant fixture",
-        method=(
-            "Seeded violations detected ÷ seeded violations. The fixture tags each "
-            "seeded violation with the rule ID it should trip, so the denominator is "
-            "counted from the fixture rather than asserted."
-        ),
-        value="not yet measured",
-        pending="WP-9 lands the fixtures and the rule catalog.",
-    )
-
-
-def measure_false_positives() -> Measurement:
-    return Measurement(
+def measure_false_positives(oracle: OracleRun) -> Measurement:
+    n = len(oracle.false_positives)
+    m = Measurement(
         name="False positives against the conformant fixture",
         method=(
-            "Count of MUST failures reported against "
-            "`fixtures/server/conformant.py`. Must be 0."
+            "Count of rules reporting FAIL against `fixtures/server/conformant.py`, a "
+            "minimal correct server. Must be 0: a rule that fails here is demanding "
+            "something the specification does not."
         ),
-        value="not yet measured",
-        pending="WP-9 lands the fixtures and the rule catalog.",
+        value=f"**{n}**",
     )
+    if oracle.false_positives:
+        m.detail = "Falsely failing: " + ", ".join(f"`{r}`" for r in oracle.false_positives)
+    else:
+        m.detail = (
+            f"{len(oracle.indeterminate)} MUST rule(s) reported INDETERMINATE against the "
+            "same server. Those are not passes and are excluded from the gate — see the "
+            "limitations section of the README."
+        )
+    return m
 
 
 #: The marker `format_test.go` emits for this script. A deliberate contract:
@@ -273,13 +357,19 @@ def main() -> int:
         print(f"measure: `broker manifest` failed:\n{exc.stderr}", file=sys.stderr)
         return 2
 
+    try:
+        oracle = run_oracle()
+    except Exception as exc:
+        print(f"measure: the fixture oracle could not run: {exc}", file=sys.stderr)
+        return 2
+
     measurements = [
         measure_manifest_tokens(report),
         measure_response_format(),
         measure_determinism(report),
-        measure_recall(),
-        measure_false_positives(),
-        measure_scan_walltime(),
+        measure_recall(oracle),
+        measure_false_positives(oracle),
+        measure_scan_walltime(oracle),
     ]
 
     elapsed = time.perf_counter() - start
