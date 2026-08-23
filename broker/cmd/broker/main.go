@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/patsypppe/sentinel/broker/internal/audit"
 	"github.com/patsypppe/sentinel/broker/internal/authz"
 	"github.com/patsypppe/sentinel/broker/internal/config"
 	"github.com/patsypppe/sentinel/broker/internal/envelope"
@@ -36,13 +37,21 @@ import (
 func main() {
 	if err := run(os.Args[1:], os.Stdout, os.Stdin); err != nil {
 		fmt.Fprintln(os.Stderr, "broker:", err)
-		os.Exit(1)
+
+		// A command may ask for a specific exit code. `audit verify` uses 1 for
+		// "a chain failed to verify" and leaves 2 for "the verifier could not
+		// run" — a check that cannot tell those apart is not worth running in CI.
+		var exit *exitError
+		if errors.As(err, &exit) {
+			os.Exit(exit.code)
+		}
+		os.Exit(2)
 	}
 }
 
 func run(args []string, out io.Writer, in io.Reader) error {
 	if len(args) == 0 {
-		return errors.New("usage: broker <serve|stdio|manifest|mint-token|version>")
+		return errors.New("usage: broker <serve|stdio|manifest|mint-token|audit verify|version>")
 	}
 
 	switch args[0] {
@@ -59,6 +68,9 @@ func run(args []string, out io.Writer, in io.Reader) error {
 
 	case "mint-token":
 		return mintToken(args[1:], out)
+
+	case "audit":
+		return auditCommand(args[1:], out)
 
 	case "stdio":
 		return serveStdio(in, out)
@@ -85,6 +97,9 @@ const (
 	handleRetention = 24 * time.Hour
 	// flowSweepInterval is how often abandoned MRTR flows are marked.
 	flowSweepInterval = time.Minute
+	// partitionRolloverInterval keeps audit partitions ahead of the clock.
+	// Hourly is far more often than monthly needs, and costs one no-op query.
+	partitionRolloverInterval = time.Hour
 )
 
 // demoTenantID is the single tenant the MVP serves. Tenant isolation
@@ -257,6 +272,22 @@ func serve(out io.Writer) error {
 		defer st.Close()
 	}
 
+	// The audit sink. §8.7: a failure here fails the invocation, so the broker
+	// must be able to write before it accepts traffic.
+	var sink *audit.PoolSink
+	if st != nil {
+		sink = audit.NewPoolSink(st.Pool())
+		if err := sink.EnsurePartitions(ctx); err != nil {
+			// Fail closed at boot rather than at midnight on the first.
+			return fmt.Errorf("audit partitions: %w", err)
+		}
+		go sink.Writer().RunPartitionRollover(ctx, partitionRolloverInterval, func(err error) {
+			if err != nil {
+				log.Error("partition rollover failed", "err", err)
+			}
+		})
+	}
+
 	// Sweep expired handles in the background. The grace period keeps recently
 	// expired rows readable to an audit for a while: resolution already refuses
 	// them, so retention costs nothing and answers "was this handle ever real?"
@@ -294,14 +325,25 @@ func serve(out io.Writer) error {
 		return fmt.Errorf("authz: %w", err)
 	}
 
-	srv := transport.NewServer(buildMux(info, reg, cfg), cfg, info, log,
+	opts := []transport.Option{
 		transport.WithAuthenticator(auth),
 		transport.WithDeprecationRecorder(func(_ context.Context, event, method string) {
 			// §8.1 requires the event to be recorded when a request is served
 			// through the legacy fallback. WP-8 routes this into the audit log;
 			// until then it is at least visible.
 			log.Warn("deprecated feature used", "event", event, "method", method)
-		}))
+		}),
+	}
+
+	// Guarded rather than passed unconditionally: a nil *audit.PoolSink placed
+	// in an AuditSink interface is a NON-NIL interface holding a nil pointer,
+	// so `s.audit != nil` would be true and the first invocation would panic
+	// instead of skipping the write.
+	if sink != nil {
+		opts = append(opts, transport.WithAuditSink(sink))
+	}
+
+	srv := transport.NewServer(buildMux(info, reg, cfg), cfg, info, log, opts...)
 
 	httpSrv := &http.Server{
 		Addr:              cfg.Addr,
@@ -333,6 +375,97 @@ func serve(out io.Writer) error {
 		return httpSrv.Shutdown(shutdownCtx)
 	}
 }
+
+// auditCommand implements `broker audit verify --from --to`.
+//
+// It walks each tenant's chain and reports the FIRST break. First, not all:
+// after a rewritten row every subsequent link fails too, and printing a
+// thousand breaks buries the one that matters.
+//
+// The exit code is the contract: 0 when every chain verifies, 1 when any does
+// not, and 2 when the check itself could not run. A verifier that cannot
+// distinguish "the log is intact" from "I could not read the log" is not worth
+// running in CI.
+func auditCommand(args []string, out io.Writer) error {
+	if len(args) == 0 || args[0] != "verify" {
+		return errors.New("usage: broker audit verify --from YYYY-MM-DD --to YYYY-MM-DD [--tenant ID]")
+	}
+
+	fs := flag.NewFlagSet("audit verify", flag.ContinueOnError)
+	fs.SetOutput(out)
+	from := fs.String("from", "", "start of the window, YYYY-MM-DD (required)")
+	to := fs.String("to", "", "end of the window, exclusive, YYYY-MM-DD (required)")
+	tenantID := fs.String("tenant", "", "a single tenant; default is every tenant with rows in the window")
+	if err := fs.Parse(args[1:]); err != nil {
+		return err
+	}
+	if *from == "" || *to == "" {
+		fs.Usage()
+		return errors.New("audit verify: --from and --to are both required")
+	}
+
+	fromAt, err := time.Parse("2006-01-02", *from)
+	if err != nil {
+		return fmt.Errorf("--from %q is not YYYY-MM-DD; try 2026-09-01: %w", *from, err)
+	}
+	toAt, err := time.Parse("2006-01-02", *to)
+	if err != nil {
+		return fmt.Errorf("--to %q is not YYYY-MM-DD; try 2026-09-30: %w", *to, err)
+	}
+
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return fmt.Errorf("database: %w", err)
+	}
+	defer st.Close()
+
+	verifier := audit.NewVerifier(st.Pool())
+
+	tenants := []string{*tenantID}
+	if *tenantID == "" {
+		tenants, err = verifier.Tenants(ctx, fromAt, toAt)
+		if err != nil {
+			return err
+		}
+	}
+	if len(tenants) == 0 {
+		_, err := fmt.Fprintf(out, "no audit rows between %s and %s\n", *from, *to)
+		return err
+	}
+
+	broken := 0
+	for _, id := range tenants {
+		res, err := verifier.Verify(ctx, id, fromAt, toAt)
+		if err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(out, res.String()); err != nil {
+			return err
+		}
+		if !res.OK() {
+			broken++
+		}
+	}
+
+	if broken > 0 {
+		return &exitError{code: 1, msg: fmt.Sprintf("%d of %d chain(s) failed to verify", broken, len(tenants))}
+	}
+	return nil
+}
+
+// exitError carries a specific exit code, so a failed verification is
+// distinguishable from a verifier that could not run.
+type exitError struct {
+	code int
+	msg  string
+}
+
+func (e *exitError) Error() string { return e.msg }
 
 // mintToken issues a development token from the configured seed.
 //

@@ -6,9 +6,11 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/patsypppe/sentinel/broker/internal/config"
 	"github.com/patsypppe/sentinel/broker/internal/envelope"
+	"github.com/patsypppe/sentinel/broker/internal/registry"
 )
 
 // maxBodyBytes caps a request body. A protocol server with one endpoint has no
@@ -27,6 +29,9 @@ type Server struct {
 	// method is refused, which is the correct failure mode for an
 	// authentication layer that has not been configured.
 	auth Authenticator
+	// audit records every authenticated invocation. Nil disables recording,
+	// which is correct only for tests and for `broker manifest`.
+	audit AuditSink
 	// onDeprecatedFeature is called when a request is served through the legacy
 	// fallback. §8.1 requires the event to be recorded; wiring it as a callback
 	// keeps the transport free of a dependency on the audit writer.
@@ -83,6 +88,8 @@ func (s *Server) Routes() *http.ServeMux {
 //
 // Authentication (WP-7) and the audit row (WP-8) slot in at their marked points.
 func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
+	started := time.Now()
+
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBodyBytes))
 	if err != nil {
 		s.writeError(w, nil, envelope.ErrInvalidRequest("request body could not be read: "+err.Error()))
@@ -146,6 +153,8 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		ClientInfo:      meta.ClientInfo,
 	})
 
+	var principal registry.Principal
+
 	// 5. Authentication and audience validation. WP-7 supplies the real
 	//    Authenticator; whatever it is, it is the only place a token is
 	//    accepted. Methods that need no principal — discovery and the list
@@ -164,16 +173,38 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		ctx = WithPrincipal(ctx, p)
+		principal = p
 	}
 
 	// 6. Dispatch.
 	result, rpcErr := handler(ctx, req.Params)
+
+	// 7. The audit row, BEFORE the response is written (§8.7), and covering
+	//    failures as well as successes — a refused call is exactly the kind an
+	//    investigation asks about later.
+	//
+	//    A failure here fails the invocation, including one that had already
+	//    succeeded: an action nobody can attest to did not happen, and reporting
+	//    success for it would make the log's silence a lie.
+	if auditable(req.Method) {
+		if auditErr := s.recordInvocation(
+			ctx, req.Method, req.Params, principal,
+			outcome.Version, meta.Traceparent, rpcErr, started,
+		); auditErr != nil {
+			s.log.Error("audit write failed; failing the invocation",
+				"method", req.Method, "err", auditErr)
+			s.writeError(w, req.ID, envelope.New(envelope.CodeAuditWriteFailed,
+				"this invocation could not be recorded, so it was not performed", nil))
+			return
+		}
+	}
+
 	if rpcErr != nil {
 		s.writeError(w, req.ID, rpcErr)
 		return
 	}
 
-	// 7. The one place resultType and serverInfo are attached. A handler that
+	// 8. The one place resultType and serverInfo are attached. A handler that
 	//    built its own envelope would eventually forget a field and the harness
 	//    would catch it in public, so handlers are not given the chance.
 	resultType := envelope.ResultComplete
@@ -187,8 +218,6 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, req.ID, envelope.ErrInternal("result could not be serialized"))
 		return
 	}
-
-	// 8. The audit row lands here in WP-8, before the response is written.
 
 	s.write(w, envelope.NewResultResponse(req.ID, encoded))
 }
