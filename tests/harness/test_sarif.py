@@ -112,3 +112,38 @@ def test_sarif_is_json_serialisable(conformant_endpoint: str) -> None:
     at the point where a human is least able to debug it."""
     doc = render(run_scan(conformant_endpoint))
     assert json.loads(json.dumps(doc)) == doc
+
+
+def test_locations_anchor_to_a_repo_relative_path(conformant_endpoint: str) -> None:
+    """GitHub code scanning rejects a SARIF whose artifactLocation scheme does
+    not match the checkout's:
+
+        SARIF URI scheme "http" did not match the checkout URI scheme "file"
+
+    A conformance finding is about a service rather than a file, so the anchor
+    is a caller-supplied path and the endpoint lives in logicalLocations.
+    """
+    doc = render(run_scan(conformant_endpoint), anchor="broker/cmd/broker/main.go")
+
+    for result in doc["runs"][0]["results"]:
+        location = result["locations"][0]
+        uri = location["physicalLocation"]["artifactLocation"]["uri"]
+        assert not uri.startswith(("http://", "https://", "file://")), (
+            f"{result['ruleId']} anchors to {uri!r}, which GitHub will reject"
+        )
+        assert uri == "broker/cmd/broker/main.go"
+
+
+def test_the_endpoint_survives_in_the_logical_location(conformant_endpoint: str) -> None:
+    """Moving the endpoint out of physicalLocation must not lose it."""
+    report = run_scan(conformant_endpoint)
+    doc = render(report)
+
+    for result in doc["runs"][0]["results"]:
+        logical = result["locations"][0]["logicalLocations"][0]
+        assert logical["name"] == report.endpoint
+        assert result["properties"]["endpoint"] == report.endpoint
+        assert report.endpoint in result["message"]["text"], (
+            "the annotation view shows the message and the anchored file and nothing "
+            "else, so the target has to be named in the message"
+        )

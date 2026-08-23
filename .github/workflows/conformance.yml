@@ -67,7 +67,8 @@ jobs:
           uv run sentinel scan \
             --endpoint http://localhost:8080/mcp \
             --token "$SCAN_TOKEN" \
-            --gate must --format sarif --out broker.sarif --no-color
+            --gate must --format sarif --out broker.sarif --no-color \
+            --sarif-anchor broker/cmd/broker/main.go
 
       - name: upload the scan to code scanning
         uses: github/codeql-action/upload-sarif@v3

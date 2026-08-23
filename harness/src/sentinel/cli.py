@@ -70,6 +70,16 @@ def scan(
         str | None, typer.Option(help="Bearer token to present to the target.")
     ] = None,
     no_color: Annotated[bool, typer.Option("--no-color", help="Disable ANSI colour.")] = False,
+    sarif_anchor: Annotated[
+        str,
+        typer.Option(
+            help=(
+                "Repo-relative file an SARIF annotation attaches to. A conformance "
+                "finding is about a service, not a file, but GitHub code scanning "
+                "requires a checked-in path."
+            )
+        ),
+    ] = "README.md",
 ) -> None:
     """Scan an MCP server and grade it against the rule catalog."""
     severity: Severity | None = None
@@ -97,7 +107,7 @@ def scan(
     elif fmt == "sarif":
         from sentinel.report.sarif import render as render_sarif
 
-        rendered = json.dumps(render_sarif(report), indent=2) + "\n"
+        rendered = json.dumps(render_sarif(report, anchor=sarif_anchor), indent=2) + "\n"
     else:
         typer.echo(f"--format {fmt!r} is not one of text, json, sarif", err=True)
         raise typer.Exit(EXIT_HARNESS_ERROR)
