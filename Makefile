@@ -79,7 +79,7 @@ measure: ## Regenerate MEASUREMENTS.md
 	$(UV) run python scripts/measure.py
 
 .PHONY: demo
-demo: ## Run the nine-step demo from docs/HANDOFF.md §13
+demo: ## Run the nine-step demo from docs/HANDOFF.md §13 (needs `make up`)
 	$(UV) run python scripts/demo.py
 
 .PHONY: scan-broker
