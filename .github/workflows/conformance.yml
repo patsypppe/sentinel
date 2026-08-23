@@ -108,6 +108,40 @@ jobs:
           done
           uv run sentinel scan --endpoint http://127.0.0.1:9001/mcp --gate must --no-color
 
+      # The deprecation inventory, in both directions too. It never fails a
+      # gate — a deprecated feature that still works is a migration to plan, not
+      # a defect — so the assertion is on the CONTENT rather than the exit code.
+      - name: the broker depends on no deprecated feature
+        run: |
+          uv run sentinel deprecations \
+            --endpoint http://localhost:8080/mcp \
+            --token "$SCAN_TOKEN" --format json --out broker-deprecations.json --no-color
+          IN_USE=$(python -c "import json,sys; d=json.load(open('broker-deprecations.json')); print(sum(1 for f in d['features'] if f['inUse']))")
+          if [ "$IN_USE" != "0" ]; then
+            echo "::error::the broker depends on $IN_USE deprecated feature(s)"
+            exit 1
+          fi
+          echo "the broker depends on no deprecated features"
+
+      - name: the fixture's deprecations are all found
+        run: |
+          uv run sentinel deprecations \
+            --endpoint http://127.0.0.1:9000/mcp \
+            --format json --out fixture-deprecations.json --no-color
+          python - <<'PY'
+          import json, sys
+          sys.path.insert(0, "fixtures")
+          from server.nonconformant import SEEDED_DEPRECATIONS
+
+          report = json.load(open("fixture-deprecations.json"))
+          found = {f["id"] for f in report["features"] if f["inUse"]}
+          missed = set(SEEDED_DEPRECATIONS) - found
+          if missed:
+              print(f"::error::undetected deprecations: {sorted(missed)}")
+              sys.exit(1)
+          print(f"all {len(found)} seeded deprecations detected")
+          PY
+
       - name: broker logs on failure
         if: failure()
         run: docker compose logs --no-color broker

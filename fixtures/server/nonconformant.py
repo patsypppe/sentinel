@@ -55,6 +55,22 @@ SEEDED_VIOLATIONS: list[str] = [
     "MCP/2026-07-28/MUST/roots-list-removed",
 ]
 
+#: Deprecated features this fixture still depends on, by feature id.
+#:
+#: Separate from SEEDED_VIOLATIONS because a deprecated feature that still works
+#: is not a MUST violation — it is a migration to plan. The deprecation
+#: inventory is measured against this list the same way recall is measured
+#: against the other: the fixture states what it has, and the tool is graded on
+#: finding it.
+SEEDED_DEPRECATIONS: list[str] = [
+    "roots",
+    "sampling",
+    "logging",
+    "http-sse",
+    "oauth-dcr",
+    "include-context",
+]
+
 #: Rotates the tool order on every call.
 #:
 #: VIOLATES MCP/2026-07-28/MUST/tools-list-is-deterministic — and it is the most
@@ -146,6 +162,21 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
                     "tools": {"listChanged": True},
                     "resources": {"listChanged": True, "subscribe": True},
                 },
+                # DEPRECATED roots — advertised as still supported.
+                #
+                # These two are not MUST violations: a deprecated feature that
+                # still works is a migration to plan, not a defect. They are
+                # here so `sentinel deprecations` has something to find, and
+                # they are listed in SEEDED_DEPRECATIONS rather than in
+                # SEEDED_VIOLATIONS for that reason.
+                #
+                # DEPRECATED http-sse
+                "transports": ["http+sse", "stdio"],
+                # DEPRECATED oauth-dcr
+                "authorization": {
+                    "registration_endpoint": "https://auth.legacy.example/register",
+                    "issuer": "https://auth.legacy.example",
+                },
                 "instructions": "A server that was never migrated.",
             },
         )
@@ -236,10 +267,19 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
         return 200, result(request_id, {"roots": []})
 
     # VIOLATES MCP/2026-07-28/MUST/unknown-method-is-method-not-found
+    # VIOLATES MCP/2026-07-28/MUST/no-errors-in-reserved-range
     #
-    # An invented method name gets a cheerful empty result rather than -32601,
-    # so a client cannot tell a typo from a feature.
-    return 200, result(request_id, {})
+    # A generic house error rather than -32601, so a client cannot tell a typo
+    # from a feature it has not been granted. -32050 also sits inside the range
+    # the specification reserves for itself.
+    #
+    # An earlier version returned a cheerful empty RESULT here instead. That was
+    # also non-conformant, but it made this fixture answer every method
+    # identically — which defeated the deprecation inventory's control probe and
+    # made a server that implements `roots/list` indistinguishable from one that
+    # answers anything. Returning an error keeps both violations and restores
+    # the distinction a real unmigrated server would have.
+    return 200, error(request_id, -32050, f"unrecognised method {method!r}")
 
 
 def main() -> int:
