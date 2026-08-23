@@ -240,10 +240,17 @@ def list_changed_is_truthful(probe: Probe) -> RuleResult:
         return RuleResult.passed("listChanged is not advertised on any capability")
 
     listen = probe.call("subscriptions/listen", {})
-    if listen.error_code() == -32601:
+    if not listen.reached_server:
+        return RuleResult.indeterminate(f"the server was unreachable: {listen.transport_error}")
+
+    # ANY error means the method is not there. Checking specifically for -32601
+    # would miss a server that returns its own house error for everything it
+    # does not implement, which is common and is exactly what the fixture does.
+    if listen.result() is None:
         return RuleResult.failed(
-            f"{claims} advertise listChanged: true, but subscriptions/listen returns "
-            "method-not-found. A client will wait for notifications that never arrive.",
+            f"{claims} advertise listChanged: true, but subscriptions/listen does not "
+            f"answer (error {listen.error_code()}). A client will wait for notifications "
+            "that never arrive and serve a stale manifest indefinitely.",
             evidence=str(listen.error()),
         )
 
@@ -253,26 +260,18 @@ def list_changed_is_truthful(probe: Probe) -> RuleResult:
     # Without this control, a catch-all route masks the very violation the rule
     # is about: the target replies to subscriptions/listen exactly as it replies
     # to a method nobody has ever defined, and "it responded" reads as support.
-    # Comparing against an invented method name is what separates
-    # "implemented" from "answers anything".
     control = probe.call("sentinel/definitely-not-a-real-method", {})
-    if (listen.result() is not None) and (control.result() is not None):
+    if control.result() is not None:
         return RuleResult.failed(
             f"{claims} advertise listChanged: true, and subscriptions/listen returns a "
             "result — but so does an invented method name, so this server answers "
-            "everything and its support for subscriptions is not demonstrated. A client "
-            "will wait for notifications that never arrive.",
+            "everything and its support for subscriptions is not demonstrated.",
             evidence=f"subscriptions/listen → {listen.result()}, control → {control.result()}",
         )
 
-    if listen.error_code() is None and listen.result() is None:
-        return RuleResult.indeterminate(
-            f"{claims} advertise listChanged: true; subscriptions/listen gave no "
-            "conclusive answer"
-        )
     return RuleResult.passed(
-        f"{claims} advertise listChanged, and subscriptions/listen answers differently "
-        "from an unknown method"
+        f"{claims} advertise listChanged, and subscriptions/listen answers where an "
+        "unknown method does not"
     )
 
 

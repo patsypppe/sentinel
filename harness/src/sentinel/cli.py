@@ -124,6 +124,64 @@ def scan(
     raise typer.Exit(report.gate(severity))
 
 
+@app.command()
+def deprecations(
+    endpoint: Annotated[str, typer.Option(help="The MCP endpoint to inventory.")],
+    as_of: Annotated[
+        str | None,
+        typer.Option(help="Compute remaining windows against this date (YYYY-MM-DD)."),
+    ] = None,
+    fmt: Annotated[str, typer.Option("--format", help="text | json")] = "text",
+    out: Annotated[pathlib.Path | None, typer.Option(help="Write the report here.")] = None,
+    timeout: Annotated[float, typer.Option(help="Per-request timeout, seconds.")] = 10.0,
+    token: Annotated[str | None, typer.Option(help="Bearer token.")] = None,
+    no_color: Annotated[bool, typer.Option("--no-color", help="Disable ANSI colour.")] = False,
+) -> None:
+    """Inventory the deprecated features a server still depends on.
+
+    This never fails a gate. A deprecated feature that still works is a
+    migration to plan, not a defect to block on, and conflating the two would
+    make the inventory something people route around.
+    """
+    import datetime
+
+    if as_of is None:
+        stamp = datetime.date.today()
+    else:
+        try:
+            stamp = datetime.date.fromisoformat(as_of)
+        except ValueError:
+            typer.echo(f"--as-of {as_of!r} is not YYYY-MM-DD; try 2026-09-23", err=True)
+            raise typer.Exit(EXIT_HARNESS_ERROR) from None
+
+    from sentinel.catalog.deprecations import build_inventory, render_json, render_text
+    from sentinel.probe.client import Probe
+
+    try:
+        with Probe(endpoint, timeout=timeout, bearer_token=token) as probe:
+            inventory = build_inventory(probe, stamp)
+    except Exception as exc:
+        typer.echo(f"sentinel: the inventory could not run: {exc}", err=True)
+        raise typer.Exit(EXIT_HARNESS_ERROR) from exc
+
+    if fmt == "text":
+        rendered = render_text(inventory, color=not no_color and out is None)
+    elif fmt == "json":
+        rendered = json.dumps(render_json(inventory), indent=2) + "\n"
+    else:
+        typer.echo(f"--format {fmt!r} is not one of text, json", err=True)
+        raise typer.Exit(EXIT_HARNESS_ERROR)
+
+    if out is not None:
+        out.write_text(rendered)
+        typer.echo(f"wrote {out}")
+        typer.echo(render_text(inventory, color=not no_color), nl=False)
+    else:
+        typer.echo(rendered, nl=False)
+
+    raise typer.Exit(EXIT_OK)
+
+
 @catalog_app.command("validate")
 def catalog_validate() -> None:
     """Check that every rule declares an id, citation, severity and remediation."""

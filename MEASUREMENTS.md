@@ -8,7 +8,7 @@ rather than earning it. The same goes for a server that claims determinism. Wher
 a measurement is not yet possible, this file says so and names the work package
 that will supply it, rather than omitting the row.
 
-Generated in 4.5s.
+Generated in 3.6s.
 
 | Measurement | Result |
 |---|---|
@@ -17,7 +17,7 @@ Generated in 4.5s.
 | `tools/list` determinism | **1** distinct hash |
 | MUST recall against the non-conformant fixture | **100%** (26 of 26 seeded violations detected) |
 | False positives against the conformant fixture | **0** |
-| Scan wall-clock | p50 **44 ms**, p95 **53 ms** |
+| Scan wall-clock | p50 **55 ms**, p95 **125 ms** |
 
 ---
 
@@ -73,7 +73,7 @@ Generated in 4.5s.
 
 ## Scan wall-clock
 
-**Result:** p50 **44 ms**, p95 **53 ms**
+**Result:** p50 **55 ms**, p95 **125 ms**
 
 **Method:** p50 and p95 over 12 full scans of the conformant fixture, in-process and loopback. A remote target adds its own latency per rule; this is the harness's own cost, which is the part it controls.
 
