@@ -30,6 +30,14 @@ jobs:
         with:
           go-version: '1.23'
           cache-dependency-path: broker/go.sum
+      # A cross-compile, because a missing go.sum entry can be
+      # platform-specific: chacha20poly1305 imports x/sys/cpu on amd64 and not
+      # on arm64, so `go mod tidy` on an Apple Silicon machine recorded a go.sum
+      # that built locally and failed inside the linux/amd64 Docker build. This
+      # catches it in the fast job, in about a second.
+      - name: cross-compile for the deployment target
+        run: GOOS=linux GOARCH=amd64 go build ./broker/...
+
       - name: go vet
         run: go vet ./broker/...
       - name: go test
