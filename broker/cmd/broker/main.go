@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"log/slog"
@@ -19,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/patsypppe/sentinel/broker/internal/authz"
 	"github.com/patsypppe/sentinel/broker/internal/config"
 	"github.com/patsypppe/sentinel/broker/internal/envelope"
 	"github.com/patsypppe/sentinel/broker/internal/handles"
@@ -40,7 +42,7 @@ func main() {
 
 func run(args []string, out io.Writer, in io.Reader) error {
 	if len(args) == 0 {
-		return errors.New("usage: broker <serve|stdio|manifest|version>")
+		return errors.New("usage: broker <serve|stdio|manifest|mint-token|version>")
 	}
 
 	switch args[0] {
@@ -54,6 +56,9 @@ func run(args []string, out io.Writer, in io.Reader) error {
 
 	case "manifest":
 		return printManifest(out)
+
+	case "mint-token":
+		return mintToken(args[1:], out)
 
 	case "stdio":
 		return serveStdio(in, out)
@@ -284,16 +289,9 @@ func serve(out io.Writer) error {
 		"tokenizer", reg.Tokens().Tokenizer,
 		"tokens", reg.Tokens().Manifest)
 
-	// WP-7 replaces this with audience validation. DevAuthenticator refuses
-	// every request unless BROKER_DEV_AUTH is set, so an unconfigured server
-	// fails closed rather than serving anonymously.
-	auth := transport.DevAuthenticator{
-		Enabled: os.Getenv("BROKER_DEV_AUTH") == "1",
-		Tenant:  demoTenantID,
-	}
-	if auth.Enabled {
-		log.Warn("BROKER_DEV_AUTH=1: principals are read from request headers and no token " +
-			"is validated. This is for local development only")
+	auth, err := buildAuthenticator(cfg, log)
+	if err != nil {
+		return fmt.Errorf("authz: %w", err)
 	}
 
 	srv := transport.NewServer(buildMux(info, reg, cfg), cfg, info, log,
@@ -334,6 +332,123 @@ func serve(out io.Writer) error {
 		defer cancel()
 		return httpSrv.Shutdown(shutdownCtx)
 	}
+}
+
+// mintToken issues a development token from the configured seed.
+//
+// The audience is a flag with no default, deliberately. To DEMONSTRATE the
+// specification's MUST NOT you have to be able to mint a token for the wrong
+// audience as easily as for the right one, and watch this server refuse it:
+//
+//	broker mint-token --audience https://billing.sentinel.local  →  refused
+//	broker mint-token --audience https://broker.sentinel.local   →  accepted
+func mintToken(args []string, out io.Writer) error {
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
+	if cfg.OAuthDevSeed == "" {
+		return errors.New("mint-token needs BROKER_OAUTH_DEV_SEED; it mints development " +
+			"tokens only and cannot sign with a production JWKS")
+	}
+
+	fs := flag.NewFlagSet("mint-token", flag.ContinueOnError)
+	fs.SetOutput(out)
+	principal := fs.String("principal", "", "principal id to embed (required)")
+	subject := fs.String("subject", "dev@sentinel.local", "token subject")
+	audience := fs.String("audience", "", "audience to mint for (required; use a wrong one to see it refused)")
+	scopes := fs.String("scopes", "", "space-delimited scopes")
+	ttl := fs.Duration("ttl", time.Hour, "token lifetime")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *principal == "" || *audience == "" {
+		fs.Usage()
+		return errors.New("mint-token: --principal and --audience are both required")
+	}
+
+	pair, err := authz.DeriveDevKey(cfg.OAuthDevSeed)
+	if err != nil {
+		return err
+	}
+	token, err := pair.Mint(authz.MintRequest{
+		Issuer:      cfg.OAuthIssuer,
+		Audience:    *audience,
+		Subject:     *subject,
+		PrincipalID: *principal,
+		Scopes:      *scopes,
+		TTL:         *ttl,
+	}, time.Now())
+	if err != nil {
+		return err
+	}
+
+	_, err = fmt.Fprintln(out, token)
+	return err
+}
+
+// buildAuthenticator chooses the token validator or, only when explicitly
+// asked, the local development stand-in.
+//
+// A server with neither configured gets a DevAuthenticator that is DISABLED,
+// which refuses every authenticated request. That is the correct failure mode:
+// an authentication layer nobody configured must not serve anonymously.
+func buildAuthenticator(cfg config.Config, log *slog.Logger) (transport.Authenticator, error) {
+	if cfg.OAuthJWKSPath != "" {
+		keys, err := authz.LoadKeySet(cfg.OAuthJWKSPath)
+		if err != nil {
+			return nil, err
+		}
+		log.Info("token validation enabled",
+			"issuer", cfg.OAuthIssuer, "audience", cfg.OAuthAudience, "jwks", cfg.OAuthJWKSPath)
+		return authz.NewTokenAuthenticator(authz.Config{
+			Issuer:   cfg.OAuthIssuer,
+			Audience: cfg.OAuthAudience,
+			Keys:     keys,
+			// Small on purpose: leeway is for clock skew, not for staleness. A
+			// generous value is an expired token that still works.
+			Leeway:   30 * time.Second,
+			TenantID: demoTenantID,
+		}), nil
+	}
+
+	if cfg.OAuthDevSeed != "" {
+		pair, err := authz.DeriveDevKey(cfg.OAuthDevSeed)
+		if err != nil {
+			return nil, err
+		}
+		keys, err := pair.KeySet()
+		if err != nil {
+			return nil, err
+		}
+		log.Warn("token validation enabled with a SEED-DERIVED development key. "+
+			"Tokens are validated for real — signature, issuer, audience and expiry — but the "+
+			"signing key is derived from BROKER_OAUTH_DEV_SEED and is not a secret. "+
+			"Use BROKER_OAUTH_JWKS_PATH in production",
+			"issuer", cfg.OAuthIssuer, "audience", cfg.OAuthAudience, "kid", authz.DevKeyID)
+		return authz.NewTokenAuthenticator(authz.Config{
+			Issuer:   cfg.OAuthIssuer,
+			Audience: cfg.OAuthAudience,
+			Keys:     keys,
+			Leeway:   30 * time.Second,
+			TenantID: demoTenantID,
+		}), nil
+	}
+
+	dev := transport.DevAuthenticator{
+		Enabled: os.Getenv("BROKER_DEV_AUTH") == "1",
+		Tenant:  demoTenantID,
+	}
+	switch {
+	case dev.Enabled:
+		log.Warn("BROKER_DEV_AUTH=1: principals are read from request headers and NO TOKEN " +
+			"IS VALIDATED. Local development only; set BROKER_OAUTH_JWKS_PATH for real " +
+			"audience validation")
+	default:
+		log.Warn("no authentication is configured: every authenticated method will be " +
+			"refused. Set BROKER_OAUTH_JWKS_PATH, or BROKER_DEV_AUTH=1 for local development")
+	}
+	return dev, nil
 }
 
 // sweepFlows marks flows that were opened, never retried and have aged out. A

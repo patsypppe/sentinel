@@ -12,7 +12,12 @@ which is a different claim and the one a client actually experiences.
 
 from __future__ import annotations
 
+import functools
 import json
+import os
+import pathlib
+import shutil
+import subprocess
 import time
 import uuid
 from typing import Any
@@ -20,13 +25,40 @@ from typing import Any
 import httpx
 import pytest
 
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+
 BROKER = "http://localhost:8080/mcp"
 PROTOCOL = "2026-07-28"
 
 OPERATOR = "00000000-0000-0000-0000-0000000000a2"
 ANALYST = "00000000-0000-0000-0000-0000000000a1"
 
+#: The audience this broker was issued for, and one it was not. Both tokens are
+#: correctly signed by the same issuer; only the `aud` claim differs, which is
+#: exactly the token an attacker who compromised the other service would hold.
+THIS_SERVER = "https://broker.sentinel.local"
+OTHER_SERVER = "https://billing.sentinel.local"
+
 pytestmark = pytest.mark.e2e
+
+
+@functools.cache
+def mint(principal: str, scopes: str, audience: str = THIS_SERVER) -> str:
+    """Mint a token with `broker mint-token`, reaching the same seed-derived key
+    the running broker validates against."""
+    env = {
+        **os.environ,
+        "BROKER_OAUTH_DEV_SEED": "a" * 64,
+        "BROKER_OAUTH_ISSUER": "https://issuer.sentinel.local",
+        "BROKER_OAUTH_AUDIENCE": THIS_SERVER,
+    }
+    go = shutil.which("/opt/homebrew/bin/go") or shutil.which("go") or "go"
+    proc = subprocess.run(
+        [go, "run", "./broker/cmd/broker", "mint-token",
+         "--principal", principal, "--audience", audience, "--scopes", scopes],
+        cwd=REPO_ROOT, env=env, capture_output=True, text=True, check=True,
+    )
+    return proc.stdout.strip()
 
 
 def call(
@@ -36,6 +68,7 @@ def call(
     principal: str = OPERATOR,
     scopes: str = "ops:plan ops:apply warehouse:read warehouse:describe",
     mcp_name: str | None = None,
+    audience: str = THIS_SERVER,
 ) -> dict[str, Any]:
     """Send one JSON-RPC request.
 
@@ -60,8 +93,7 @@ def call(
             "Content-Type": "application/json",
             "Mcp-Method": method,
             "Mcp-Name": name,
-            "X-Sentinel-Dev-Principal": principal,
-            "X-Sentinel-Dev-Scopes": scopes,
+            "Authorization": "Bearer " + mint(principal, scopes, audience),
         },
         timeout=30.0,
     )
@@ -231,3 +263,39 @@ def test_scope_denial_names_the_missing_scope() -> None:
     assert "error" in out
     assert out["error"]["code"] == -32007, out["error"]
     assert out["error"]["data"]["requiredScope"] == "ops:apply"
+
+
+def test_token_for_another_audience_is_rejected() -> None:
+    """The specification's explicit MUST NOT, over the wire.
+
+    The token is correctly signed by the same issuer and names a real principal
+    with real scopes. The only thing wrong with it is that it was issued for a
+    different service — which is precisely the token an attacker who compromised
+    that service would be holding.
+    """
+    out = call(
+        "tools/call",
+        {"name": "ops.deployment_plan",
+         "arguments": {"service": "checkout", "version": "1.4.2"}},
+        audience=OTHER_SERVER,
+    )
+    assert "error" in out, "a token issued for another service was accepted"
+    # The refusal names what this server DOES accept — published facts, not
+    # secrets — without saying which check failed.
+    assert THIS_SERVER in out["error"]["message"], out["error"]
+
+
+def test_discovery_needs_no_token() -> None:
+    """A client cannot discover a server it must already be authenticated to."""
+    resp = httpx.post(
+        BROKER,
+        content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "server/discover"}),
+        headers={
+            "Content-Type": "application/json",
+            "Mcp-Method": "server/discover",
+            "Mcp-Name": "server/discover",
+        },
+        timeout=10.0,
+    )
+    assert resp.status_code == 200
+    assert "error" not in resp.json(), resp.json()

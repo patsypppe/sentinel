@@ -8,7 +8,7 @@ rather than earning it. The same goes for a server that claims determinism. Wher
 a measurement is not yet possible, this file says so and names the work package
 that will supply it, rather than omitting the row.
 
-Generated in 3.3s.
+Generated in 1.4s.
 
 | Measurement | Result |
 |---|---|
