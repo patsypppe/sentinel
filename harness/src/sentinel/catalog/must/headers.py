@@ -63,9 +63,27 @@ def mcp_method_required(probe: Probe) -> RuleResult:
             "policy in front of this server can be bypassed by omitting the header",
             evidence=str(resp.result())[:300],
         )
-    if resp.status >= 400:
-        return RuleResult.passed(f"a request with no Mcp-Method was refused (HTTP {resp.status})")
-    return RuleResult.passed(f"a request with no Mcp-Method was refused (code {resp.error_code()})")
+
+    # -32020 AND HTTP 400, not either. A missing required standard header is a
+    # validation failure, and for those "servers MUST return HTTP status 400 Bad
+    # Request and MUST include a JSON-RPC error response". 0.1.0 accepted any
+    # status >= 400 or any error code, which passed a server that answered 200
+    # with a house error -- telling the client it failed and every intermediary
+    # between them that it succeeded. Narrowing what passes does not change what
+    # the rule means, so the id is unchanged.
+    code = resp.error_code()
+    problems: list[str] = []
+    if code != -32020:
+        problems.append(f"the JSON-RPC error code was {code}, not -32020")
+    if resp.status != 400:
+        problems.append(f"HTTP status was {resp.status}, not 400")
+    if problems:
+        return RuleResult.failed(
+            "a request with no Mcp-Method was refused, but not as the spec requires: "
+            + "; ".join(problems),
+            evidence=f"HTTP {resp.status}, code {code}",
+        )
+    return RuleResult.passed("a request with no Mcp-Method was rejected with -32020 and HTTP 400")
 
 
 @rule(
@@ -211,9 +229,6 @@ def header_mismatch_rejected(probe: Probe) -> RuleResult:
     if not resp.reached_server:
         return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
 
-    code = resp.error_code()
-    if code == -32020:
-        return RuleResult.passed("a header/body mismatch returned -32020")
     if resp.result() is not None:
         return RuleResult.failed(
             "a request whose Mcp-Method header said tools/list while its body called "
@@ -221,10 +236,26 @@ def header_mismatch_rejected(probe: Probe) -> RuleResult:
             "different request than the one that ran",
             evidence=str(resp.result())[:300],
         )
-    return RuleResult.failed(
-        f"a header/body mismatch returned {code} rather than -32020",
-        evidence=str(resp.error()),
-    )
+
+    # HTTP 400 is required alongside the code, and 0.1.0 never looked at the
+    # status at all: "servers MUST return HTTP status 400 Bad Request and MUST
+    # include a JSON-RPC error response". A HeaderMismatch inside an HTTP 200 is
+    # the worst version of this defect, because the gateway whose decision was
+    # bypassed is precisely the component that reads only the status line. This
+    # narrows what passes without changing what the rule means, so the id stays.
+    code = resp.error_code()
+    problems: list[str] = []
+    if code != -32020:
+        problems.append(f"the JSON-RPC error code was {code}, not -32020")
+    if resp.status != 400:
+        problems.append(f"HTTP status was {resp.status}, not 400")
+    if problems:
+        return RuleResult.failed(
+            "a header/body mismatch was refused, but not as the spec requires: "
+            + "; ".join(problems),
+            evidence=f"HTTP {resp.status}, code {code}, error {resp.error()}",
+        )
+    return RuleResult.passed("a header/body mismatch returned -32020 and HTTP 400")
 
 
 @rule(

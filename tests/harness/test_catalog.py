@@ -209,3 +209,92 @@ def test_meta_rules_fail_the_nonconformant_fixture(
     with Probe(nonconformant_endpoint) as probe:
         result = rule.evaluate(probe)
     assert result.outcome is Outcome.FAIL, f"{rule_id}: {result.detail}"
+
+
+#: The HTTP layer: status codes, required headers, Origin, Content-Type.
+#:
+#: `notification-not-answered-with-a-result` is not here, and neither is the
+#: SHOULD. The notification rule PASSes on 202 *or* on any HTTP error status —
+#: the specification permits refusing, because this revision defines no
+#: client-to-server notifications over Streamable HTTP — so it has two passing
+#: shapes and belongs in its own assertion rather than in a table that says
+#: "PASS". `get-delete-405` is a SHOULD and is asserted separately for the same
+#: reason the severity exists: it is not part of the MUST gate.
+HTTP_RULES = [
+    "MCP/2026-07-28/MUST/unknown-method-http-404",
+    "MCP/2026-07-28/MUST/protocol-version-header-required",
+    "MCP/2026-07-28/MUST/protocol-version-header-body-mismatch-rejected",
+    "MCP/2026-07-28/MUST/invalid-origin-rejected",
+    "MCP/2026-07-28/MUST/response-content-type-valid",
+]
+
+
+@pytest.mark.parametrize("rule_id", HTTP_RULES)
+def test_http_rules_pass_the_conformant_fixture(rule_id: str, conformant_endpoint: str) -> None:
+    from sentinel.probe.client import Probe
+
+    rule = {r.id: r for r in REGISTRY.all()}[rule_id]
+    with Probe(conformant_endpoint) as probe:
+        result = rule.evaluate(probe)
+    assert result.outcome is Outcome.PASS, f"{rule_id}: {result.detail}"
+
+
+@pytest.mark.parametrize("rule_id", HTTP_RULES)
+def test_http_rules_fail_the_nonconformant_fixture(
+    rule_id: str, nonconformant_endpoint: str
+) -> None:
+    from sentinel.probe.client import Probe
+
+    rule = {r.id: r for r in REGISTRY.all()}[rule_id]
+    with Probe(nonconformant_endpoint) as probe:
+        result = rule.evaluate(probe)
+    assert result.outcome is Outcome.FAIL, f"{rule_id}: {result.detail}"
+
+
+NOTIFICATION_RULE = "MCP/2026-07-28/MUST/notification-not-answered-with-a-result"
+
+
+def test_notification_rule_passes_the_conformant_fixture(conformant_endpoint: str) -> None:
+    """The conformant fixture answers 202 with an empty body.
+
+    Refusing with an HTTP error would satisfy the rule too, so the assertion
+    names the branch the fixture actually exercises — otherwise the harder half
+    of the requirement, "202 Accepted with no body", would never be tested.
+    """
+    from sentinel.probe.client import Probe
+
+    rule = {r.id: r for r in REGISTRY.all()}[NOTIFICATION_RULE]
+    with Probe(conformant_endpoint) as probe:
+        result = rule.evaluate(probe)
+    assert result.outcome is Outcome.PASS, result.detail
+    assert "202" in result.detail
+
+
+def test_notification_rule_fails_the_nonconformant_fixture(nonconformant_endpoint: str) -> None:
+    from sentinel.probe.client import Probe
+
+    rule = {r.id: r for r in REGISTRY.all()}[NOTIFICATION_RULE]
+    with Probe(nonconformant_endpoint) as probe:
+        result = rule.evaluate(probe)
+    assert result.outcome is Outcome.FAIL, result.detail
+
+
+GET_DELETE_RULE = "MCP/2026-07-28/SHOULD/get-delete-405"
+
+
+def test_get_delete_rule_passes_the_conformant_fixture(conformant_endpoint: str) -> None:
+    from sentinel.probe.client import Probe
+
+    rule = {r.id: r for r in REGISTRY.all()}[GET_DELETE_RULE]
+    with Probe(conformant_endpoint) as probe:
+        result = rule.evaluate(probe)
+    assert result.outcome is Outcome.PASS, result.detail
+
+
+def test_get_delete_rule_fails_the_nonconformant_fixture(nonconformant_endpoint: str) -> None:
+    from sentinel.probe.client import Probe
+
+    rule = {r.id: r for r in REGISTRY.all()}[GET_DELETE_RULE]
+    with Probe(nonconformant_endpoint) as probe:
+        result = rule.evaluate(probe)
+    assert result.outcome is Outcome.FAIL, result.detail

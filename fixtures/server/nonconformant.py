@@ -22,6 +22,25 @@ from .common import LEGACY, PROTOCOL, error, parse, result, serve_forever
 
 PORT = 9000
 
+#: The HTTP-layer faults, which live outside `dispatch` because they are
+#: decided before or outside a JSON-RPC body.
+#:
+#: VIOLATES MCP/2026-07-28/MUST/response-content-type-valid
+#: The specification permits application/json or text/event-stream and nothing
+#: else. `text/plain` is what a hand-rolled handler emits when nobody set the
+#: header at all, and the client -- which announced support for exactly those
+#: two in its Accept header -- has no third parser to reach for.
+#:
+#: VIOLATES MCP/2026-07-28/SHOULD/get-delete-405
+#: A bare GET is answered 200, as it was under 2025-11-25 where GET opened the
+#: SSE stream. A client still speaking that transport reads the 200 as the
+#: stream opening and waits on it forever, instead of being told in one round
+#: trip that the transport is gone.
+BEHAVIOUR: dict[str, Any] = {
+    "response_content_type": "text/plain",
+    "bare_method_status": 200,
+}
+
 #: Every rule this fixture violates on purpose, by rule id.
 #:
 #: The harness's recall = |detected ∩ SEEDED| / |SEEDED|. Keeping the list here
@@ -60,7 +79,14 @@ SEEDED_VIOLATIONS: list[str] = [
     "MCP/2026-07-28/MUST/no-errors-in-reserved-range",
     "MCP/2026-07-28/SHOULD/no-errors-in-legacy-range",
     "MCP/2026-07-28/MUST/unknown-method-is-method-not-found",
+    "MCP/2026-07-28/MUST/unknown-method-http-404",
     "MCP/2026-07-28/MUST/malformed-json-is-parse-error",
+    "MCP/2026-07-28/MUST/protocol-version-header-required",
+    "MCP/2026-07-28/MUST/protocol-version-header-body-mismatch-rejected",
+    "MCP/2026-07-28/MUST/invalid-origin-rejected",
+    "MCP/2026-07-28/MUST/response-content-type-valid",
+    "MCP/2026-07-28/MUST/notification-not-answered-with-a-result",
+    "MCP/2026-07-28/SHOULD/get-delete-405",
     "MCP/2026-07-28/MUST/unsupported-version-rejected",
     "MCP/2026-07-28/MUST/initialize-removed",
     "MCP/2026-07-28/MUST/ping-removed",
@@ -180,13 +206,37 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
     request_id = payload.get("id")
     method = payload.get("method", "")
 
+    if "id" not in payload:
+        # VIOLATES MCP/2026-07-28/MUST/notification-not-answered-with-a-result
+        #
+        # A JSON-RPC result, at HTTP 200, to a message that carries no id. There
+        # is nothing for the client to correlate it with -- it did not open a
+        # slot for a reply, because a notification is by definition the message
+        # you do not wait on. This is what a router written before the
+        # distinction mattered does: it dispatches on `method`, builds a result,
+        # and reads `id` back out of a request that never had one.
+        return 200, result(request_id, {"acknowledged": True})
+
     # VIOLATES MCP/2026-07-28/MUST/mcp-method-header-required
     # VIOLATES MCP/2026-07-28/MUST/mcp-name-header-required
     # VIOLATES MCP/2026-07-28/MUST/header-body-mismatch-rejected
+    # VIOLATES MCP/2026-07-28/MUST/protocol-version-header-required
+    # VIOLATES MCP/2026-07-28/MUST/protocol-version-header-body-mismatch-rejected
+    # VIOLATES MCP/2026-07-28/MUST/invalid-origin-rejected
     #
     # The headers are never read -- with the single exception below. Any gateway
     # policy in front of this server is decorative: a caller omits the header,
-    # or lies in it, and the body is served regardless.
+    # or lies in it, and the body is served regardless. MCP-Protocol-Version is
+    # the newest of them and gets exactly the same treatment: the version is
+    # taken from the body's `_meta` where the old handshake used to look, so a
+    # header that says 2025-11-25 over a body that says 2026-07-28 is served at
+    # whichever one the body claimed, and an intermediary that routed on the
+    # header sent this request somewhere it was never authorized to go.
+    #
+    # `Origin` is not read either, which is the DNS rebinding hole the
+    # requirement exists to close: any page the user visits can drive this
+    # server through the user's own browser, and being bound to 127.0.0.1 does
+    # not help -- that is the address the browser is on.
 
     # VIOLATES: MCP/2026-07-28/MUST/missing-client-capabilities-rejected
     # VIOLATES: MCP/2026-07-28/MUST/missing-protocol-version-rejected
@@ -366,10 +416,14 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
 
     # VIOLATES MCP/2026-07-28/MUST/unknown-method-is-method-not-found
     # VIOLATES MCP/2026-07-28/MUST/no-errors-in-reserved-range
+    # VIOLATES MCP/2026-07-28/MUST/unknown-method-http-404
     #
     # A generic house error rather than -32601, so a client cannot tell a typo
     # from a feature it has not been granted. -32050 also sits inside the range
-    # the specification reserves for itself.
+    # the specification reserves for itself. And it goes out under HTTP 200:
+    # every intermediary between this server and the client -- gateway, CDN,
+    # retry policy -- is told the call succeeded, while the body says it did
+    # not. The status line is the only part most of them read.
     #
     # An earlier version returned a cheerful empty RESULT here instead. That was
     # also non-conformant, but it made this fixture answer every method
@@ -386,6 +440,7 @@ def main() -> int:
         dispatch,
         port,
         banner=f"non-conformant fixture ({len(SEEDED_VIOLATIONS)} seeded violations)",
+        **BEHAVIOUR,
     )
     return 0
 

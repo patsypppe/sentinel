@@ -34,6 +34,7 @@ Every knob, with its default.
 | `BROKER_CACHE_TOOLS_LIST_TTL_MS` | `300000` | |
 | `BROKER_DEFAULT_TOKEN_CAP` | `25000` | Per-tool ceiling; over it, a tool returns a handle plus a summary. |
 | `BROKER_ALLOW_LEGACY_UNVERSIONED` | `true` | Serve unversioned requests as `2025-11-25`, recording a deprecation event. |
+| `BROKER_ALLOWED_ORIGINS` | — | Comma-separated `Origin` allowlist. **Empty means reject any request that carries an `Origin` header at all** — this server has no browser clients, so a request with one came from a page, and a permissive default would ship the DNS rebinding hole `Origin` validation exists to close. A request with *no* `Origin` (every non-browser client) is unaffected. Matching is exact, case-insensitive, no wildcards. |
 | `BROKER_OAUTH_ISSUER` | `https://issuer.sentinel.local` | |
 | `BROKER_OAUTH_AUDIENCE` | `https://broker.sentinel.local` | Every token's `aud` is checked against this by **exact** membership. |
 | `BROKER_OAUTH_JWKS_PATH` | — | Production token validation. Takes precedence over the dev seed. |

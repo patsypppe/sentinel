@@ -95,6 +95,15 @@ func (s *Stdio) handleLine(ctx context.Context, line []byte) envelope.Response {
 			envelope.ErrInvalidParams("_meta", err.Error(), "must be an object"))
 	}
 
+	// The required `_meta` fields. The base protocol's requirement is not a
+	// transport one, so it is enforced here too: this adapter shares the
+	// dispatch path precisely so the two transports cannot disagree about what
+	// a valid request is. Only the "HTTP 400" half of the requirement is
+	// HTTP's, and there is no status on a pipe.
+	if rpcErr := envelope.RequireMetaFields(meta, req.Method, s.negCfg); rpcErr != nil {
+		return s.errorResponse(req.ID, rpcErr)
+	}
+
 	outcome, rpcErr := envelope.Negotiate(meta, req.Method, s.negCfg)
 	if rpcErr != nil {
 		return s.errorResponse(req.ID, rpcErr)

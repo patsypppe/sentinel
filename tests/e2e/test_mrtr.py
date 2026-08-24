@@ -82,10 +82,16 @@ def call(
         "method": method,
         "params": {**(params or {}), "_meta": {
             "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+            # Required: Yes on every request. This client can neither sample,
+            # elicit nor serve roots, and {} says so honestly.
+            "io.modelcontextprotocol/clientCapabilities": {},
         }},
     }
     headers = {
         "Content-Type": "application/json",
+        # Required on EVERY POST, and its value MUST match the protocolVersion
+        # the body declares. The broker rejects a disagreement with -32020.
+        "MCP-Protocol-Version": PROTOCOL,
         "Mcp-Method": method,
         "Authorization": "Bearer " + mint(principal, scopes, audience),
     }

@@ -18,6 +18,9 @@ import httpx
 import pytest
 import yaml
 
+#: Required on every POST, and its value must agree with the body's _meta.
+PROTOCOL = "2026-07-28"
+
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 ENVOY_CONFIG = REPO_ROOT / "envoy" / "envoy.yaml"
 
@@ -128,8 +131,12 @@ def _wait_for(url: str, timeout: float = 60.0) -> None:
     last: httpx.RequestError | None = None
     while time.time() < deadline:
         try:
-            httpx.post(url, json={"jsonrpc": "2.0", "id": 1, "method": "server/discover"},
-                       headers={"Mcp-Method": "server/discover"},
+            httpx.post(url, json={"jsonrpc": "2.0", "id": 1, "method": "server/discover",
+             "params": {"_meta": {
+                 "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                 "io.modelcontextprotocol/clientCapabilities": {},
+             }}},
+                       headers={"MCP-Protocol-Version": PROTOCOL, "Mcp-Method": "server/discover"},
                        timeout=3.0)
             return
         except httpx.RequestError as exc:
@@ -149,11 +156,19 @@ def gateway() -> None:
 def test_trusted_listener_routes_on_the_method_header(gateway: None) -> None:
     resp = httpx.post(
         TRUSTED,
-        content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "server/discover"}),
+        content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "server/discover",
+             "params": {"_meta": {
+                 "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                 "io.modelcontextprotocol/clientCapabilities": {},
+             }}}),
         headers={
             "Content-Type": "application/json",
+            "MCP-Protocol-Version": PROTOCOL,
             "Mcp-Method": "server/discover",
-            "Mcp-Name": "server/discover",
+            # No Mcp-Name: the header table defines it for tools/call,
+            # resources/read and prompts/get only. server/discover has no
+            # params.name or params.uri for a server to match it against, so
+            # sending one asserts a body value that does not exist.
         },
         timeout=10.0,
     )
@@ -168,8 +183,12 @@ def test_gateway_refuses_a_request_it_cannot_route(gateway: None) -> None:
     It refuses instead, which is the behaviour the contract is for."""
     resp = httpx.post(
         TRUSTED,
-        content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "server/discover"}),
-        headers={"Content-Type": "application/json"},
+        content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "server/discover",
+             "params": {"_meta": {
+                 "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                 "io.modelcontextprotocol/clientCapabilities": {},
+             }}}),
+        headers={"Content-Type": "application/json", "MCP-Protocol-Version": PROTOCOL},
         timeout=10.0,
     )
     assert resp.status_code == 400
@@ -191,6 +210,7 @@ def test_untrusted_listener_denies_the_ops_family(gateway: None) -> None:
         ),
         headers={
             "Content-Type": "application/json",
+            "MCP-Protocol-Version": PROTOCOL,
             "Mcp-Method": "tools/call",
             "Mcp-Name": "ops.deployment_apply",
         },
@@ -214,6 +234,7 @@ def test_untrusted_listener_allows_the_warehouse_family(gateway: None) -> None:
         ),
         headers={
             "Content-Type": "application/json",
+            "MCP-Protocol-Version": PROTOCOL,
             "Mcp-Method": "tools/call",
             "Mcp-Name": "warehouse.query",
         },
@@ -242,10 +263,14 @@ def test_a_list_call_with_no_mcp_name_is_routed_and_served(gateway: None) -> Non
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/list",
-                "params": {"_meta": {"io.modelcontextprotocol/protocolVersion": "2026-07-28"}},
+                "params": {"_meta": {
+                    "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                    "io.modelcontextprotocol/clientCapabilities": {},
+                }},
             }
         ),
-        headers={"Content-Type": "application/json", "Mcp-Method": "tools/list"},
+        headers={"Content-Type": "application/json",
+                 "MCP-Protocol-Version": PROTOCOL, "Mcp-Method": "tools/list"},
         timeout=10.0,
     )
     assert resp.headers.get("X-Sentinel-Route") == "untrusted-allow", (
@@ -271,11 +296,15 @@ def test_an_mcp_name_where_the_header_table_defines_none_is_rejected(gateway: No
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/list",
-                "params": {"_meta": {"io.modelcontextprotocol/protocolVersion": "2026-07-28"}},
+                "params": {"_meta": {
+                    "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                    "io.modelcontextprotocol/clientCapabilities": {},
+                }},
             }
         ),
         headers={
             "Content-Type": "application/json",
+            "MCP-Protocol-Version": PROTOCOL,
             "Mcp-Method": "tools/list",
             "Mcp-Name": "tools/list",
         },
@@ -311,6 +340,7 @@ def test_routed_by_header_rejected_by_body_check(gateway: None) -> None:
         ),
         headers={
             "Content-Type": "application/json",
+            "MCP-Protocol-Version": PROTOCOL,
             "Mcp-Method": "tools/call",
             "Mcp-Name": "warehouse.query",
         },

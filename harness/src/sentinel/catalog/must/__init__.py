@@ -7,6 +7,6 @@ reader looking for "the rules about headers" will look for them.
 
 from __future__ import annotations
 
-from sentinel.catalog.must import discovery, envelope, headers, meta, unverifiable
+from sentinel.catalog.must import discovery, envelope, headers, http, meta, unverifiable
 
-__all__ = ["discovery", "envelope", "headers", "meta", "unverifiable"]
+__all__ = ["discovery", "envelope", "headers", "http", "meta", "unverifiable"]

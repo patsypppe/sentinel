@@ -34,13 +34,27 @@ import (
 // be matched: it is refused rather than ignored. Requiring one there would be
 // the mirror-image defect — demanding a header the specification does not
 // define for the method, and refusing conformant traffic because of it.
+//
+// MCP-Protocol-Version is the third header, and it is a different kind of
+// header: nothing routes on it. It exists so the version a request is served
+// under is visible on the wire, and the specification requires it on EVERY POST
+// and requires it to MATCH `_meta.io.modelcontextprotocol/protocolVersion` in
+// the body. It is validated here anyway, because it is the same failure — a
+// header asserting something the body contradicts — and the same error code.
+// ValidateProtocolVersion is a separate function only because it needs the
+// parsed `_meta`, which the routing pair does not.
 
 const (
 	HeaderMcpMethod = "Mcp-Method"
 	HeaderMcpName   = "Mcp-Name"
+	// HeaderProtocolVersion is spelled the way the specification spells it.
+	// http.Header canonicalizes on Get, so the case here is documentation
+	// rather than behaviour — but a client reading this file should see the
+	// spelling it must send.
+	HeaderProtocolVersion = "MCP-Protocol-Version"
 )
 
-// HeaderMismatchData tells the client precisely which of the two headers
+// HeaderMismatchData tells the client precisely which of the headers
 // disagreed and what the body said, so the fix is obvious from the error alone.
 type HeaderMismatchData struct {
 	Header      string `json:"header"`
@@ -88,6 +102,68 @@ func ValidateHeaders(h http.Header, req envelope.Request) *envelope.RPCError {
 		return envelope.New(envelope.CodeHeaderMismatch,
 			fmt.Sprintf("%s is %q but the JSON-RPC body names %q", HeaderMcpName, name, wantName),
 			HeaderMismatchData{Header: HeaderMcpName, HeaderValue: name, BodyValue: wantName})
+	}
+
+	return nil
+}
+
+// ValidateProtocolVersion enforces the MCP-Protocol-Version header against the
+// version the body declares.
+//
+// The specification: "Every POST request to the MCP endpoint MUST include an
+// MCP-Protocol-Version header… The header value MUST match the
+// io.modelcontextprotocol/protocolVersion field carried in the request body's
+// _meta. If the values do not match, the server MUST reject the request with
+// 400 Bad Request and a HeaderMismatch JSON-RPC error."
+//
+//	header    body       verdict
+//	------    ----       -------
+//	absent    absent     not a header defect — see below
+//	absent    declared   -32020 — the header is required
+//	declared  absent     -32020 — nothing in the body to agree with
+//	declared  declared   equal ? ok : -32020
+//
+// The first row is deliberately not this function's to judge. A request that
+// declares no version ANYWHERE is either a client that pre-dates both the
+// header and the field — the case the specification's own carve-out covers,
+// "A server that supports clients implementing protocol versions earlier than
+// 2025-06-18 (which did not define the header) MAY treat a request that omits
+// the header as protocol version 2025-03-26" — or a current client that omitted
+// a required `_meta` field. Either way the defect is in the body, not in a
+// header disagreeing with it, and envelope.RequireMetaFields decides it, with
+// BROKER_ALLOW_LEGACY_UNVERSIONED as the switch. Judging it here as well would
+// give one condition two owners and two different error codes.
+//
+// Every other row bites regardless of that switch. A body declaring 2026-07-28
+// is not a client that pre-dates the header, so nothing rescues it from having
+// dropped one; and a header that disagrees with the body is the exact request a
+// header-routing gateway would have authorized as one revision while another
+// ran underneath it.
+func ValidateProtocolVersion(h http.Header, meta envelope.RequestMeta) *envelope.RPCError {
+	header := h.Get(HeaderProtocolVersion)
+	body := meta.ProtocolVersion
+
+	if header == "" && body == "" {
+		return nil
+	}
+
+	if header == "" {
+		return envelope.New(envelope.CodeHeaderMismatch,
+			fmt.Sprintf("%s is required on every Streamable HTTP POST; the body declares _meta.%s "+
+				"%q, so send that as the header too",
+				HeaderProtocolVersion, envelope.KeyProtocolVersion, body),
+			HeaderMismatchData{Header: HeaderProtocolVersion, HeaderValue: "", BodyValue: body})
+	}
+
+	if header != body {
+		detail := fmt.Sprintf("%s is %q but the body's _meta.%s says %q",
+			HeaderProtocolVersion, header, envelope.KeyProtocolVersion, body)
+		if body == "" {
+			detail = fmt.Sprintf("%s is %q but the body declares no _meta.%s for it to match",
+				HeaderProtocolVersion, header, envelope.KeyProtocolVersion)
+		}
+		return envelope.New(envelope.CodeHeaderMismatch, detail,
+			HeaderMismatchData{Header: HeaderProtocolVersion, HeaderValue: header, BodyValue: body})
 	}
 
 	return nil

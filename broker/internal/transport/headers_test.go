@@ -213,3 +213,110 @@ func TestNameBearingMethodRequiresTheName(t *testing.T) {
 			err.Code, envelope.CodeInvalidParams)
 	}
 }
+
+// --- MCP-Protocol-Version ---------------------------------------------------
+
+func versionHeader(value string) http.Header {
+	h := http.Header{}
+	if value != "" {
+		h.Set(HeaderProtocolVersion, value)
+	}
+	return h
+}
+
+func metaWithVersion(version string) envelope.RequestMeta {
+	return envelope.RequestMeta{ProtocolVersion: version}
+}
+
+// TestProtocolVersionHeaderMatrix walks every square of the table
+// ValidateProtocolVersion documents. "Every POST request to the MCP endpoint
+// MUST include an MCP-Protocol-Version header… The header value MUST match the
+// io.modelcontextprotocol/protocolVersion field carried in the request body's
+// _meta."
+func TestProtocolVersionHeaderMatrix(t *testing.T) {
+	cases := []struct {
+		desc     string
+		header   string
+		body     string
+		rejected bool
+	}{
+		{
+			desc:     "header and body agree",
+			header:   "2026-07-28",
+			body:     "2026-07-28",
+			rejected: false,
+		},
+		{
+			desc:     "header absent while the body declares one",
+			header:   "",
+			body:     "2026-07-28",
+			rejected: true,
+		},
+		{
+			desc:     "header present while the body declares none",
+			header:   "2026-07-28",
+			body:     "",
+			rejected: true,
+		},
+		{
+			desc:     "header and body disagree",
+			header:   "2025-11-25",
+			body:     "2026-07-28",
+			rejected: true,
+		},
+		{
+			// Neither is present: a client that pre-dates both, or a current
+			// client that dropped a required field. envelope.RequireMetaFields
+			// owns that decision, and giving it two owners would give it two
+			// error codes.
+			desc:     "neither is present",
+			header:   "",
+			body:     "",
+			rejected: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.desc, func(t *testing.T) {
+			err := ValidateProtocolVersion(versionHeader(c.header), metaWithVersion(c.body))
+			if c.rejected {
+				if err == nil {
+					t.Fatal("want a rejection")
+				}
+				if err.Code != envelope.CodeHeaderMismatch {
+					t.Fatalf("code = %d, want %d", err.Code, envelope.CodeHeaderMismatch)
+				}
+				raw, _ := json.Marshal(err.Data)
+				var data HeaderMismatchData
+				_ = json.Unmarshal(raw, &data)
+				if data.Header != HeaderProtocolVersion {
+					t.Fatalf("error names header %q, want %q — the client cannot fix what it is not told",
+						data.Header, HeaderProtocolVersion)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("a conformant request was refused: %d %s", err.Code, err.Message)
+			}
+		})
+	}
+}
+
+// TestProtocolVersionHeaderIsNotRoutingData. The other two headers exist so a
+// gateway can route without parsing the body; this one exists so the revision a
+// request runs under is visible on the wire. It is validated the same way for
+// the same reason — a gateway that saw one version while another ran underneath
+// it has authorized something that did not happen.
+func TestProtocolVersionHeaderIsNotRoutingData(t *testing.T) {
+	err := ValidateProtocolVersion(
+		versionHeader("2025-11-25"), metaWithVersion("2026-07-28"))
+	if err == nil {
+		t.Fatal("a header naming a different revision than the body must be rejected")
+	}
+	raw, _ := json.Marshal(err.Data)
+	var data HeaderMismatchData
+	_ = json.Unmarshal(raw, &data)
+	if data.HeaderValue != "2025-11-25" || data.BodyValue != "2026-07-28" {
+		t.Fatalf("error data = %s; it must show both values so the disagreement is legible", raw)
+	}
+}
