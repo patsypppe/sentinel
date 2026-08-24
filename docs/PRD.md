@@ -28,6 +28,35 @@ Collapsing them into one value forces a choice between a short approval window a
 guarantee; the design wants a short window with a long guarantee. **This should be folded back into
 SN-PRD-001 §7.4.**
 
+## Recorded divergence — corrected
+
+`docs/HANDOFF.md` §8.2 stated a header rule the MCP `2026-07-28` specification does not make:
+
+**`Mcp-Name` must equal "the tool, prompt or resource name where the method takes one, *and the
+method name otherwise*".**
+
+The "otherwise" clause has no source. The specification's Standard Request Headers table gives
+`Mcp-Name` the source field `params.name` or `params.uri` and the required scope "`tools/call`,
+`resources/read`, `prompts/get` requests"; "All requests" is `Mcp-Method`'s row. A method with
+neither params field has no corresponding body value, so there is nothing a header could be matched
+against — and the specification's own validation rule is that a server **MUST** reject "requests
+where the values specified in the headers do not match the corresponding values in the request
+body".
+
+The clause was load-bearing in both products, in opposite directions:
+
+- **The broker** required `Mcp-Name` on every method. A conformant client that sent none received
+  `-32020` on its first `tools/list` — a reference implementation demanding a header the
+  specification does not define for the method.
+- **The harness probe** sent the method name as `Mcp-Name` on every non-name-bearing request. A
+  server strict enough to reject that header would have had every probe request refused, and the
+  harness would have graded a conformant server as broken.
+
+Both were corrected together in WP-16, because changing either alone breaks the demo. The catalog
+gained `MCP/2026-07-28/MUST/mcp-name-not-required-where-undefined` (`introduced_in` 0.2.0) so the
+over-validation half is a finding rather than a blind spot, and the non-conformant fixture seeds it.
+**This should be folded back into SN-HND-001 §8.2**, which now carries the correction inline.
+
 ## Precedence
 
 On any question of protocol behavior, the

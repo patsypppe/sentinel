@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from sentinel.catalog.base import SPEC_BASE, RuleResult, Severity, Verifiability, rule
-from sentinel.probe.client import HEADER_MCP_METHOD, HEADER_MCP_NAME, Probe
+from sentinel.probe.client import HEADER_MCP_METHOD, Probe
 from sentinel.probe.transport import RawResponse, Request
 
 TRANSPORT = f"{SPEC_BASE}/basic/transports"
@@ -115,6 +115,78 @@ def mcp_name_required(probe: Probe) -> RuleResult:
             f"{str(control.error())[:200]}"
         )
     return RuleResult.passed("a tools/call with no Mcp-Name was refused")
+
+
+#: Methods the header table does NOT define `Mcp-Name` for. Every one of them is
+#: a list-style method with neither `params.name` nor `params.uri`, so there is
+#: no body value for a header to be matched against.
+NO_NAME_METHODS = [
+    "tools/list",
+    "resources/list",
+    "resources/templates/list",
+    "prompts/list",
+]
+
+
+@rule(
+    id="MCP/2026-07-28/MUST/mcp-name-not-required-where-undefined",
+    title="Mcp-Name is not demanded on a method the header table does not define it for",
+    severity=Severity.MUST,
+    citation=f"{TRANSPORT}#streamable-http",
+    verifiability=Verifiability.BLACK_BOX,
+    introduced_in="0.2.0",
+    remediation=(
+        "Require Mcp-Name for tools/call, resources/read and prompts/get only, and serve "
+        "a list request that carries none. The header is SOURCED FROM params.name or "
+        "params.uri; a method with neither has nothing for it to match, so demanding one "
+        "there refuses a request that satisfies every MUST. A conformant client sends no "
+        "Mcp-Name on tools/list, so a server that requires it everywhere answers -32020 to "
+        "the very first call and looks broken to every client but its own."
+    ),
+)
+def mcp_name_not_required_where_undefined(probe: Probe) -> RuleResult:
+    # The probe already omits Mcp-Name on these methods, so each of these is
+    # simply a conformant request. What is being asked is whether it is served.
+    offenders: list[str] = []
+    checked = 0
+
+    for method in NO_NAME_METHODS:
+        resp = probe.call(method)
+        if not resp.reached_server:
+            return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+        if resp.result() is not None:
+            checked += 1
+            continue
+
+        # Refused. Attributing that refusal to the missing header needs the
+        # control: the SAME request carrying Mcp-Name set to the method name,
+        # which is the value a server that invented an "otherwise" clause for
+        # the header table would be expecting. If that one is served and this
+        # one was not, the header is what decided it.
+        control = probe.call(method, mcp_name=method)
+        if control.result() is None:
+            # Refused either way -- the method is not implemented, or the
+            # refusal is about something else entirely. Not this rule's finding.
+            continue
+        checked += 1
+        offenders.append(f"{method} (refused with {resp.error_code()})")
+
+    if checked == 0:
+        return RuleResult.indeterminate(
+            "no method in the header table's non-Mcp-Name set could be settled: each was "
+            "refused whether or not the header was sent, so nothing is attributable to it"
+        )
+    if offenders:
+        return RuleResult.failed(
+            f"{len(offenders)} of {checked} method(s) were refused without Mcp-Name and "
+            f"served with it: {offenders}. The header table requires Mcp-Name for "
+            "tools/call, resources/read and prompts/get -- 'All requests' is Mcp-Method's "
+            "row -- so this server refuses conformant traffic",
+            evidence=f"refused without Mcp-Name, served with it: {offenders}",
+        )
+    return RuleResult.passed(
+        f"{checked} method(s) with no params.name or params.uri were served with no Mcp-Name"
+    )
 
 
 @rule(
@@ -293,7 +365,10 @@ def malformed_json(probe: Probe) -> RuleResult:
         Request(
             method="tools/list",
             raw_body=b'{"jsonrpc":"2.0","id":1,"method":',
-            headers={HEADER_MCP_METHOD: "tools/list", HEADER_MCP_NAME: "tools/list"},
+            # Mcp-Method only: tools/list has no params.name or params.uri, so
+            # an Mcp-Name here would assert a body value that does not exist --
+            # and against an unparseable body, nothing could match it anyway.
+            headers={HEADER_MCP_METHOD: "tools/list"},
         )
     )
     if not resp.reached_server:

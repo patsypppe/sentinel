@@ -52,6 +52,7 @@ SEEDED_VIOLATIONS: list[str] = [
     "MCP/2026-07-28/MUST/tools-are-named",
     "MCP/2026-07-28/MUST/mcp-method-header-required",
     "MCP/2026-07-28/MUST/mcp-name-header-required",
+    "MCP/2026-07-28/MUST/mcp-name-not-required-where-undefined",
     "MCP/2026-07-28/MUST/header-body-mismatch-rejected",
     "MCP/2026-07-28/MUST/missing-client-capabilities-rejected",
     "MCP/2026-07-28/MUST/missing-protocol-version-rejected",
@@ -183,9 +184,9 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
     # VIOLATES MCP/2026-07-28/MUST/mcp-name-header-required
     # VIOLATES MCP/2026-07-28/MUST/header-body-mismatch-rejected
     #
-    # The headers are never read. Any gateway policy in front of this server is
-    # decorative: a caller omits the header, or lies in it, and the body is
-    # served regardless.
+    # The headers are never read -- with the single exception below. Any gateway
+    # policy in front of this server is decorative: a caller omits the header,
+    # or lies in it, and the body is served regardless.
 
     # VIOLATES: MCP/2026-07-28/MUST/missing-client-capabilities-rejected
     # VIOLATES: MCP/2026-07-28/MUST/missing-protocol-version-rejected
@@ -276,6 +277,25 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
                 # VIOLATES MCP/2026-07-28/SHOULD/server-info-echoed
             },
         )
+
+    if method == "resources/templates/list" and handler.headers.get("Mcp-Name") is None:
+        # VIOLATES MCP/2026-07-28/MUST/mcp-name-not-required-where-undefined
+        #
+        # The one header this server reads, and it reads it wrongly: it demands
+        # Mcp-Name on a method the header table does not define it for. The
+        # header is SOURCED FROM params.name or params.uri, and a templates list
+        # has neither -- so there is nothing here for a header to match, and a
+        # conformant client sends none. This server answers -32020 to a request
+        # that satisfies every MUST.
+        #
+        # It is seeded on this one method rather than on every list endpoint on
+        # purpose: a fixture that refused `tools/list` would starve a dozen other
+        # rules of the manifest they need, and the seeds they exist to detect
+        # would go undetected for a reason that has nothing to do with them.
+        # This is the over-validation defect class, which is a real one -- the
+        # broker in this repository had exactly it until WP-16 -- and it is
+        # invisible to every rule that only checks whether a header is REQUIRED.
+        return 200, error(request_id, -32020, "Mcp-Name is required on Streamable HTTP POST")
 
     if method in ("resources/list", "resources/templates/list", "prompts/list"):
         key = {

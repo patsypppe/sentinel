@@ -84,17 +84,23 @@ def call(
             "io.modelcontextprotocol/protocolVersion": PROTOCOL,
         }},
     }
-    name = mcp_name if mcp_name is not None else (params or {}).get("name", method)
+    headers = {
+        "Content-Type": "application/json",
+        "Mcp-Method": method,
+        "Authorization": "Bearer " + mint(principal, scopes, audience),
+    }
+    # Mcp-Name only where the header table defines it -- tools/call,
+    # resources/read, prompts/get. server/discover has no params.name or
+    # params.uri, so a header naming it would assert a body value that does not
+    # exist, and the broker refuses one.
+    name = mcp_name if mcp_name is not None else (params or {}).get("name")
+    if name is not None:
+        headers["Mcp-Name"] = name
 
     resp = httpx.post(
         BROKER,
         content=json.dumps(body),
-        headers={
-            "Content-Type": "application/json",
-            "Mcp-Method": method,
-            "Mcp-Name": name,
-            "Authorization": "Bearer " + mint(principal, scopes, audience),
-        },
+        headers=headers,
         timeout=30.0,
     )
     resp.raise_for_status()
@@ -293,7 +299,6 @@ def test_discovery_needs_no_token() -> None:
         headers={
             "Content-Type": "application/json",
             "Mcp-Method": "server/discover",
-            "Mcp-Name": "server/discover",
         },
         timeout=10.0,
     )

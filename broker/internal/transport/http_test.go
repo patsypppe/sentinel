@@ -42,14 +42,14 @@ func post(t *testing.T, srv *httptest.Server, body string) envelope.Response {
 
 	var req envelope.Request
 	_ = json.Unmarshal([]byte(body), &req)
-	name, _ := ExpectedMcpName(req)
-	if name == "" {
-		name = req.Method
+	headers := map[string]string{HeaderMcpMethod: req.Method}
+	// Mcp-Name only where the specification defines it. Sending it on a
+	// tools/list would be a header asserting a body value that does not exist,
+	// which this server refuses.
+	if name, takesName, err := ExpectedMcpName(req); takesName && err == nil {
+		headers[HeaderMcpName] = name
 	}
-	return postRaw(t, srv, body, map[string]string{
-		HeaderMcpMethod: req.Method,
-		HeaderMcpName:   name,
-	})
+	return postRaw(t, srv, body, headers)
 }
 
 func postRaw(t *testing.T, srv *httptest.Server, body string, headers map[string]string) envelope.Response {
@@ -273,12 +273,24 @@ func TestHeaderContractEnforcedOverHTTP(t *testing.T) {
 	})
 
 	t.Run("headers agree", func(t *testing.T) {
+		// No Mcp-Name: server/discover has no params.name or params.uri, so
+		// the header is not defined for it and sending one is itself a
+		// mismatch.
+		resp := postRaw(t, srv, body, map[string]string{
+			HeaderMcpMethod: "server/discover",
+		})
+		if resp.Error != nil {
+			t.Fatalf("conformant headers rejected: %d %s", resp.Error.Code, resp.Error.Message)
+		}
+	})
+
+	t.Run("Mcp-Name on a method that takes none", func(t *testing.T) {
 		resp := postRaw(t, srv, body, map[string]string{
 			HeaderMcpMethod: "server/discover",
 			HeaderMcpName:   "server/discover",
 		})
-		if resp.Error != nil {
-			t.Fatalf("conformant headers rejected: %d %s", resp.Error.Code, resp.Error.Message)
+		if resp.Error == nil || resp.Error.Code != envelope.CodeHeaderMismatch {
+			t.Fatalf("want %d, got %+v", envelope.CodeHeaderMismatch, resp.Error)
 		}
 	})
 }

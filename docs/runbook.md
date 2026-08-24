@@ -92,10 +92,12 @@ message, deliberately: which check failed is useful in a server log and is an or
 Check the broker's log for the specific cause, then confirm `aud` matches
 `BROKER_OAUTH_AUDIENCE` **exactly** (not by prefix) and that the token has not expired.
 
-**`-32020` on a request that looks right** — `Mcp-Method` must equal the JSON-RPC `method`, and
-`Mcp-Name` must equal the tool/prompt/resource name where the method takes one. For `tools/call`
-that is `params.name`; for `resources/read` it is `params.uri`. The error names which header
-disagreed and what the body said.
+**`-32020` on a request that looks right** — `Mcp-Method` must equal the JSON-RPC `method`.
+`Mcp-Name` belongs on `tools/call`, `resources/read` and `prompts/get` and nowhere else: it is
+sourced from `params.name` for the first and third and from `params.uri` for the second, and it must
+equal that field exactly. **Send it on no other method** — a `tools/list` has no such field, so a
+header there asserts a body value that does not exist and is refused as a mismatch. The error names
+which header disagreed and what the body said.
 
 **`-32022` on a method you expect to exist** — negotiation runs *before* dispatch, so an
 unversioned request naming a method that never existed in `2025-11-25` reports a version failure

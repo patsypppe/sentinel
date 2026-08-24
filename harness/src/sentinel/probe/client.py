@@ -152,13 +152,23 @@ class Probe:
             )
         return meta
 
-    def expected_name(self, method: str, params: dict[str, Any] | None) -> str:
-        """What `Mcp-Name` must be for this request (§8.2)."""
+    def expected_name(self, method: str, params: dict[str, Any] | None) -> str | None:
+        """What `Mcp-Name` must be for this request, or None where the header is
+        not defined for the method (§8.2).
+
+        The Standard Request Headers table sources `Mcp-Name` from `params.name`
+        or `params.uri` and requires it for `tools/call`, `resources/read` and
+        `prompts/get` — "All requests" is `Mcp-Method`'s row. A method with
+        neither field has nothing for a header to be matched against, so sending
+        one would assert a body value that does not exist, and a server strict
+        enough to reject that would be right to. The probe would then grade a
+        conformant server as broken on every rule at once.
+        """
         field = NAME_BEARING.get(method)
         if field is None:
-            return method
+            return None
         value = (params or {}).get(field)
-        return str(value) if value is not None else method
+        return str(value) if value is not None else None
 
     def build(
         self,
@@ -191,9 +201,14 @@ class Probe:
         if not omit_mcp_method:
             built[HEADER_MCP_METHOD] = mcp_method if mcp_method is not None else method
         if not omit_mcp_name:
-            built[HEADER_MCP_NAME] = (
+            resolved_name = (
                 mcp_name if mcp_name is not None else self.expected_name(method, params)
             )
+            # Omitted ENTIRELY, not sent empty: a method the header table does
+            # not name has no body field for the header to match, and an empty
+            # header value is still a claim that one exists.
+            if resolved_name is not None:
+                built[HEADER_MCP_NAME] = resolved_name
         if not omit_protocol_version_header:
             declared = self.meta(version=version).get(KEY_PROTOCOL_VERSION)
             resolved_header = (

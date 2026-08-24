@@ -24,8 +24,11 @@ def _wait(endpoint: str, timeout: float = 10.0) -> None:
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
+            # No Mcp-Name: the header table defines it for tools/call,
+            # resources/read and prompts/get only, and a conformant server may
+            # refuse one sent anywhere else.
             httpx.post(endpoint, json={"jsonrpc": "2.0", "id": 1, "method": "server/discover"},
-                       headers={"Mcp-Method": "server/discover", "Mcp-Name": "server/discover"},
+                       headers={"Mcp-Method": "server/discover"},
                        timeout=1.0)
             return
         except httpx.RequestError:

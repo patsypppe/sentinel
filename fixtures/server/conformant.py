@@ -120,12 +120,12 @@ def declared_version(payload: dict[str, Any]) -> str | None:
     return version if isinstance(version, str) else None
 
 
-def expected_name(method: str, params: dict[str, Any]) -> str:
-    field = NAME_BEARING.get(method)
-    if field is None:
-        return method
+def expected_name(method: str, params: dict[str, Any]) -> str | None:
+    """The value `Mcp-Name` must carry, for a method the header table defines it
+    for. `None` means the body has no such field, so nothing can match."""
+    field = NAME_BEARING[method]
     value = params.get(field)
-    return str(value) if value is not None else method
+    return str(value) if value is not None else None
 
 
 def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
@@ -155,13 +155,27 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
             request_id, -32020,
             f"Mcp-Method is {header_method!r} but the body says {method!r}",
         )
-    if header_name is None:
-        return 200, error(request_id, -32020, "Mcp-Name is required on Streamable HTTP POST")
-    want_name = expected_name(method, params)
-    if header_name != want_name:
+    # Mcp-Name is required for the three methods the header table names, and
+    # DEFINED for those three alone -- "All requests" is Mcp-Method's row. A
+    # method with no params.name or params.uri has no body value for the header
+    # to match, so one sent there asserts something that does not exist, and one
+    # DEMANDED there refuses a request that satisfies every MUST.
+    if method in NAME_BEARING:
+        if header_name is None:
+            return 200, error(
+                request_id, -32020, f"Mcp-Name is required on a {method} POST"
+            )
+        want_name = expected_name(method, params)
+        if header_name != want_name:
+            return 200, error(
+                request_id, -32020,
+                f"Mcp-Name is {header_name!r} but the body names {want_name!r}",
+            )
+    elif header_name is not None:
         return 200, error(
             request_id, -32020,
-            f"Mcp-Name is {header_name!r} but the body names {want_name!r}",
+            f"Mcp-Name is {header_name!r} but {method} carries no params.name or "
+            "params.uri for it to match",
         )
 
     # 2. The per-request `_meta`. Both fields below are Required: Yes on every

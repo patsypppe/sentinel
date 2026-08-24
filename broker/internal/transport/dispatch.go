@@ -67,8 +67,7 @@ func (m *Mux) Lookup(method string) (Handler, *envelope.RPCError) {
 	return nil, envelope.ErrMethodNotFound(method)
 }
 
-// Methods lists every registered method. Used by the header contract to decide
-// whether Mcp-Name should name a tool or repeat the method.
+// Methods lists every registered method.
 func (m *Mux) Methods() []string {
 	out := make([]string, 0, len(m.handlers))
 	for k := range m.handlers {

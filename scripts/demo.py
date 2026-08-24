@@ -95,15 +95,22 @@ def call(
     if body["id"] is None:
         body["id"] = int(time.time() * 1000) % 100000
 
+    headers = {
+        "Content-Type": "application/json",
+        "Mcp-Method": method,
+        "Authorization": f"Bearer {token}",
+    }
+    # Mcp-Name is defined for tools/call, resources/read and prompts/get. A
+    # method with no params.name or params.uri has nothing for it to match, and
+    # the broker refuses a header asserting a body value that does not exist.
+    mcp_name = name or (params or {}).get("name") or (params or {}).get("uri")
+    if mcp_name is not None:
+        headers["Mcp-Name"] = str(mcp_name)
+
     request = urllib.request.Request(
         BROKER,
         data=json.dumps(body).encode(),
-        headers={
-            "Content-Type": "application/json",
-            "Mcp-Method": method,
-            "Mcp-Name": name or (params or {}).get("name", method),
-            "Authorization": f"Bearer {token}",
-        },
+        headers=headers,
     )
     with urllib.request.urlopen(request, timeout=30) as resp:
         return json.loads(resp.read())

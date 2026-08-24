@@ -129,7 +129,7 @@ def _wait_for(url: str, timeout: float = 60.0) -> None:
     while time.time() < deadline:
         try:
             httpx.post(url, json={"jsonrpc": "2.0", "id": 1, "method": "server/discover"},
-                       headers={"Mcp-Method": "server/discover", "Mcp-Name": "server/discover"},
+                       headers={"Mcp-Method": "server/discover"},
                        timeout=3.0)
             return
         except httpx.RequestError as exc:
@@ -223,6 +223,67 @@ def test_untrusted_listener_allows_the_warehouse_family(gateway: None) -> None:
     # (tools/call has no registered handler until WP-3).
     assert resp.status_code == 200
     assert resp.headers.get("X-Sentinel-Route") == "untrusted-allow"
+
+
+@pytest.mark.e2e
+def test_a_list_call_with_no_mcp_name_is_routed_and_served(gateway: None) -> None:
+    """`Mcp-Name` is defined for `tools/call`, `resources/read` and `prompts/get`
+    only, so a conformant `tools/list` carries none.
+
+    Both halves must survive that. Envoy's `deny_ops_family` rule needs BOTH
+    header matches, so a request with neither falls through to `allow_remainder`
+    — and the broker must serve it rather than demand a header the specification
+    does not define for the method.
+    """
+    resp = httpx.post(
+        UNTRUSTED,
+        content=json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/list",
+                "params": {"_meta": {"io.modelcontextprotocol/protocolVersion": "2026-07-28"}},
+            }
+        ),
+        headers={"Content-Type": "application/json", "Mcp-Method": "tools/list"},
+        timeout=10.0,
+    )
+    assert resp.headers.get("X-Sentinel-Route") == "untrusted-allow", (
+        "a tools/list carrying no Mcp-Name must not match the ops.* denial"
+    )
+    body = resp.json()
+    assert "error" not in body, (
+        f"the broker refused a conformant tools/list that carried no Mcp-Name: {body}"
+    )
+
+
+@pytest.mark.e2e
+def test_an_mcp_name_where_the_header_table_defines_none_is_rejected(gateway: None) -> None:
+    """The mirror image. `Mcp-Name` is SOURCED FROM `params.name` or
+    `params.uri`; `tools/list` has neither, so a header sent there asserts a body
+    value that does not exist and nothing can match it. The gateway routes it
+    through — it matches no deny rule — and the broker refuses it with -32020.
+    """
+    resp = httpx.post(
+        UNTRUSTED,
+        content=json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/list",
+                "params": {"_meta": {"io.modelcontextprotocol/protocolVersion": "2026-07-28"}},
+            }
+        ),
+        headers={
+            "Content-Type": "application/json",
+            "Mcp-Method": "tools/list",
+            "Mcp-Name": "tools/list",
+        },
+        timeout=10.0,
+    )
+    body = resp.json()
+    assert body["error"]["code"] == -32020, body
+    assert body["error"]["data"]["header"] == "Mcp-Name"
 
 
 @pytest.mark.e2e
