@@ -11,6 +11,7 @@ from sentinel.catalog import must, should
 from sentinel.catalog.base import (
     REGISTRY,
     BaseRule,
+    Namespace,
     Outcome,
     Registry,
     RuleResult,
@@ -22,6 +23,7 @@ from sentinel.catalog.base import (
 __all__ = [
     "REGISTRY",
     "BaseRule",
+    "Namespace",
     "Outcome",
     "Registry",
     "RuleResult",
