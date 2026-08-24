@@ -49,6 +49,15 @@ type Config struct {
 	// Negotiation
 	AllowLegacyUnversioned bool
 
+	// EmitLegacyErrorCode attaches data.legacyCode to the errors whose codes
+	// moved out of -32000…-32019 in this revision, so a client that triaged on
+	// the old numbers keeps working for one release. Defaults on.
+	//
+	// SCHEDULED FOR REMOVAL: this knob and the field it controls exist only for
+	// the transition release and go away with it. Nothing may come to depend on
+	// data.legacyCode.
+	EmitLegacyErrorCode bool
+
 	// Audience validation (SN-CAP-21). Full OAuth is out of scope; the MUST NOT
 	// is not.
 	OAuthIssuer   string
@@ -73,6 +82,7 @@ func Default() Config {
 		ToolsListCacheTTLMs:    300_000,
 		DefaultTokenCap:        25_000,
 		AllowLegacyUnversioned: true,
+		EmitLegacyErrorCode:    true,
 		OAuthIssuer:            "https://issuer.sentinel.local",
 		OAuthAudience:          "https://broker.sentinel.local",
 	}
@@ -151,12 +161,20 @@ func FromEnv() (Config, error) {
 		}
 	}
 
-	if v, ok := os.LookupEnv("BROKER_ALLOW_LEGACY_UNVERSIONED"); ok {
-		parsed, err := strconv.ParseBool(v)
-		if err != nil {
-			return c, fmt.Errorf("BROKER_ALLOW_LEGACY_UNVERSIONED: %q is not a boolean: %w", v, err)
+	for _, b := range []struct {
+		key string
+		dst *bool
+	}{
+		{"BROKER_ALLOW_LEGACY_UNVERSIONED", &c.AllowLegacyUnversioned},
+		{"BROKER_EMIT_LEGACY_ERROR_CODE", &c.EmitLegacyErrorCode},
+	} {
+		if v, ok := os.LookupEnv(b.key); ok {
+			parsed, err := strconv.ParseBool(v)
+			if err != nil {
+				return c, fmt.Errorf("%s: %q is not a boolean: %w", b.key, v, err)
+			}
+			*b.dst = parsed
 		}
-		c.AllowLegacyUnversioned = parsed
 	}
 
 	return c, c.Validate()

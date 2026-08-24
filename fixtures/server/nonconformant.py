@@ -32,7 +32,10 @@ PORT = 9000
 #: that the specification grades SHOULD, and a SHOULD the specification never
 #: made at all — and this fixture still violates all three. Keeping them here
 #: under their successor ids means recall is reported per severity rather than
-#: improved by dropping the seeds that stopped being MUSTs.
+#: improved by dropping the seeds that stopped being MUSTs. The legacy-range
+#: seed is a SHOULD for a different reason: the specification grades emitting a
+#: retired code "SHOULD NOT", so a harness that failed it as a MUST would be
+#: demanding more than the specification does.
 SEEDED_VIOLATIONS: list[str] = [
     "MCP/2026-07-28/MUST/discover-without-negotiated-version",
     "MCP/2026-07-28/MUST/discover-reports-supported-versions",
@@ -52,6 +55,7 @@ SEEDED_VIOLATIONS: list[str] = [
     "MCP/2026-07-28/MUST/header-body-mismatch-rejected",
     "MCP/2026-07-28/MUST/resource-not-found-is-invalid-params",
     "MCP/2026-07-28/MUST/no-errors-in-reserved-range",
+    "MCP/2026-07-28/SHOULD/no-errors-in-legacy-range",
     "MCP/2026-07-28/MUST/unknown-method-is-method-not-found",
     "MCP/2026-07-28/MUST/malformed-json-is-parse-error",
     "MCP/2026-07-28/MUST/unsupported-version-rejected",
@@ -278,12 +282,15 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
         params = payload.get("params") or {}
         name = params.get("name") if isinstance(params, dict) else None
         if name not in [t.get("name") for t in TOOLS]:
-            # VIOLATES MCP/2026-07-28/MUST/no-errors-in-reserved-range
+            # VIOLATES: MCP/2026-07-28/SHOULD/no-errors-in-legacy-range
             #
-            # -32050 sits inside -32020…-32099, which the specification reserves
-            # for itself. A future revision will define it, and this server's
-            # clients will act on the wrong meaning.
-            return 200, error(request_id, -32050, "unknown tool")
+            # -32011 is inside -32000…-32019, which the revision retired: apart
+            # from -32002, "receivers MUST NOT assume any specific meaning for
+            # these codes". A server written against the previous revision
+            # allocated here because that was where implementation-defined codes
+            # went, and nothing about the code itself says it stopped being a
+            # sensible place to put one.
+            return 200, error(request_id, -32011, "unknown tool")
         return 200, result(request_id, {"content": [{"type": "text", "text": "ok"}]})
 
     # Methods this revision REMOVED, all still served.

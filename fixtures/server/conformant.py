@@ -226,8 +226,9 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
         return 200, result(request_id, enveloped(
             {"content": [{"type": "text", "text": output}]}, resolved))
 
-    # Implementation-defined codes would go in -32000…-32019; this is a plain
-    # method-not-found, which is -32601 and outside the reserved range.
+    # Implementation-defined codes would go outside the JSON-RPC reserved range
+    # entirely (this revision retired -32000…-32019 along with reserving
+    # -32020…-32099); this is a plain method-not-found, which is -32601.
     return 200, error(request_id, -32601, f"unknown method {method!r}")
 
 

@@ -177,3 +177,44 @@ func TestErrorsAreDistinct(t *testing.T) {
 		seen[code] = true
 	}
 }
+
+// TestWithLegacyCodePreservesStructuredData. CodeScopeDenied carries its
+// required scope as a struct, and §8.4 calls that the actionable part of the
+// error. Nesting it under "detail" to make room for legacyCode would move the
+// one field a client reads — a transition aid breaking what it exists to
+// protect, with the flag on by default.
+func TestWithLegacyCodePreservesStructuredData(t *testing.T) {
+	payload := struct {
+		RequiredScope string `json:"requiredScope"`
+	}{RequiredScope: "warehouse:read"}
+
+	err := WithLegacyCode(New(CodeScopeDenied, "denied", payload))
+	data, ok := err.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("Data = %#v, want a map", err.Data)
+	}
+	if data["requiredScope"] != "warehouse:read" {
+		t.Errorf("requiredScope = %v, want warehouse:read; it must stay at the top level",
+			data["requiredScope"])
+	}
+	if _, nested := data["detail"]; nested {
+		t.Error(`structured data was nested under "detail"; a client reading ` +
+			`error.data.requiredScope would find nothing there`)
+	}
+	if data["legacyCode"] != float64(-32007) && data["legacyCode"] != -32007 {
+		t.Errorf("legacyCode = %v, want -32007", data["legacyCode"])
+	}
+}
+
+// TestWithLegacyCodeFallsBackToDetailForANonObject. A bare string has nowhere
+// to merge into, so it keeps the "detail" wrapper.
+func TestWithLegacyCodeFallsBackToDetailForANonObject(t *testing.T) {
+	err := WithLegacyCode(New(CodeHandleNotResolvable, "nope", "a bare string"))
+	data := err.Data.(map[string]any)
+	if data["detail"] != "a bare string" {
+		t.Errorf(`detail = %v, want the original string`, data["detail"])
+	}
+	if data["legacyCode"] != -32000 {
+		t.Errorf("legacyCode = %v, want -32000", data["legacyCode"])
+	}
+}

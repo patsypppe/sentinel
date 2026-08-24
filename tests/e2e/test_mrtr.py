@@ -199,7 +199,7 @@ def test_mutated_retry_is_rejected() -> None:
         "inputResponses": {"confirm": True},
     }})
     assert "error" in out, "a retry naming a different plan must be refused"
-    assert out["error"]["code"] == -32003, out["error"]
+    assert out["error"]["code"] == 1003, out["error"]
 
 
 def test_tampered_request_state_is_rejected() -> None:
@@ -213,7 +213,7 @@ def test_tampered_request_state_is_rejected() -> None:
         "inputResponses": {"confirm": True},
     }})
     assert "error" in out, "a tampered requestState must be refused"
-    assert out["error"]["code"] == -32004, out["error"]
+    assert out["error"]["code"] == 1004, out["error"]
 
 
 def test_cross_principal_retry_is_rejected() -> None:
@@ -246,7 +246,7 @@ def test_leaked_plan_handle_is_refused_for_another_principal() -> None:
         scopes="ops:plan ops:apply",
     )
     assert "error" in out, "a leaked handle resolved for a different principal"
-    assert out["error"]["code"] == -32000, out["error"]
+    assert out["error"]["code"] == 1000, out["error"]
     # One message for every cause, so nothing distinguishes "not yours" from
     # "no such handle".
     for cause in ("does not exist", "not yours", "expired", "revoked"):
@@ -261,7 +261,7 @@ def test_scope_denial_names_the_missing_scope() -> None:
         scopes="warehouse:read",
     )
     assert "error" in out
-    assert out["error"]["code"] == -32007, out["error"]
+    assert out["error"]["code"] == 1007, out["error"]
     assert out["error"]["data"]["requiredScope"] == "ops:apply"
 
 

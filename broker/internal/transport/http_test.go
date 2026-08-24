@@ -12,6 +12,7 @@ import (
 
 	"github.com/patsypppe/sentinel/broker/internal/config"
 	"github.com/patsypppe/sentinel/broker/internal/envelope"
+	"github.com/patsypppe/sentinel/broker/internal/registry"
 )
 
 func testServer(t *testing.T) *httptest.Server {
@@ -295,5 +296,124 @@ func TestHeaderContractIsCheckedBeforeNegotiation(t *testing.T) {
 	if resp.Error.Code != envelope.CodeHeaderMismatch {
 		t.Fatalf("code = %d, want %d: the header contract is validated before negotiation",
 			resp.Error.Code, envelope.CodeHeaderMismatch)
+	}
+}
+
+// --- data.legacyCode through the transition ---------------------------------
+
+// scopedTool declares a scope so the tests below can provoke a REAL scope
+// denial through the real pipeline. A handler that simply returned
+// CodeScopeDenied would prove only that writeError can serialize a number.
+type scopedTool struct{}
+
+func (scopedTool) Name() string        { return "warehouse.query" }
+func (scopedTool) Description() string { return "a tool that requires a scope its caller lacks" }
+func (scopedTool) InputSchema() json.RawMessage {
+	return json.RawMessage(`{"type":"object","properties":{"q":{"type":"string"}}}`)
+}
+func (scopedTool) OutputSchema() json.RawMessage {
+	return json.RawMessage(`{"type":"object","properties":{"rows":{"type":"array"}}}`)
+}
+func (scopedTool) Scopes() []string                      { return []string{"warehouse:read"} }
+func (scopedTool) Reversibility() registry.Reversibility { return registry.Reversible }
+func (scopedTool) CachePolicy() envelope.CachePolicy {
+	return envelope.CachePolicy{TTLMs: 300_000, Scope: envelope.ScopePrivate}
+}
+func (scopedTool) TokenCap() int { return 25_000 }
+func (scopedTool) Call(context.Context, registry.Principal, json.RawMessage) (registry.Result, error) {
+	return &envelope.ToolsCallResult{}, nil
+}
+
+// scopeDeniedServer serves tools/call with one scoped tool, and authenticates
+// every request as a principal that holds no scopes at all.
+func scopeDeniedServer(t *testing.T, opts ...Option) *httptest.Server {
+	t.Helper()
+
+	reg, err := registry.New(scopedTool{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	info := envelope.Info{Name: "sentinel-broker", Version: "test"}
+	mux := NewMux()
+	mux.Handle(envelope.MethodToolsCall, ToolsCallHandler(reg))
+
+	opts = append(opts, WithAuthenticator(DevAuthenticator{Enabled: true, Tenant: "t1"}))
+	s := NewServer(mux, config.Default(), info, slog.New(slog.NewTextHandler(io.Discard, nil)), opts...)
+	srv := httptest.NewServer(s.Routes())
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// denyScope calls the scoped tool with a scopeless principal and returns the
+// refusal, having first checked that it is the refusal we meant to provoke.
+func denyScope(t *testing.T, srv *httptest.Server) *envelope.RPCError {
+	t.Helper()
+
+	resp := postRaw(t, srv,
+		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"warehouse.query","arguments":{}}}`,
+		map[string]string{
+			HeaderMcpMethod: envelope.MethodToolsCall,
+			HeaderMcpName:   "warehouse.query",
+			HeaderPrincipal: "alice",
+			// HeaderScopes is deliberately absent: alice holds nothing.
+		})
+	if resp.Error == nil {
+		t.Fatal("tools/call succeeded for a principal holding none of the tool's scopes")
+	}
+	if resp.Error.Code != envelope.CodeScopeDenied {
+		t.Fatalf("code = %d, want %d (scope denied)", resp.Error.Code, envelope.CodeScopeDenied)
+	}
+	return resp.Error
+}
+
+// errorDataKeys decodes error.data as an object so a test can ask whether a key
+// is present, not merely whether it decoded to a zero value. Going through
+// json.RawMessage keeps the numbers integers: a number read through `any`
+// becomes a float64 and stops comparing equal to the constant it came from.
+func errorDataKeys(t *testing.T, rpcErr *envelope.RPCError) map[string]json.RawMessage {
+	t.Helper()
+
+	if rpcErr.Data == nil {
+		return nil
+	}
+	raw, err := json.Marshal(rpcErr.Data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &keys); err != nil {
+		t.Fatalf("error data is not a JSON object: %s", raw)
+	}
+	return keys
+}
+
+// TestErrorCarriesLegacyCodeDuringTransition. A client that triaged on -32007
+// through v0.1.0 must be able to keep doing so for one release.
+func TestErrorCarriesLegacyCodeDuringTransition(t *testing.T) {
+	rpcErr := denyScope(t, scopeDeniedServer(t, WithLegacyErrorCodes(true)))
+
+	keys := errorDataKeys(t, rpcErr)
+	raw, ok := keys["legacyCode"]
+	if !ok {
+		t.Fatalf("error data carries no legacyCode: %v", keys)
+	}
+	var legacy int
+	if err := json.Unmarshal(raw, &legacy); err != nil {
+		t.Fatalf("legacyCode is not an integer: %s", raw)
+	}
+	if legacy != -32007 {
+		t.Errorf("legacyCode = %d, want -32007", legacy)
+	}
+}
+
+// TestLegacyCodeIsOmittedWhenDisabled. The transition aid is a transition aid:
+// turning it off must leave no trace of the retired number.
+func TestLegacyCodeIsOmittedWhenDisabled(t *testing.T) {
+	rpcErr := denyScope(t, scopeDeniedServer(t, WithLegacyErrorCodes(false)))
+
+	if keys := errorDataKeys(t, rpcErr); keys != nil {
+		if _, present := keys["legacyCode"]; present {
+			t.Errorf("legacyCode is present with the option off: %v", keys)
+		}
 	}
 }

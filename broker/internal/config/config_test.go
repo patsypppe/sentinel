@@ -54,3 +54,25 @@ func TestEnvOverridesApply(t *testing.T) {
 		t.Fatalf("DefaultTokenCap = %d, want 1234", c.DefaultTokenCap)
 	}
 }
+
+// TestLegacyErrorCodeEmissionDefaultsOn. The eight implementation codes moved
+// out of -32000…-32019 in this revision, and data.legacyCode is what keeps a
+// client that triaged on the old numbers working for one release. Defaulting it
+// off would make the upgrade silently breaking for exactly those clients.
+func TestLegacyErrorCodeEmissionDefaultsOn(t *testing.T) {
+	if !Default().EmitLegacyErrorCode {
+		t.Fatal("EmitLegacyErrorCode must default to true for the transition release")
+	}
+}
+
+func TestLegacyErrorCodeEmissionCanBeDisabled(t *testing.T) {
+	t.Setenv("BROKER_EMIT_LEGACY_ERROR_CODE", "false")
+
+	c, err := FromEnv()
+	if err != nil {
+		t.Fatalf("FromEnv: %v", err)
+	}
+	if c.EmitLegacyErrorCode {
+		t.Fatal("BROKER_EMIT_LEGACY_ERROR_CODE=false must turn the transition aid off")
+	}
+}

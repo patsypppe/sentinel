@@ -274,9 +274,27 @@ The `2026-07-28` allocation policy partitions the JSON-RPC server-error range. I
 | `-32020` | `HeaderMismatch` | `Mcp-Method` or `Mcp-Name` disagrees with the JSON-RPC body |
 | `-32021` | `MissingRequiredClientCapability` | The operation needs a capability the client did not declare |
 | `-32022` | `UnsupportedProtocolVersion` | Negotiation failure |
-| `-32000` … `-32019` | Implementation-defined | Sentinel's own: handle not resolvable, MRTR flow expired, retry arguments mutated, budget exceeded |
+| `-32000` … `-32019` | **Legacy — retired** | Allocated by implementations before this policy existed. Do not allocate here, and do not use it at all in a new implementation |
+| `1000` … `1019` | Implementation-defined | Sentinel's own: handle not resolvable, MRTR flow expired, retry arguments mutated, budget exceeded |
 
-Reserve `-32020` … `-32099` for the specification and never allocate inside it. Write a test that enumerates every error the server can emit and asserts none falls in the reserved range.
+Reserve `-32020` … `-32099` for the specification and never allocate inside it. Write a test that enumerates every error the server can emit and asserts none falls in the reserved range — or in the retired sub-range.
+
+#### Recorded divergence from this handoff, and why
+
+**This section as originally written put Sentinel's own codes in `-32000` … `-32019`. That is wrong, and the specification wins.** The `2026-07-28` allocation policy retires that sub-range:
+
+> `-32000` to `-32019` — legacy. Codes in this sub-range were allocated by implementations before this policy was introduced. New codes **MUST NOT** be allocated in this sub-range, and new implementations **SHOULD NOT** use codes from this sub-range at all. Apart from `-32002` […] receivers **MUST NOT** assume any specific meaning for these codes.
+>
+> New error codes for purposes not defined by this specification **SHOULD** be allocated outside the JSON-RPC reserved range (`-32768` to `-32000`); the remainder of the integer space is available for application-defined errors.
+
+Broker is a new implementation written against `2026-07-28`, so both sentences apply to it: nothing it allocates may go in the retired sub-range, and its codes belong outside the JSON-RPC reserved range entirely.
+
+- The eight implementation-defined codes moved from `-32000` … `-32008` to `1000` … `1008`, defined in `broker/internal/envelope/errors.go` and nowhere else.
+- The low ordinal is preserved so triage knowledge transfers: `-32007` became `1007`. `1002` is skipped, mirroring `-32002`, which was resource-not-found before this revision.
+- `envelope.LegacyCode` maps each new code back to the one it replaced, so a client mid-migration can still triage on the old number.
+- `MCP/2026-07-28/SHOULD/no-errors-in-legacy-range` grades this on any server, so the repository detects the mistake rather than only having stopped making it. It is a SHOULD because the specification grades *using* a retired code `SHOULD NOT`; the `MUST NOT` binds allocation, which no black-box scan can observe.
+
+**This should be folded back into SN-HND-001 §7.2 and §14.**
 
 ### 7.3 Tool registration
 
@@ -953,7 +971,7 @@ Steps 1–2 and 6 are the ones that get remembered: the scanner that grades othe
 
 **13. Envoy config errors denying valid traffic silently.** Config test in CI from day one.
 
-**14. Allocating an error code inside `-32020`…`-32099`.** Reserved for the specification. Your codes live in `-32000`…`-32019`, and a test enumerates them.
+**14. Allocating an error code inside `-32020`…`-32099` — or inside `-32000`…`-32019`.** The first is reserved for the specification; the second is the sub-range this revision **retired**, where apart from `-32002` a receiver must not assume any meaning at all. Your codes live at `1000`…`1019`, outside the JSON-RPC reserved range entirely, and a test enumerates them. See §7.2 — this handoff originally mandated the retired sub-range, and the specification wins.
 
 ---
 

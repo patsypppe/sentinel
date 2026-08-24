@@ -1,6 +1,9 @@
 package envelope
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // This file is the ONLY place error codes are defined (docs/HANDOFF.md §5,
 // layout rules). A reviewer should be able to audit the server's entire error
@@ -103,18 +106,51 @@ func LegacyCode(code int) (int, bool) {
 
 // WithLegacyCode attaches data.legacyCode so a client mid-migration can triage
 // on either number. Scheduled for removal — see BROKER_EMIT_LEGACY_ERROR_CODE.
+//
+// It merges at the TOP level of data, never underneath it. Most of our errors
+// carry structured data as a struct rather than a map — CodeScopeDenied carries
+// {"requiredScope": …}, which §8.4 says is the actionable part of the error —
+// and nesting that under "detail" to make room for legacyCode would move the
+// field a client actually reads. A transition aid that breaks the field it
+// exists to protect is worse than no transition aid, so a struct is round-
+// tripped through JSON and merged key-by-key.
+//
+// Only a non-object payload (a bare string, a number, an array) has nowhere to
+// merge into, and only that falls back to "detail".
 func WithLegacyCode(err *RPCError) *RPCError {
 	old, ok := LegacyCode(err.Code)
 	if !ok {
 		return err
 	}
+
 	data := map[string]any{}
-	if existing, isMap := err.Data.(map[string]any); isMap {
+	switch existing := err.Data.(type) {
+	case nil:
+	case map[string]any:
 		for k, v := range existing {
 			data[k] = v
 		}
-	} else if err.Data != nil {
-		data["detail"] = err.Data
+	default:
+		// Round-trip so a struct's json tags decide the key names, exactly as
+		// they would have on the wire without this wrapper.
+		if encoded, encErr := json.Marshal(existing); encErr == nil {
+			var fields map[string]any
+			if json.Unmarshal(encoded, &fields) == nil {
+				for k, v := range fields {
+					data[k] = v
+				}
+			} else {
+				data["detail"] = existing
+			}
+		} else {
+			data["detail"] = existing
+		}
+	}
+
+	if _, taken := data["legacyCode"]; taken {
+		// The payload already has a legacyCode of its own. Ours would silently
+		// overwrite it, so leave the error alone rather than corrupt it.
+		return err
 	}
 	data["legacyCode"] = old
 	return &RPCError{Code: err.Code, Message: err.Message, Data: data}

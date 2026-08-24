@@ -327,6 +327,7 @@ func serve(out io.Writer) error {
 
 	opts := []transport.Option{
 		transport.WithAuthenticator(auth),
+		transport.WithLegacyErrorCodes(cfg.EmitLegacyErrorCode),
 		transport.WithDeprecationRecorder(func(_ context.Context, event, method string) {
 			// §8.1 requires the event to be recorded when a request is served
 			// through the legacy fallback. WP-8 routes this into the audit log;
@@ -638,6 +639,6 @@ func serveStdio(in io.Reader, out io.Writer) error {
 		Supported:     []string{envelope.RevisionCurrent},
 		LegacyVersion: envelope.RevisionLegacy,
 		AllowLegacy:   cfg.AllowLegacyUnversioned,
-	})
+	}, transport.WithStdioLegacyErrorCodes(cfg.EmitLegacyErrorCode))
 	return s.Serve(context.Background(), in, out)
 }

@@ -40,7 +40,9 @@ the non-conformant fixture server.
 
 - **Structs, never `map[string]any`** for anything serialized deterministically. `json.RawMessage`
   for pass-through — a number through `any` becomes `float64` and breaks hashes.
-- Error codes `-32020`…`-32099` are **reserved for the spec**. Ours live in `-32000`…`-32019`.
+- Error codes `-32020`…`-32099` are **reserved for the spec**, and `-32000`…`-32019` is the
+  sub-range it **retired** — new implementations SHOULD NOT use it at all. Ours live at
+  `1000`…`1019`, outside the JSON-RPC reserved range entirely.
 - The harness **must never import broker internals** and must run against any endpoint URL.
 - The probe is a **deliberately literal** MCP client. **No MCP SDK** — an SDK that helpfully adds
   `Mcp-Method` makes the rule requiring `Mcp-Method` untestable.
