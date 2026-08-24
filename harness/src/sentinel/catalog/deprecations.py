@@ -1,8 +1,8 @@
 """The deprecation inventory (`SN-CAP-29`).
 
 `docs/HANDOFF.md` §10 (WP-11): detect which deprecated features a target still
-depends on, and report each with the date it was first deprecated and the
-earliest possible removal, computed from the twelve-month minimum window.
+depends on, and report each with the date the registry says it was deprecated
+and the removal condition the registry states — which is not always a date.
 
     "Say 'on or after'; the window is a minimum, not a schedule."
 
@@ -10,6 +10,12 @@ That phrasing is load-bearing. A date presented as a deadline gets put in a plan
 and treated as the moment the feature stops working. The specification promises
 a *minimum* notice period, which means the feature may last longer — and that a
 migration finished the week before is not late, it is finished.
+
+The same discipline forbids inventing the date the registry declines to give.
+Two of the six windows are not date arithmetic: includeContext's follows
+Sampling's, and HTTP+SSE's is three months after SEP-2596 reaches Final, an
+event that has not happened. `AfterEvent` therefore has no date and no way to
+be asked for one.
 """
 
 from __future__ import annotations
@@ -22,7 +28,10 @@ from sentinel import SPEC_REVISION
 from sentinel.catalog.base import SPEC_BASE
 from sentinel.probe.client import Probe
 
-#: The revision that deprecated the features below.
+#: The revision this harness grades against, and the date on which SEP-2577 and
+#: PR #2858 deprecated four of the six features below. It is NOT a default for
+#: the other two: the registry deprecated `includeContext` on 2025-11-25 and
+#: HTTP+SSE on 2025-03-26, and each feature carries its own date.
 DEPRECATED_ON = date(2026, 7, 28)
 
 #: The specification's minimum notice period before a deprecated feature may be
@@ -59,7 +68,51 @@ def _days_in_month(year: int, month: int) -> int:
     return calendar.monthrange(year, month)[1]
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
+class FixedRevision:
+    """The registry names a date: "First revision released on or after X"."""
+
+    on_or_after: date
+
+    def describe(self) -> str:
+        return f"the first revision released on or after {self.on_or_after.isoformat()}"
+
+
+@dataclass(frozen=True, slots=True)
+class FollowsFeature:
+    """The registry ties this feature's window to another's."""
+
+    feature_id: str
+    sep: str = ""
+
+    def describe(self) -> str:
+        tail = f" ({self.sep})" if self.sep else ""
+        return f"whenever {self.feature_id} is removable{tail}"
+
+
+@dataclass(frozen=True, slots=True)
+class AfterEvent:
+    """The registry ties the window to an event that has not happened.
+
+    There is deliberately no date here, and no way to ask for one. A migration
+    report that prints a number it cannot know is worse than one that prints the
+    condition — the number gets put in a plan and treated as a deadline.
+    """
+
+    description: str
+    sep: str = ""
+
+    def describe(self) -> str:
+        return self.description
+
+
+RemovalWindow = FixedRevision | FollowsFeature | AfterEvent
+
+
+#: Keyword-only so `deprecated_on` and `removal` can be required without
+#: reordering the fields around the defaulted ones. Every construction below is
+#: already keyword-form, so nothing else moves.
+@dataclass(slots=True, kw_only=True)
 class DeprecatedFeature:
     id: str
     name: str
@@ -67,14 +120,37 @@ class DeprecatedFeature:
     #: the reader to work out the migration themselves.
     replacement: str
     citation: str
+    #: The date the registry says this feature was deprecated. Required: the
+    #: six features were deprecated on three different dates, and a default
+    #: here is how four right answers and two wrong ones get shipped together.
+    deprecated_on: date
+    #: The condition the registry states for the earliest removal. Not always a
+    #: date — see `AfterEvent`.
+    removal: RemovalWindow
     #: The SEP that deprecated it, where there is one.
     sep: str = ""
-    deprecated_on: date = DEPRECATED_ON
     note: str = ""
 
-    @property
-    def removable_on_or_after(self) -> date:
-        return earliest_removal(self.deprecated_on)
+
+def resolve_removal(
+    feature: DeprecatedFeature,
+    by_id: dict[str, DeprecatedFeature] | None = None,
+) -> FixedRevision | AfterEvent:
+    """Follow FollowsFeature to the window that actually decides the date."""
+    table = by_id if by_id is not None else FEATURES_BY_ID
+    seen: set[str] = set()
+    window: RemovalWindow = feature.removal
+    while isinstance(window, FollowsFeature):
+        if window.feature_id in seen:
+            return AfterEvent(
+                f"a cycle in the registry's follows-chain at {window.feature_id}"
+            )
+        seen.add(window.feature_id)
+        followed = table.get(window.feature_id)
+        if followed is None:
+            return AfterEvent(f"whenever {window.feature_id} is removable")
+        window = followed.removal
+    return window
 
 
 @dataclass(slots=True)
@@ -95,18 +171,30 @@ class Inventory:
     def in_use(self) -> list[Detection]:
         return [d for d in self.detections if d.in_use]
 
-    def months_remaining(self, detection: Detection) -> int:
-        """Whole months between `as_of` and the earliest removal.
+    def months_remaining(self, detection: Detection) -> int | None:
+        """Whole months until the earliest removal, or None if it is not a date.
 
         Negative once the window has passed — the feature may already have been
         removed, and reporting a negative number is more useful than clamping to
-        zero and implying there is still time.
+        zero and implying there is still time. `None` means the registry ties the
+        window to an event rather than a date, and no number is honest.
         """
-        removal = detection.feature.removable_on_or_after
+        window = resolve_removal(detection.feature)
+        if not isinstance(window, FixedRevision):
+            return None
+        removal = window.on_or_after
         return (removal.year - self.as_of.year) * 12 + (removal.month - self.as_of.month)
 
 
+#: SEP-2577 and PR #2858 share a window: the first revision released on or after
+#: 2027-07-28. Stated once so the four features that share it cannot drift.
+_SEP_2577 = FixedRevision(date(2027, 7, 28))
+
 #: The five features §10 (WP-11) names, plus the includeContext values.
+#:
+#: Dates and removal conditions are transcribed from the registry's deprecation
+#: page — see `tests/harness/data/deprecation_registry.json`, which holds the
+#: same rows verbatim and fails a test if these drift from them.
 FEATURES: list[DeprecatedFeature] = [
     DeprecatedFeature(
         id="roots",
@@ -114,6 +202,8 @@ FEATURES: list[DeprecatedFeature] = [
         replacement="explicit tool arguments naming the paths a tool may touch",
         citation=f"{SPEC_BASE}/changelog#sep-2577-roots-sampling-logging",
         sep="SEP-2577",
+        deprecated_on=date(2026, 7, 28),
+        removal=_SEP_2577,
         note=(
             "Roots let a server ask the client which filesystem locations it may use. In a "
             "stateless protocol there is no session to hold that answer, and a tool that "
@@ -126,6 +216,8 @@ FEATURES: list[DeprecatedFeature] = [
         replacement="multi round-trip requests (resultType: input_required)",
         citation=f"{SPEC_BASE}/changelog#sep-2577-roots-sampling-logging",
         sep="SEP-2577",
+        deprecated_on=date(2026, 7, 28),
+        removal=_SEP_2577,
         note=(
             "Sampling was the server calling the client to ask a model for a completion. "
             "The server never initiates in this revision, so the whole direction is gone."
@@ -137,6 +229,8 @@ FEATURES: list[DeprecatedFeature] = [
         replacement="_meta.io.modelcontextprotocol/logLevel, set per request",
         citation=f"{SPEC_BASE}/changelog#sep-2577-roots-sampling-logging",
         sep="SEP-2577",
+        deprecated_on=date(2026, 7, 28),
+        removal=_SEP_2577,
         note=(
             "logging/setLevel set a level for a session. There are no sessions, so the "
             "level travels with each request instead."
@@ -147,6 +241,13 @@ FEATURES: list[DeprecatedFeature] = [
         name="HTTP+SSE transport",
         replacement="Streamable HTTP",
         citation=f"{SPEC_BASE}/basic/transports#streamable-http",
+        sep="SEP-2596",
+        deprecated_on=date(2025, 3, 26),
+        # No date, and no way to ask for one. SEP-2596 has not reached Final,
+        # so the three months have not started.
+        removal=AfterEvent(
+            "three months after SEP-2596 reaches Final", sep="SEP-2596"
+        ),
         note=(
             "The two-endpoint SSE transport required a server-held connection. Streamable "
             "HTTP is one POST endpoint, which is what lets a gateway route on headers."
@@ -157,6 +258,9 @@ FEATURES: list[DeprecatedFeature] = [
         name="OAuth Dynamic Client Registration",
         replacement="Client ID Metadata Documents (CIMD)",
         citation=f"{SPEC_BASE}/basic/authorization#client-registration",
+        sep="PR #2858",
+        deprecated_on=date(2026, 7, 28),
+        removal=_SEP_2577,
         note=(
             "DCR let any client mint its own registration. CIMD makes a client's identity "
             "a document at a URL the authorization server can fetch and check."
@@ -167,6 +271,11 @@ FEATURES: list[DeprecatedFeature] = [
         name='includeContext: "thisServer" / "allServers"',
         replacement="explicit arguments carrying whatever context the call needs",
         citation=f"{SPEC_BASE}/changelog#includecontext",
+        sep="SEP-2596",
+        deprecated_on=date(2025, 11, 25),
+        # The registry says "Follows Sampling (SEP-2577)" — not a date of its
+        # own, and not the twelve months from its own deprecation date either.
+        removal=FollowsFeature(feature_id="sampling", sep="SEP-2577"),
         note=(
             'Both values asked the client to gather context on the server\'s behalf. '
             '"allServers" additionally leaked one server\'s context to another.'
@@ -371,16 +480,24 @@ def render_text(inventory: Inventory, *, color: bool = True) -> str:
         for d in in_use:
             f = d.feature
             months = inventory.months_remaining(d)
+            resolved = resolve_removal(f)
             # "on or after", always. The window is a minimum, not a schedule:
             # a date presented as a deadline gets planned around as the moment
             # the feature stops working, which is not what was promised.
-            window = (
-                f"removable on or after {f.removable_on_or_after.isoformat()}"
-                f" ({months} month(s) from now)"
-                if months >= 0
-                else f"removable on or after {f.removable_on_or_after.isoformat()}"
-                f" — that window passed {abs(months)} month(s) ago"
-            )
+            #
+            # And when the registry gives a condition rather than a date, the
+            # condition is what gets printed. A number invented here is a number
+            # that ends up in a migration plan as a deadline.
+            if isinstance(resolved, FixedRevision):
+                stamp = resolved.on_or_after.isoformat()
+                window = (
+                    f"removable on or after {stamp} ({months} month(s) from now)"
+                    if months is None or months >= 0
+                    else f"removable on or after {stamp}"
+                    f" — that window passed {abs(months)} month(s) ago"
+                )
+            else:
+                window = f"removable {resolved.describe()} (not yet scheduled)"
             lines.append(f"  {red}IN USE{reset}  {bold}{f.name}{reset}"
                          + (f"  {dim}({f.sep}){reset}" if f.sep else ""))
             lines.append(f"          deprecated:  {f.deprecated_on.isoformat()}")
@@ -412,6 +529,30 @@ def render_text(inventory: Inventory, *, color: bool = True) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _removal_json(inventory: Inventory, detection: Detection) -> dict[str, object]:
+    """The removal window, in a shape that cannot be mistaken for a deadline.
+
+    `monthsRemaining` is null for an event-relative window rather than absent,
+    so a consumer that reads the key gets an explicit "not known" instead of a
+    KeyError it might paper over with a zero.
+    """
+    window = resolve_removal(detection.feature)
+    if isinstance(window, FixedRevision):
+        return {
+            "kind": "fixed_revision",
+            # The key name carries the semantics too, so a consumer that never
+            # reads the docs still cannot mistake it for a deadline.
+            "onOrAfter": window.on_or_after.isoformat(),
+            "monthsRemaining": inventory.months_remaining(detection),
+        }
+    return {
+        "kind": "after_event",
+        "condition": window.describe(),
+        "sep": window.sep,
+        "monthsRemaining": None,
+    }
+
+
 def render_json(inventory: Inventory) -> dict[str, object]:
     return {
         "schemaVersion": 1,
@@ -428,10 +569,7 @@ def render_json(inventory: Inventory) -> dict[str, object]:
                 "confidence": d.confidence.value,
                 "evidence": d.evidence,
                 "deprecatedOn": d.feature.deprecated_on.isoformat(),
-                # The key name carries the semantics too, so a consumer that
-                # never reads the docs still cannot mistake it for a deadline.
-                "removableOnOrAfter": d.feature.removable_on_or_after.isoformat(),
-                "monthsRemaining": inventory.months_remaining(d),
+                "removal": _removal_json(inventory, d),
                 "replacement": d.feature.replacement,
                 "sep": d.feature.sep,
                 "citation": d.feature.citation,

@@ -92,10 +92,22 @@ def test_removal_is_phrased_on_or_after(nonconformant_endpoint: str) -> None:
 
 def test_json_key_carries_the_semantics_too(nonconformant_endpoint: str) -> None:
     """A consumer reading the JSON never sees the prose, so the key name has to
-    carry the meaning by itself."""
+    carry the meaning by itself.
+
+    Two of the six windows are not dates, so the window is an object naming its
+    kind: `onOrAfter` when the registry gives a date, `condition` when it gives
+    an event. Neither shape offers a key a consumer could read as a deadline.
+    """
     doc = render_json(inventory_for(nonconformant_endpoint))
     for feature in doc["features"]:  # type: ignore[index]
-        assert "removableOnOrAfter" in feature
+        removal = feature["removal"]
+        assert removal["kind"] in ("fixed_revision", "after_event")
+        if removal["kind"] == "fixed_revision":
+            assert "onOrAfter" in removal
+            assert isinstance(removal["monthsRemaining"], int)
+        else:
+            assert "condition" in removal
+            assert removal["monthsRemaining"] is None
         assert "removedOn" not in feature
         assert "deadline" not in feature
 
