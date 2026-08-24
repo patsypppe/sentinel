@@ -77,6 +77,11 @@ NAME_BEARING = {"tools/call": "name", "prompts/get": "name", "resources/read": "
 #: what negotiation itself requires.
 NO_VERSION_REQUIRED = {"server/discover"}
 
+#: The other `_meta` field this revision grades Required: Yes on every request.
+#: Spelled out here rather than imported from the harness, for the reason §9.5
+#: gives: a fixture that shared the harness's spelling could never contradict it.
+KEY_CLIENT_CAPABILITIES = "io.modelcontextprotocol/clientCapabilities"
+
 
 def cacheable(payload: dict[str, Any], *, ttl_ms: int, scope: str) -> dict[str, Any]:
     """Every list and read result is a CacheableResult."""
@@ -97,14 +102,21 @@ def enveloped(payload: dict[str, Any], version: str) -> dict[str, Any]:
     }
 
 
-def declared_version(payload: dict[str, Any]) -> str | None:
+def declared_meta(payload: dict[str, Any]) -> dict[str, Any]:
+    """The request's `_meta`, or an empty one.
+
+    An absent `_meta` and an empty one are the same thing to a presence check,
+    so they are collapsed here rather than at each caller.
+    """
     params = payload.get("params")
     if not isinstance(params, dict):
-        return None
+        return {}
     meta = params.get("_meta")
-    if not isinstance(meta, dict):
-        return None
-    version = meta.get(KEY_PROTOCOL_VERSION)
+    return meta if isinstance(meta, dict) else {}
+
+
+def declared_version(payload: dict[str, Any]) -> str | None:
+    version = declared_meta(payload).get(KEY_PROTOCOL_VERSION)
     return version if isinstance(version, str) else None
 
 
@@ -152,7 +164,29 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
             f"Mcp-Name is {header_name!r} but the body names {want_name!r}",
         )
 
-    # 2. Negotiation, on every request — there is no handshake to fall back on.
+    # 2. The per-request `_meta`. Both fields below are Required: Yes on every
+    #    request, and "a request missing any required field is malformed": the
+    #    answer is -32602 AND HTTP 400, not one or the other. A 200 carrying an
+    #    error would leave every intermediary that only reads the status line
+    #    believing the call succeeded.
+    meta = declared_meta(payload)
+    if KEY_CLIENT_CAPABILITIES not in meta:
+        return 400, error(
+            request_id, -32602,
+            f"_meta.{KEY_CLIENT_CAPABILITIES} is required on every request",
+        )
+    # server/discover is exempt, and only from the version. Its whole purpose is
+    # to tell a client which versions exist, so demanding one in order to ask
+    # makes the server undiscoverable to any client that has not already
+    # guessed right. Nothing exempts it from declaring capabilities.
+    if method not in NO_VERSION_REQUIRED and KEY_PROTOCOL_VERSION not in meta:
+        return 400, error(
+            request_id, -32602,
+            f"_meta.{KEY_PROTOCOL_VERSION} is required on every request; "
+            "this revision has no handshake to carry it",
+        )
+
+    # 3. Negotiation, on every request — there is no handshake to fall back on.
     version = declared_version(payload)
     if method not in NO_VERSION_REQUIRED and version is not None and version != PROTOCOL:
         return 200, error(
@@ -161,7 +195,7 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
         )
     resolved = version if version == PROTOCOL else PROTOCOL
 
-    # 3. Removed methods answer, rather than being silently absent.
+    # 4. Removed methods answer, rather than being silently absent.
     if method in REMOVED:
         replacement = REMOVED[method]
         message = f"method {method!r} was removed in {PROTOCOL}"

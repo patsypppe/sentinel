@@ -91,8 +91,11 @@ def test_a_harness_error_is_two_not_one() -> None:
 
 
 def test_an_unknown_format_is_a_harness_error() -> None:
+    # --retries 0: this scan is aimed at a closed port on purpose, and the
+    # backoff for a whole catalog of doomed requests is time the suite spends
+    # re-proving what --retries already has its own test for.
     result = sentinel(
-        "scan", "--endpoint", "http://127.0.0.1:1/mcp", "--format", "yaml"
+        "scan", "--endpoint", "http://127.0.0.1:1/mcp", "--format", "yaml", "--retries", "0"
     )
     assert result.returncode == EXIT_HARNESS_ERROR
 
@@ -105,7 +108,7 @@ def test_an_unreachable_target_does_not_fail_the_gate() -> None:
     """
     result = sentinel(
         "scan", "--endpoint", "http://127.0.0.1:1/mcp", "--gate", "must",
-        "--timeout", "1", "--no-color",
+        "--timeout", "1", "--no-color", "--retries", "0",
     )
     assert result.returncode != EXIT_GATE_FAILED, (
         "an unreachable server was reported as failing conformance"

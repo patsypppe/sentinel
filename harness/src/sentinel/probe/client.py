@@ -15,10 +15,17 @@ makes a failure attributable.
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 from typing import Any
 
 from sentinel import SPEC_REVISION
-from sentinel.probe.transport import DEFAULT_TIMEOUT, RawResponse, Request, Transport
+from sentinel.probe.transport import (
+    DEFAULT_RETRIES,
+    DEFAULT_TIMEOUT,
+    RawResponse,
+    Request,
+    Transport,
+)
 
 #: `_meta` keys, spelled exactly as the specification spells them.
 KEY_PROTOCOL_VERSION = "io.modelcontextprotocol/protocolVersion"
@@ -67,10 +74,22 @@ class Probe:
         timeout: float = DEFAULT_TIMEOUT,
         bearer_token: str | None = None,
         protocol_version: str = SPEC_REVISION,
+        verify: bool | str = True,
+        proxy: str | None = None,
+        client_cert: str | tuple[str, str] | None = None,
+        retries: int = DEFAULT_RETRIES,
     ) -> None:
         self.endpoint = endpoint
         self.protocol_version = protocol_version
-        self._transport = Transport(endpoint, timeout=timeout, bearer_token=bearer_token)
+        self._transport = Transport(
+            endpoint,
+            timeout=timeout,
+            bearer_token=bearer_token,
+            verify=verify,
+            proxy=proxy,
+            client_cert=client_cert,
+            retries=retries,
+        )
 
     def close(self) -> None:
         self._transport.close()
@@ -93,6 +112,14 @@ class Probe:
             timeout=self._transport.timeout,
             bearer_token=self._transport.bearer_token,
             protocol_version=self.protocol_version,
+            # The second connection must differ from the first in exactly one
+            # respect -- being a second connection. A probe that reached the
+            # target through a proxy and a client certificate but whose twin
+            # did not would be comparing two different servers.
+            verify=self._transport.verify,
+            proxy=self._transport.proxy,
+            client_cert=self._transport.client_cert,
+            retries=self._transport.retries,
         )
 
     # -- request construction ---------------------------------------------
@@ -186,11 +213,24 @@ class Probe:
             headers=built,
         )
 
+    def build_notification(
+        self, method: str, params: dict[str, Any] | None = None, **overrides: Any
+    ) -> Request:
+        """A JSON-RPC notification: no id, and no response is expected."""
+        return replace(self.build(method, params, **overrides), request_id=None)
+
     def call(
         self, method: str, params: dict[str, Any] | None = None, **overrides: Any
     ) -> RawResponse:
         """Build and send in one step."""
         return self._transport.send(self.build(method, params, **overrides))
+
+    def notify(
+        self, method: str, params: dict[str, Any] | None = None, **overrides: Any
+    ) -> RawResponse:
+        """Send a notification. The HTTP response is still returned: whether a
+        server answers an id-less POST at all is itself a thing rules test."""
+        return self._transport.send(self.build_notification(method, params, **overrides))
 
     def send(self, request: Request) -> RawResponse:
         """Send a request built by hand, unchanged."""
@@ -222,6 +262,11 @@ class Probe:
 
     def prompts_list(self, **overrides: Any) -> RawResponse:
         return self.call("prompts/list", **overrides)
+
+    def prompts_get(
+        self, name: str, arguments: dict[str, Any] | None = None, **overrides: Any
+    ) -> RawResponse:
+        return self.call("prompts/get", {"name": name, "arguments": arguments or {}}, **overrides)
 
     # -- facts a rule may need more than once -----------------------------
 

@@ -177,3 +177,35 @@ def test_legacy_range_rule_passes_the_conformant_fixture(conformant_endpoint: st
     rule = {r.id: r for r in REGISTRY.all()}["MCP/2026-07-28/SHOULD/no-errors-in-legacy-range"]
     with Probe(conformant_endpoint) as probe:
         assert rule.evaluate(probe).outcome in (Outcome.PASS, Outcome.NOT_APPLICABLE)
+
+
+#: The two per-request `_meta` fields the specification grades Required: Yes.
+#: `missing-capability-error-shape` is not here: neither fixture returns -32021,
+#: so it is NOT_APPLICABLE against both and a parametrised PASS/FAIL pair over it
+#: would be asserting something no fixture exercises.
+META_RULES = [
+    "MCP/2026-07-28/MUST/missing-client-capabilities-rejected",
+    "MCP/2026-07-28/MUST/missing-protocol-version-rejected",
+]
+
+
+@pytest.mark.parametrize("rule_id", META_RULES)
+def test_meta_rules_pass_the_conformant_fixture(rule_id: str, conformant_endpoint: str) -> None:
+    from sentinel.probe.client import Probe
+
+    rule = {r.id: r for r in REGISTRY.all()}[rule_id]
+    with Probe(conformant_endpoint) as probe:
+        result = rule.evaluate(probe)
+    assert result.outcome is Outcome.PASS, f"{rule_id}: {result.detail}"
+
+
+@pytest.mark.parametrize("rule_id", META_RULES)
+def test_meta_rules_fail_the_nonconformant_fixture(
+    rule_id: str, nonconformant_endpoint: str
+) -> None:
+    from sentinel.probe.client import Probe
+
+    rule = {r.id: r for r in REGISTRY.all()}[rule_id]
+    with Probe(nonconformant_endpoint) as probe:
+        result = rule.evaluate(probe)
+    assert result.outcome is Outcome.FAIL, f"{rule_id}: {result.detail}"

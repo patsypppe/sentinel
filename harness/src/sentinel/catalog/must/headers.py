@@ -17,6 +17,28 @@ ERRORS = f"{SPEC_BASE}/basic/index#error-codes"
 SPEC_ALLOCATED = {-32020, -32021, -32022}
 
 
+def _named_tool(probe: Probe) -> str | None:
+    """The name of any tool this server advertises, or None.
+
+    `probe.first_tool_name()` reads the first entry only, and a server whose
+    first tool has no name is precisely the kind this catalog expects to meet --
+    `tools-are-named` exists because such servers are real. Falling back to an
+    invented name would be worse than useless here: the refusal that came back
+    would be about the unknown tool, not about the missing header.
+    """
+    result = probe.tools_list().result()
+    tools = (result or {}).get("tools")
+    if not isinstance(tools, list):
+        return None
+    for tool in tools:
+        if not isinstance(tool, dict):
+            continue
+        name = tool.get("name")
+        if isinstance(name, str) and name:
+            return name
+    return None
+
+
 @rule(
     id="MCP/2026-07-28/MUST/mcp-method-header-required",
     title="Mcp-Method is required on Streamable HTTP POST",
@@ -48,27 +70,51 @@ def mcp_method_required(probe: Probe) -> RuleResult:
 
 @rule(
     id="MCP/2026-07-28/MUST/mcp-name-header-required",
-    title="Mcp-Name is required on Streamable HTTP POST",
+    title="Mcp-Name is required on a tools/call, resources/read or prompts/get POST",
     severity=Severity.MUST,
     citation=f"{TRANSPORT}#streamable-http",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
-        "Reject a POST with no Mcp-Name header. Without it a gateway cannot tell one "
-        "tools/call from another, so it cannot authorize a specific tool without reading "
-        "the body."
+        "Reject a tools/call, resources/read or prompts/get with no Mcp-Name header. "
+        "Without it a gateway cannot tell one tools/call from another, so it cannot "
+        "authorize a specific tool without reading the body. The header table requires "
+        "Mcp-Name for those three methods only -- 'All requests' is Mcp-Method's row."
     ),
 )
 def mcp_name_required(probe: Probe) -> RuleResult:
-    resp = probe.tools_list(omit_mcp_name=True)
+    # Mcp-Name is required for tools/call, resources/read and prompts/get -- not
+    # for "All requests", which is Mcp-Method's row in the table. Provoking on
+    # tools/list would demand a header the specification does not require there.
+    name = _named_tool(probe)
+    if name is None:
+        return RuleResult.indeterminate(
+            "this server advertises no named tool, so there is no tools/call to omit "
+            "Mcp-Name from"
+        )
+
+    resp = probe.tools_call(name, {}, omit_mcp_name=True)
     if not resp.reached_server:
         return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
 
     if resp.result() is not None:
         return RuleResult.failed(
-            "tools/list was served with no Mcp-Name header",
+            f"tools/call {name!r} was served with no Mcp-Name header; a gateway "
+            "authorizing one tool and not another cannot do so if the header naming "
+            "the tool is optional",
             evidence=str(resp.result())[:300],
         )
-    return RuleResult.passed("a request with no Mcp-Name was refused")
+
+    # The same call WITH the header. If that is refused identically, the refusal
+    # was about the call and not about the missing header, and this rule has not
+    # been settled -- an unverifiable MUST is INDETERMINATE, never a pass.
+    control = probe.tools_call(name, {})
+    if control.result() is None and control.error_code() == resp.error_code():
+        return RuleResult.indeterminate(
+            f"tools/call {name!r} is refused with {resp.error_code()} whether or not "
+            f"Mcp-Name is sent, so the refusal cannot be attributed to the header: "
+            f"{str(control.error())[:200]}"
+        )
+    return RuleResult.passed("a tools/call with no Mcp-Name was refused")
 
 
 @rule(

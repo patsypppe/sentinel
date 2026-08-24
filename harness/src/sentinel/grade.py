@@ -28,6 +28,7 @@ from sentinel.catalog.base import (
     Verifiability,
 )
 from sentinel.probe.client import Probe
+from sentinel.probe.transport import DEFAULT_RETRIES
 
 #: The scan passed its gate.
 EXIT_OK = 0
@@ -107,6 +108,10 @@ def run_scan(
     bearer_token: str | None = None,
     only: set[str] | None = None,
     include_deprecated: bool = False,
+    verify: bool | str = True,
+    proxy: str | None = None,
+    client_cert: str | tuple[str, str] | None = None,
+    retries: int = DEFAULT_RETRIES,
 ) -> ScanReport:
     """Evaluate every rule against one endpoint."""
     reg = registry if registry is not None else REGISTRY
@@ -117,7 +122,15 @@ def run_scan(
         rules = [r for r in rules if r.id in only]
 
     started = time.perf_counter()
-    with Probe(endpoint, timeout=timeout, bearer_token=bearer_token) as probe:
+    with Probe(
+        endpoint,
+        timeout=timeout,
+        bearer_token=bearer_token,
+        verify=verify,
+        proxy=proxy,
+        client_cert=client_cert,
+        retries=retries,
+    ) as probe:
         for r in rules:
             rule_started = time.perf_counter()
             try:

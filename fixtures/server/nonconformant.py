@@ -53,6 +53,8 @@ SEEDED_VIOLATIONS: list[str] = [
     "MCP/2026-07-28/MUST/mcp-method-header-required",
     "MCP/2026-07-28/MUST/mcp-name-header-required",
     "MCP/2026-07-28/MUST/header-body-mismatch-rejected",
+    "MCP/2026-07-28/MUST/missing-client-capabilities-rejected",
+    "MCP/2026-07-28/MUST/missing-protocol-version-rejected",
     "MCP/2026-07-28/MUST/resource-not-found-is-invalid-params",
     "MCP/2026-07-28/MUST/no-errors-in-reserved-range",
     "MCP/2026-07-28/SHOULD/no-errors-in-legacy-range",
@@ -184,6 +186,18 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
     # The headers are never read. Any gateway policy in front of this server is
     # decorative: a caller omits the header, or lies in it, and the body is
     # served regardless.
+
+    # VIOLATES: MCP/2026-07-28/MUST/missing-client-capabilities-rejected
+    # VIOLATES: MCP/2026-07-28/MUST/missing-protocol-version-rejected
+    #
+    # `_meta` is never checked for the two fields this revision grades
+    # Required: Yes. Client capabilities are not read at all — under 2025-11-25
+    # they arrived once at `initialize` and were kept on the connection, and
+    # this server still assumes that, so it will happily plan an elicitation for
+    # a client that never said it could elicit. The protocol version is read
+    # (`declared_version` below) but only where the old handshake used to check
+    # it, and never for presence: a request that declares none is served on the
+    # server's own guess rather than rejected with -32602 and HTTP 400.
 
     if method == "server/discover":
         version = declared_version(payload)
