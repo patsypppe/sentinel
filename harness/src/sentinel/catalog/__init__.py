@@ -7,7 +7,7 @@ one list and no way for a rule to exist without being validated.
 
 from __future__ import annotations
 
-from sentinel.catalog import must, should
+from sentinel.catalog import beyond, must, should
 from sentinel.catalog.base import (
     REGISTRY,
     BaseRule,
@@ -29,6 +29,7 @@ __all__ = [
     "RuleResult",
     "Severity",
     "Verifiability",
+    "beyond",
     "must",
     "should",
     "validate_registry",

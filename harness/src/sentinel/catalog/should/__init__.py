@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from sentinel.catalog.should import ordering
+from sentinel.catalog.should import envelope, ordering
 
-__all__ = ["ordering"]
+__all__ = ["envelope", "ordering"]

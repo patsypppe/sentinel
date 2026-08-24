@@ -8,6 +8,7 @@ accuracy.
 
 from __future__ import annotations
 
+from sentinel.catalog import checks
 from sentinel.catalog.base import SPEC_BASE, RuleResult, Severity, Verifiability, rule
 from sentinel.probe.client import Probe
 
@@ -26,24 +27,16 @@ CHANGELOG = f"{SPEC_BASE}/changelog"
         "advertising the same tools produce the same manifest, which is what makes a "
         "manifest hash comparable across deployments."
     ),
+    deprecated_in="0.2.0",
+    superseded_by="SENTINEL/STYLE/tools-sorted-by-name",
 )
 def tools_sorted(probe: Probe) -> RuleResult:
-    result = probe.tools_list().result()
-    if result is None:
-        return RuleResult.not_applicable("tools/list did not return a result")
-
-    tools = result.get("tools")
-    if not isinstance(tools, list) or len(tools) < 2:
-        return RuleResult.not_applicable("fewer than two tools to order")
-
-    names = [t.get("name", "") for t in tools if isinstance(t, dict)]
-    ordered = sorted(names, key=lambda n: str(n).encode())
-    if names != ordered:
-        return RuleResult.failed(
-            f"tools are not in byte-wise name order: {names} (byte-wise would be {ordered})",
-            evidence=f"served {names}, byte-wise {ordered}",
-        )
-    return RuleResult.passed(f"{len(names)} tools are in byte-wise name order")
+    # Graded a spec SHOULD in 0.1.0. The specification asks for a deterministic
+    # order and never for a sorted one, so a stable but unsorted manifest
+    # conforms fully and this was not a spec rule at any severity. It is a good
+    # opinion, so it moves to the beyond-spec namespace rather than being
+    # deleted -- and its id is kept, because ids are permanent.
+    return checks.tools_sorted_by_name(probe)
 
 
 @rule(
