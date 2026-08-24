@@ -237,3 +237,73 @@ def tools_are_named(probe: Probe) -> RuleResult:
     if unnamed:
         return RuleResult.failed(f"{unnamed} of {len(tools)} tools have no name")
     return RuleResult.passed(f"all {len(tools)} tools are named")
+
+
+@rule(
+    id="MCP/2026-07-28/MUST/tools-list-connection-independent",
+    title="tools/list does not vary between connections",
+    severity=Severity.MUST,
+    citation=f"{SPEC_BASE}/server/tools#capabilities",
+    verifiability=Verifiability.BLACK_BOX,
+    remediation=(
+        "Build the tool set from the request's credential and nothing else. If the set "
+        "differs between two connections presenting the same token, something "
+        "connection-shaped is feeding it -- a cached handshake, a per-socket registry, a "
+        "first-request initialisation. That is the state this revision removed."
+    ),
+    introduced_in="0.2.0",
+)
+def tools_list_connection_independent(probe: Probe) -> RuleResult:
+    """The MUST that MCP/2026-07-28/MUST/tools-list-is-deterministic stood in for.
+
+    "This set MAY be empty and MAY change over time ... but MUST NOT vary
+    per-connection or as a side effect of other requests on the connection."
+    Proving that needs two connections; the deprecated rule made twenty calls
+    on one.
+    """
+    import json
+
+    def canonical(tools: object) -> list[str] | None:
+        if not isinstance(tools, list):
+            return None
+        # Membership, not order. Order is graded SHOULD by
+        # MCP/2026-07-28/SHOULD/tools-list-is-deterministic; making one defect
+        # fail two rules would double-count it.
+        return sorted(json.dumps(t, sort_keys=True, separators=(",", ":")) for t in tools)
+
+    first = probe.tools_list().result()
+    if first is None:
+        return RuleResult.not_applicable("tools/list did not return a result")
+    here = canonical(first.get("tools"))
+    if here is None:
+        return RuleResult.failed(f"tools is not an array: {first.get('tools')!r}")
+
+    # A second probe to the same endpoint with the SAME credential. The spec
+    # permits the set to vary by authorization -- "The set MAY vary by the
+    # authorization presented on the request" -- so varying the token would
+    # test the wrong thing.
+    other = probe.new_connection()
+    try:
+        second = other.tools_list().result()
+    finally:
+        other.close()
+
+    if second is None:
+        return RuleResult.indeterminate("the second connection returned no result; cannot compare")
+    there = canonical(second.get("tools"))
+    if there is None:
+        return RuleResult.failed(
+            f"the second connection returned a non-array tools field: {second.get('tools')!r}"
+        )
+
+    if here != there:
+        only_here = [t for t in here if t not in there]
+        only_there = [t for t in there if t not in here]
+        return RuleResult.failed(
+            f"tools/list returned {len(here)} tools on one connection and {len(there)} on "
+            "another with the same credential; the set varies per-connection",
+            evidence=(
+                f"only on connection A: {only_here[:2]}; only on connection B: {only_there[:2]}"
+            ),
+        )
+    return RuleResult.passed(f"two independent connections returned the same {len(here)} tools")
