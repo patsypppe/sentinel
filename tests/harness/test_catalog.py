@@ -10,6 +10,7 @@ import pytest
 from sentinel.catalog.base import (
     REGISTRY,
     RULE_ID_PATTERN,
+    Namespace,
     Outcome,
     Severity,
     Verifiability,
@@ -47,6 +48,11 @@ def test_rule_ids_carry_their_severity() -> None:
     severity being in the id means an old report is still interpretable without
     the catalog that produced it."""
     for r in REGISTRY:
+        if r.namespace is not Namespace.MCP:
+            # A SENTINEL/ id is namespaced by category, not severity, because a
+            # beyond-spec rule's severity is this project's opinion rather than
+            # something the specification assigned it.
+            continue
         assert f"/{r.severity.upper()}/" in r.id, f"{r.id} does not carry {r.severity}"
 
 

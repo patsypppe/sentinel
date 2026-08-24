@@ -33,7 +33,7 @@ from __future__ import annotations
 from typing import Any
 
 from sentinel import SPEC_REVISION, __version__
-from sentinel.catalog.base import Outcome, Severity
+from sentinel.catalog.base import Namespace, Outcome, Severity
 from sentinel.grade import ScanReport
 
 SARIF_VERSION = "2.1.0"
@@ -73,24 +73,38 @@ def render(report: ScanReport, *, anchor: str = DEFAULT_ANCHOR) -> dict[str, Any
 
     for finding in report.findings:
         r = finding.rule
-        rules.append(
-            {
-                "id": r.id,
-                "name": r.id.rsplit("/", 1)[-1].replace("-", ""),
-                "shortDescription": {"text": r.title},
-                "fullDescription": {"text": r.remediation},
-                "helpUri": r.citation,
-                "help": {"text": f"{r.remediation}\n\nSpecification: {r.citation}"},
-                "properties": {
-                    "severity": r.severity.value,
-                    "verifiability": r.verifiability.value,
-                    "specRevision": report.spec_revision,
-                },
-                "defaultConfiguration": {
-                    "level": LEVEL.get((Outcome.FAIL, r.severity), "warning")
-                },
-            }
-        )
+        properties: dict[str, Any] = {
+            "severity": r.severity.value,
+            "verifiability": r.verifiability.value,
+            "specRevision": report.spec_revision,
+            "namespace": r.namespace.value,
+            "deprecated": r.is_deprecated,
+        }
+        if r.superseded_by:
+            properties["supersededBy"] = r.superseded_by
+
+        entry: dict[str, Any] = {
+            "id": r.id,
+            "name": r.id.rsplit("/", 1)[-1].replace("-", ""),
+            "shortDescription": {"text": r.title},
+            "fullDescription": {"text": r.remediation},
+            "properties": properties,
+            "defaultConfiguration": {
+                "level": LEVEL.get((Outcome.FAIL, r.severity), "warning")
+            },
+        }
+
+        if r.namespace is Namespace.MCP:
+            entry["helpUri"] = r.citation
+            entry["help"] = {"text": f"{r.remediation}\n\nSpecification: {r.citation}"}
+        else:
+            # A beyond-spec rule has nothing to cite. Emitting helpUri "" and a
+            # bare "Specification: " with nothing after it is a citation
+            # pointing at nothing -- which is the failure the SENTINEL
+            # namespace exists to prevent, so it must not be reintroduced here.
+            entry["help"] = {"text": f"{r.remediation}\n\nRationale: {r.rationale}"}
+
+        rules.append(entry)
 
         # The endpoint is named in the message because the annotation view
         # shows the message and the anchored file, and nothing else.

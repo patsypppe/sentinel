@@ -204,13 +204,29 @@ def catalog_validate() -> None:
     if problems:
         for p in problems:
             typer.echo(f"{p.rule_id}: {p.problem}", err=True)
-        typer.echo(f"\n{len(problems)} problem(s) in {len(REGISTRY)} rules", err=True)
+        typer.echo(
+            f"\n{len(problems)} problem(s) in "
+            f"{len(REGISTRY.all(include_deprecated=True))} rules",
+            err=True,
+        )
         raise typer.Exit(EXIT_HARNESS_ERROR)
 
+    live = REGISTRY.all()
     must = REGISTRY.by_severity(Severity.MUST)
     unverifiable = unverifiable_rules()
-    typer.echo(f"{len(REGISTRY)} rules validate: {len(must)} MUST, "
+    # len(REGISTRY) counts deprecated rules too. Reporting that as the catalog
+    # size would overstate what a scan actually runs, so the headline is the
+    # live count and the deprecated ones get their own line.
+    typer.echo(f"{len(live)} rules validate: {len(must)} MUST, "
                f"{len(REGISTRY.by_severity(Severity.SHOULD))} SHOULD")
+    retired = [r for r in REGISTRY.all(include_deprecated=True) if r.is_deprecated]
+    if retired:
+        typer.echo(
+            f"{len(retired)} deprecated rule(s) keep their ids and are skipped unless "
+            "--include-deprecated-rules is passed:"
+        )
+        for r in retired:
+            typer.echo(f"  {r.id} -> {r.superseded_by}")
     typer.echo(
         f"{len(unverifiable)} MUST rule(s) are UNVERIFIABLE black-box and always "
         "report INDETERMINATE:"
