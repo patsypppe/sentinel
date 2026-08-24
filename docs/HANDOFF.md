@@ -543,6 +543,10 @@ class Rule(Protocol):
 
 **Rule IDs are permanent.** Once published, a rule ID never changes meaning. Deprecate and add rather than redefine, or every historical report becomes uninterpretable.
 
+**The mechanism now exists, and it has been used.** `BaseRule` carries `introduced_in`, `deprecated_in`, `superseded_by` and `rationale`; `Registry.all()` excludes deprecated rules unless asked; `validate_registry` requires every deprecated rule to name a successor that exists, and permits a deprecated rule and its successor to share a slug — which is the whole point. `sentinel scan --include-deprecated-rules` runs them anyway, so a report written before a correction can be reproduced. Rule IDs also gained a second namespace: `SENTINEL/<CATEGORY>/<slug>` for rules this project believes in that the specification does not require. A `SENTINEL` rule carries a `rationale` **instead of** a `citation` — a citation pointing at nothing is how a catalog starts lying — and can never fail a spec gate, because a beyond-spec finding that failed `--gate must` would make a conformance verdict unfalsifiable.
+
+Three rules were corrected in **0.2.0**, each because it demanded more than the specification does: `MCP/2026-07-28/MUST/server-info-echoed` → `MCP/2026-07-28/SHOULD/server-info-echoed` (`serverInfo` is *Required: No*); `MCP/2026-07-28/MUST/tools-list-is-deterministic` → `MCP/2026-07-28/SHOULD/tools-list-is-deterministic` (deterministic ordering is a SHOULD; the MUST in that paragraph is that the set not vary per-connection, which is now `MCP/2026-07-28/MUST/tools-list-connection-independent` and needs two connections to see); and `MCP/2026-07-28/SHOULD/tools-sorted-by-name` → `SENTINEL/STYLE/tools-sorted-by-name` (the spec asks for a deterministic order, never a sorted one). The non-conformant fixture still violates all three and seeds them under their successor IDs, so recall is reported per severity rather than improved by dropping them.
+
 ---
 
 ## 9. Component specifications

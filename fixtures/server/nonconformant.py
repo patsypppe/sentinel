@@ -4,7 +4,8 @@
 violation tagged with the rule ID it should trip. That tagging is not
 decoration: `SEEDED_VIOLATIONS` below is the DENOMINATOR of the harness's recall
 measurement, so recall is computed from what this file admits to rather than
-from what the harness happens to find.
+from what the harness happens to find. It seeds a few rules below MUST as well,
+because a rule whose severity was corrected did not stop being worth detecting.
 
 Every violation here is one a real server written against the previous revision
 would have. This is not a caricature — it is what an unmigrated 2025-11-25
@@ -21,21 +22,29 @@ from .common import LEGACY, PROTOCOL, error, parse, result, serve_forever
 
 PORT = 9000
 
-#: Every MUST this fixture violates on purpose, by rule id.
+#: Every rule this fixture violates on purpose, by rule id.
 #:
 #: The harness's recall = |detected ∩ SEEDED| / |SEEDED|. Keeping the list here
 #: rather than in the harness means the fixture states its own faults and the
 #: scanner is graded against them, not against itself.
+#:
+#: Not every entry is a MUST. Three rules were corrected in 0.2.0 — two MUSTs
+#: that the specification grades SHOULD, and a SHOULD the specification never
+#: made at all — and this fixture still violates all three. Keeping them here
+#: under their successor ids means recall is reported per severity rather than
+#: improved by dropping the seeds that stopped being MUSTs.
 SEEDED_VIOLATIONS: list[str] = [
     "MCP/2026-07-28/MUST/discover-without-negotiated-version",
     "MCP/2026-07-28/MUST/discover-reports-supported-versions",
     "MCP/2026-07-28/MUST/discover-reports-server-info",
     "MCP/2026-07-28/MUST/list-changed-advertised-truthfully",
     "MCP/2026-07-28/MUST/result-type-present",
-    "MCP/2026-07-28/MUST/server-info-echoed",
+    "MCP/2026-07-28/SHOULD/server-info-echoed",
     "MCP/2026-07-28/MUST/cacheable-results-carry-ttl",
     "MCP/2026-07-28/MUST/cacheable-results-carry-scope",
-    "MCP/2026-07-28/MUST/tools-list-is-deterministic",
+    "MCP/2026-07-28/SHOULD/tools-list-is-deterministic",
+    "MCP/2026-07-28/MUST/tools-list-connection-independent",
+    "SENTINEL/STYLE/tools-sorted-by-name",
     "MCP/2026-07-28/MUST/tools-declare-input-schema",
     "MCP/2026-07-28/MUST/tools-are-named",
     "MCP/2026-07-28/MUST/mcp-method-header-required",
@@ -73,12 +82,29 @@ SEEDED_DEPRECATIONS: list[str] = [
 
 #: Rotates the tool order on every call.
 #:
-#: VIOLATES MCP/2026-07-28/MUST/tools-list-is-deterministic — and it is the most
-#: realistic fault in this file. No one writes this on purpose; it is what
+#: VIOLATES MCP/2026-07-28/SHOULD/tools-list-is-deterministic — and it is the
+#: most realistic fault in this file. No one writes this on purpose; it is what
 #: happens when a manifest is built by iterating a hash map, which is the
 #: default in Go, Python before 3.7, and every language whose map is a hash map.
 _rotation = itertools.count()
 
+#: Hands out an identity per TCP connection.
+#:
+#: `ThreadingHTTPServer` builds one handler object per connection, so an
+#: attribute set on the handler lives exactly as long as the connection does.
+#: That is what makes it per-connection state rather than per-request state.
+_connections = itertools.count(1)
+
+#: The attribute the id is cached under, on the handler.
+_CONNECTION_ID = "_sentinel_connection_id"
+
+#: The order below is neither sorted nor stable, and both are on purpose.
+#:
+#: VIOLATES SENTINEL/STYLE/tools-sorted-by-name
+#: `warehouse.query` precedes `warehouse.describe`, so the manifest is not in
+#: byte-wise name order. This is not a spec violation — the specification asks
+#: for a deterministic order and never for a sorted one — which is why it is
+#: seeded under the beyond-spec namespace rather than as a SHOULD.
 TOOLS: list[dict[str, Any]] = [
     {
         "name": "warehouse.query",
@@ -96,6 +122,31 @@ TOOLS: list[dict[str, Any]] = [
         "inputSchema": {"type": "object"},
     },
 ]
+
+
+def connection_id(handler: Any) -> int:
+    """A stable id for the connection this request arrived on."""
+    existing = getattr(handler, _CONNECTION_ID, None)
+    if existing is None:
+        existing = next(_connections)
+        setattr(handler, _CONNECTION_ID, existing)
+    return int(existing)
+
+
+def connection_scoped_tool(cid: int) -> dict[str, Any]:
+    """A tool that exists only for the connection that asked.
+
+    A real server grows this by registering tools during a per-socket
+    handshake, or by memoising a registry on the connection object because that
+    was the only thing with the right lifetime under the old protocol. The
+    result is the same: two clients holding the same credential are told about
+    different tools, and neither can tell.
+    """
+    return {
+        "name": f"warehouse.session-{cid}",
+        "description": "Only advertised to the connection that opened it.",
+        "inputSchema": {"type": "object"},
+    }
 
 
 def declared_version(payload: dict[str, Any]) -> str | None:
@@ -144,7 +195,7 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
             request_id,
             {
                 # VIOLATES MCP/2026-07-28/MUST/result-type-present
-                # VIOLATES MCP/2026-07-28/MUST/server-info-echoed
+                # VIOLATES MCP/2026-07-28/SHOULD/server-info-echoed
                 # VIOLATES MCP/2026-07-28/MUST/discover-reports-supported-versions
                 # VIOLATES MCP/2026-07-28/MUST/discover-reports-server-info
                 #
@@ -190,15 +241,21 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
         _ = version
 
         rotation = next(_rotation) % len(TOOLS)
+        rotated = TOOLS[rotation:] + TOOLS[:rotation]
+
+        # VIOLATES MCP/2026-07-28/MUST/tools-list-connection-independent
+        # Each connection gets its own tool set. This is exactly the
+        # connection-shaped state the 2026-07-28 revision removed, and it is
+        # invisible to any check that reuses one connection.
         return 200, result(
             request_id,
             {
-                # VIOLATES MCP/2026-07-28/MUST/tools-list-is-deterministic
-                "tools": TOOLS[rotation:] + TOOLS[:rotation],
+                # VIOLATES MCP/2026-07-28/SHOULD/tools-list-is-deterministic
+                "tools": [*rotated, connection_scoped_tool(connection_id(handler))],
                 # VIOLATES MCP/2026-07-28/MUST/cacheable-results-carry-ttl
                 # VIOLATES MCP/2026-07-28/MUST/cacheable-results-carry-scope
                 # VIOLATES MCP/2026-07-28/MUST/result-type-present
-                # VIOLATES MCP/2026-07-28/MUST/server-info-echoed
+                # VIOLATES MCP/2026-07-28/SHOULD/server-info-echoed
             },
         )
 
@@ -287,7 +344,7 @@ def main() -> int:
     serve_forever(
         dispatch,
         port,
-        banner=f"non-conformant fixture ({len(SEEDED_VIOLATIONS)} seeded MUST violations)",
+        banner=f"non-conformant fixture ({len(SEEDED_VIOLATIONS)} seeded violations)",
     )
     return 0
 

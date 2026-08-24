@@ -25,7 +25,8 @@ uv run sentinel fixture serve --profile nonconformant &
 uv run sentinel scan --endpoint http://127.0.0.1:9000/mcp --gate must
 ```
 
-**26 MUST failures**, each with a spec citation and a remediation. Exit **1**.
+**25 MUST failures**, each with a spec citation and a remediation, plus three SHOULDs and one
+beyond-spec finding that do not affect the gate. Exit **1**.
 
 ### 2. Scan the broker
 

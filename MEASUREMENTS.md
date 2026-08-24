@@ -8,16 +8,16 @@ rather than earning it. The same goes for a server that claims determinism. Wher
 a measurement is not yet possible, this file says so and names the work package
 that will supply it, rather than omitting the row.
 
-Generated in 3.2s.
+Generated in 4.5s.
 
 | Measurement | Result |
 |---|---|
 | Manifest token count | **2032** tokens across **4** tool(s) |
 | Per-tool `concise` vs `detailed` token counts | up to **49.3%** fewer tokens in `concise` |
 | `tools/list` determinism | **1** distinct hash |
-| MUST recall against the non-conformant fixture | **100%** (26 of 26 seeded violations detected) |
+| Recall against the non-conformant fixture | **100%** (28 of 28 seeded violations detected) |
 | False positives against the conformant fixture | **0** |
-| Scan wall-clock | p50 **45 ms**, p95 **67 ms** |
+| Scan wall-clock | p50 **51 ms**, p95 **61 ms** |
 
 ---
 
@@ -57,11 +57,13 @@ Generated in 3.2s.
 
 **Method:** Distinct SHA-256 count across 100 hashes of the served manifest, plus 5 **cold rebuilds in separate processes** — the harder test, because it re-runs the map iteration that determinism usually dies in.
 
-## MUST recall against the non-conformant fixture
+## Recall against the non-conformant fixture
 
-**Result:** **100%** (26 of 26 seeded violations detected)
+**Result:** **100%** (28 of 28 seeded violations detected)
 
-**Method:** Seeded violations detected ÷ seeded violations. The fixture TAGS each violation in its own source and lists it in `SEEDED_VIOLATIONS`, and a test asserts the two agree — so the denominator describes what the fixture actually does rather than what the scanner happened to find. A scanner supplying its own denominator would be grading its own homework.
+**Value:** MCP/MUST 25/25 (100%); MCP/SHOULD 2/2 (100%); SENTINEL/SHOULD 1/1 (100%)
+
+**Method:** Seeded violations detected ÷ seeded violations. The fixture TAGS each violation in its own source and lists it in `SEEDED_VIOLATIONS`, and a test asserts the two agree — so the denominator describes what the fixture actually does rather than what the scanner happened to find. A scanner supplying its own denominator would be grading its own homework. Reported per severity because a MUST failure and a beyond-spec opinion are not the same claim, and one number over both would let a strong figure hide a weak one.
 
 ## False positives against the conformant fixture
 
@@ -73,7 +75,7 @@ Generated in 3.2s.
 
 ## Scan wall-clock
 
-**Result:** p50 **45 ms**, p95 **67 ms**
+**Result:** p50 **51 ms**, p95 **61 ms**
 
 **Method:** p50 and p95 over 12 full scans of the conformant fixture, in-process and loopback. A remote target adds its own latency per rule; this is the harness's own cost, which is the part it controls.
 

@@ -138,6 +138,9 @@ class OracleRun:
 
     seeded: set[str]
     detected: set[str]
+    #: Seeded rule id -> "<namespace>/<SEVERITY>", so recall can be reported
+    #: per bucket rather than as one figure spanning MUSTs and opinions.
+    buckets: dict[str, str]
     false_positives: list[str]
     indeterminate: list[str]
     timings: list[float]
@@ -155,7 +158,7 @@ def run_oracle(rounds: int = 12) -> OracleRun:
     sys.path.insert(0, str(REPO / "fixtures"))
     sys.path.insert(0, str(REPO / "harness" / "src"))
 
-    from sentinel.catalog.base import Outcome
+    from sentinel.catalog.base import REGISTRY, Outcome
     from sentinel.grade import run_scan
     from server.common import serve_background
     from server.conformant import dispatch as conformant
@@ -188,7 +191,16 @@ def run_oracle(rounds: int = 12) -> OracleRun:
 
     return OracleRun(
         seeded=set(SEEDED_VIOLATIONS),
-        detected={f.rule.id for f in bad_report.must_failures},
+        # Every FAIL, not only the MUSTs. Since 0.2.0 the fixture seeds two
+        # SHOULDs and one beyond-spec rule as well — they are the three whose
+        # severity was corrected — and scoring them against MUST failures alone
+        # would report them as misses.
+        detected={f.rule.id for f in bad_report.by_outcome(Outcome.FAIL)},
+        buckets={
+            rule.id: f"{rule.namespace.value}/{rule.severity.value.upper()}"
+            for rule in REGISTRY
+            if rule.id in set(SEEDED_VIOLATIONS)
+        },
         false_positives=[f.rule.id for f in good_report.by_outcome(Outcome.FAIL)],
         indeterminate=[f.rule.id for f in good_report.indeterminate],
         timings=timings,
@@ -201,18 +213,30 @@ def measure_recall(oracle: OracleRun) -> Measurement:
     recall = len(hit) / len(oracle.seeded) if oracle.seeded else 0.0
 
     m = Measurement(
-        name="MUST recall against the non-conformant fixture",
+        name="Recall against the non-conformant fixture",
         method=(
             "Seeded violations detected ÷ seeded violations. The fixture TAGS each "
             "violation in its own source and lists it in `SEEDED_VIOLATIONS`, and a test "
             "asserts the two agree — so the denominator describes what the fixture "
             "actually does rather than what the scanner happened to find. A scanner "
-            "supplying its own denominator would be grading its own homework."
+            "supplying its own denominator would be grading its own homework. Reported "
+            "per severity because a MUST failure and a beyond-spec opinion are not the "
+            "same claim, and one number over both would let a strong figure hide a weak "
+            "one."
         ),
         value=f"**{recall:.0%}** ({len(hit)} of {len(oracle.seeded)} seeded violations detected)",
     )
+
+    per_bucket: dict[str, list[str]] = {}
+    for rule_id, label in oracle.buckets.items():
+        per_bucket.setdefault(label, []).append(rule_id)
+    m.detail = "; ".join(
+        f"{label} {len(set(ids) & oracle.detected)}/{len(ids)}"
+        f" ({len(set(ids) & oracle.detected) / len(ids):.0%})"
+        for label, ids in sorted(per_bucket.items())
+    )
     if missed:
-        m.detail = "Undetected: " + ", ".join(f"`{r}`" for r in missed)
+        m.detail += ". Undetected: " + ", ".join(f"`{r}`" for r in missed)
     return m
 
 

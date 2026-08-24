@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from sentinel.catalog.base import Outcome, Severity
+from sentinel.catalog.base import BaseRule, Outcome, Severity
 from sentinel.grade import EXIT_GATE_FAILED, EXIT_OK, run_scan
 from server.nonconformant import SEEDED_VIOLATIONS
 
@@ -35,6 +35,16 @@ def test_nonconformant_fixture_trips_at_least_twenty_musts(nonconformant_endpoin
     )
 
 
+def _bucket(rule: BaseRule) -> str:
+    """The label recall is reported under: namespace and severity.
+
+    A MUST failure and a beyond-spec style opinion are not the same claim, so
+    they do not belong in the same fraction. Reporting one number over both
+    would let a strong MUST recall hide a weak one, or the reverse.
+    """
+    return f"{rule.namespace.value}/{rule.severity.value.upper()}"
+
+
 def test_recall_against_seeded_violations(nonconformant_endpoint: str) -> None:
     """Every violation the fixture admits to must be detected.
 
@@ -42,17 +52,43 @@ def test_recall_against_seeded_violations(nonconformant_endpoint: str) -> None:
     exists in the code but not in the list is caught by
     test_seeded_list_matches_the_tagged_code below. Between the two, recall is
     measured against what the fixture actually does.
+
+    `SEEDED_VIOLATIONS` is no longer all-MUST. 0.2.0 corrected two MUSTs the
+    specification grades SHOULD and moved a third rule out of the spec
+    namespace entirely, and the fixture still violates all three. Recall is
+    therefore computed per bucket rather than over MUST alone: dropping the
+    seeds that stopped being MUSTs would shrink the denominator to flatter the
+    number, which is the one thing this oracle exists to prevent.
     """
+    from sentinel.catalog.base import REGISTRY
+
     report = run_scan(nonconformant_endpoint)
-    detected = {f.rule.id for f in report.must_failures}
-    seeded = set(SEEDED_VIOLATIONS)
+    detected = {f.rule.id for f in report.by_outcome(Outcome.FAIL)}
+    by_id = {r.id: r for r in REGISTRY}
 
-    missed = seeded - detected
-    recall = (len(seeded) - len(missed)) / len(seeded)
+    buckets: dict[str, list[str]] = {}
+    for rule_id in SEEDED_VIOLATIONS:
+        # Existence is asserted by test_every_seeded_violation_names_a_real_rule;
+        # a KeyError here would be that test's failure reported in the wrong place.
+        buckets.setdefault(_bucket(by_id[rule_id]), []).append(rule_id)
 
-    assert not missed, (
-        f"recall {recall:.0%} — {len(missed)} seeded violation(s) went undetected:\n"
-        + "\n".join(f"  {rule_id}" for rule_id in sorted(missed))
+    lines: list[str] = []
+    missed_by_bucket: dict[str, list[str]] = {}
+    for label, seeded in sorted(buckets.items()):
+        missed = sorted(set(seeded) - detected)
+        hit = len(seeded) - len(missed)
+        lines.append(f"  {label}: recall {hit / len(seeded):.0%} ({hit}/{len(seeded)})")
+        for rule_id in missed:
+            lines.append(f"      MISSED {rule_id}")
+        if missed:
+            missed_by_bucket[label] = missed
+
+    # Printed, not just asserted: a recall figure nobody can read is not a
+    # measurement. pytest shows it on failure and under -s.
+    print("recall by bucket:\n" + "\n".join(lines))
+
+    assert not missed_by_bucket, (
+        "seeded violations went undetected:\n" + "\n".join(lines)
     )
 
 
@@ -107,7 +143,10 @@ def test_seeded_list_matches_the_tagged_code() -> None:
         / "fixtures" / "server" / "nonconformant.py"
     ).read_text()
 
-    tagged = set(re.findall(r"VIOLATES (MCP/\S+)", source))
+    # Both namespaces, and an optional colon. A tag the pattern does not match
+    # is a tagged violation this test silently stops checking, so the pattern
+    # is deliberately more forgiving than the file's own convention.
+    tagged = set(re.findall(r"VIOLATES:?\s+((?:MCP|SENTINEL)/\S+)", source))
     listed = set(SEEDED_VIOLATIONS)
 
     assert listed == tagged, (
