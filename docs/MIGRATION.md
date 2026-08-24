@@ -224,17 +224,40 @@ The revision partitions the JSON-RPC server-error range:
 
 | Range | Owner |
 |---|---|
-| `-32000` … `-32019` | **you** |
+| `-32000` … `-32019` | **nobody, now** — legacy. Allocated by implementations before this policy existed. New codes MUST NOT be allocated here, and a new implementation SHOULD NOT use the sub-range at all. Apart from `-32002`, a receiver MUST NOT assume any meaning for a code from it |
 | `-32020` … `-32099` | **the specification** — only `-32020`, `-32021`, `-32022` are defined so far |
+| outside `-32768` … `-32000` | **you** — the remainder of the integer space is available for application-defined errors |
 
 And one code moved: **resource-not-found is `-32602`**, not `-32002`.
 
+### If you already allocated codes in `-32000` … `-32019`
+
+Most servers written before this revision did — it was the only range on offer. Nothing breaks the
+day you upgrade: the sub-range is retired, not reassigned, so your old codes still arrive intact.
+What you lose is any right to be *understood*. A receiver that follows this revision must not
+assume a meaning for a code it sees there, so your clients' triage branches are now branches on a
+number the specification tells them to ignore.
+
+Move them, on your own schedule, and keep the migration cheap:
+
+1. **Pick the new codes outside the JSON-RPC reserved range entirely** — `1000` upward is as good
+   as anywhere. Preserve the low ordinal so triage knowledge transfers: `-32007` becomes `1007`.
+   Skip the ordinal matching `-32002` rather than reusing it, or you make triage ambiguous for
+   exactly the clients most likely to be mid-migration.
+2. **Define them in one file**, so the whole error surface can be audited by reading it and a test
+   can enumerate them.
+3. **Emit the old code alongside the new one** — as `data.legacyCode`, behind a flag — for one
+   release, so a client can triage on either number while it catches up. Then remove the flag; a
+   compatibility shim with no removal date is a second permanent code.
+
 **What it costs you:** an hour, and one test. Enumerate every error your server can emit and assert
-none falls in the reserved range — a code you take today is a code a future revision will define,
-and your clients will then act on the wrong meaning.
+none falls in the reserved range *or* the retired sub-range — a code you take inside `-32020` …
+`-32099` today is a code a future revision will define, and your clients will then act on the wrong
+meaning; a code you keep inside `-32000` … `-32019` is one they are told to read no meaning into.
 
 **Detected by:** `MUST/resource-not-found-is-invalid-params`, `MUST/no-errors-in-reserved-range`,
-`MUST/unknown-method-is-method-not-found`, `MUST/malformed-json-is-parse-error`.
+`SHOULD/no-errors-in-legacy-range`, `MUST/unknown-method-is-method-not-found`,
+`MUST/malformed-json-is-parse-error`.
 
 ---
 

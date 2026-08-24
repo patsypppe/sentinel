@@ -19,17 +19,65 @@ func TestNoErrorInReservedRange(t *testing.T) {
 		}
 		if !specAllocated[code] {
 			t.Errorf("code %d is inside the reserved range -32020…-32099 but is not one of "+
-				"the three the specification defines; implementation codes belong in -32000…-32019", code)
+				"the three the specification defines; implementation codes belong in 1000…1019", code)
 		}
 	}
 }
 
-// TestImplementationCodesAreInTheirOwnRange: the flip side. Sentinel's own codes
-// must live in -32000…-32019, not scattered through the JSON-RPC space.
-func TestImplementationCodesAreInTheirOwnRange(t *testing.T) {
+// TestNoCodeInJSONRPCReservedRange. The specification says new codes SHOULD be
+// allocated outside -32768…-32000 entirely. The three codes the spec itself
+// defines are the only ones of ours inside it, and they are not ours.
+func TestNoCodeInJSONRPCReservedRange(t *testing.T) {
+	specDefined := map[int]bool{
+		CodeHeaderMismatch:                  true,
+		CodeMissingRequiredClientCapability: true,
+		CodeUnsupportedProtocolVersion:      true,
+		CodeParseError:                      true,
+		CodeInvalidRequest:                  true,
+		CodeMethodNotFound:                  true,
+		CodeInvalidParams:                   true,
+		CodeInternalError:                   true,
+	}
+	for _, code := range AllCodes() {
+		if specDefined[code] {
+			continue
+		}
+		if IsJSONRPCReserved(code) {
+			t.Errorf("code %d is inside the JSON-RPC reserved range -32768…-32000; "+
+				"new codes belong outside it", code)
+		}
+	}
+}
+
+// TestNoCodeInLegacySubRange. -32000…-32019 is the sub-range the revision
+// retired: "new implementations SHOULD NOT use codes from this sub-range at all".
+func TestNoCodeInLegacySubRange(t *testing.T) {
+	for _, code := range AllCodes() {
+		if IsLegacySubRange(code) {
+			t.Errorf("code %d is in the retired legacy sub-range -32000…-32019", code)
+		}
+	}
+}
+
+func TestImplementationCodesArePositive(t *testing.T) {
 	for _, code := range ImplementationCodes() {
-		if code > -32000 || code < -32019 {
-			t.Errorf("implementation code %d is outside -32000…-32019", code)
+		if code < 1000 || code > 1019 {
+			t.Errorf("implementation code %d is outside the allocated block 1000…1019", code)
+		}
+	}
+}
+
+// TestLegacyCodeMapsEveryMigratedCode. A client mid-migration triages on the old
+// number; every code we moved must be able to say what it used to be.
+func TestLegacyCodeMapsEveryMigratedCode(t *testing.T) {
+	for _, code := range ImplementationCodes() {
+		old, ok := LegacyCode(code)
+		if !ok {
+			t.Errorf("code %d has no recorded legacy predecessor", code)
+			continue
+		}
+		if !IsLegacySubRange(old) {
+			t.Errorf("legacy predecessor %d of %d is not in -32000…-32019", old, code)
 		}
 	}
 }
@@ -39,7 +87,7 @@ func TestReservedRangeBoundaries(t *testing.T) {
 		code int
 		want bool
 	}{
-		{-32019, false}, // last implementation-defined code
+		{-32019, false}, // last code in the retired legacy sub-range
 		{-32020, true},  // first reserved code
 		{-32099, true},  // last reserved code
 		{-32100, false},
@@ -64,15 +112,47 @@ func TestResourceNotFoundIsInvalidParams(t *testing.T) {
 	}
 }
 
-// TestMinus32002IsDeliberatelyUnallocated. -32002 is inside our own permitted
-// range, so allocating it would be legal — but it was resource-not-found in the
-// previous revision, and reusing it makes error triage ambiguous for exactly the
-// clients most likely to be mid-migration.
-func TestMinus32002IsDeliberatelyUnallocated(t *testing.T) {
-	for _, code := range ImplementationCodes() {
-		if code == -32002 {
-			t.Fatal("-32002 must stay unallocated: it was resource-not-found before this revision")
+// TestOneThousandTwoIsDeliberatelyUnallocated mirrors the old
+// TestMinus32002IsDeliberatelyUnallocated: 1002 is skipped because -32002 was,
+// and keeping the ordinal gap keeps triage knowledge transferable.
+func TestOneThousandTwoIsDeliberatelyUnallocated(t *testing.T) {
+	for _, code := range AllCodes() {
+		if code == 1002 {
+			t.Fatal("1002 must stay unallocated: it mirrors -32002, which was " +
+				"resource-not-found before this revision")
 		}
+	}
+}
+
+func TestWithLegacyCodeAttachesTheOldNumber(t *testing.T) {
+	err := WithLegacyCode(New(CodeHandleNotResolvable, "nope", nil))
+	data, ok := err.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("Data = %#v, want a map carrying legacyCode", err.Data)
+	}
+	if data["legacyCode"] != -32000 {
+		t.Errorf("legacyCode = %v, want -32000", data["legacyCode"])
+	}
+	if err.Code != CodeHandleNotResolvable {
+		t.Errorf("Code = %d, want %d; the primary code must not change", err.Code, CodeHandleNotResolvable)
+	}
+}
+
+func TestWithLegacyCodePreservesExistingData(t *testing.T) {
+	err := WithLegacyCode(New(CodeScopeDenied, "denied", map[string]any{"scope": "ops.write"}))
+	data := err.Data.(map[string]any)
+	if data["scope"] != "ops.write" {
+		t.Errorf("existing data was dropped: %#v", data)
+	}
+	if data["legacyCode"] != -32007 {
+		t.Errorf("legacyCode = %v, want -32007", data["legacyCode"])
+	}
+}
+
+func TestWithLegacyCodeIgnoresCodesThatNeverMoved(t *testing.T) {
+	err := WithLegacyCode(New(CodeInvalidParams, "bad", nil))
+	if err.Data != nil {
+		t.Errorf("Data = %#v, want nil; -32602 never moved", err.Data)
 	}
 }
 
@@ -95,5 +175,46 @@ func TestErrorsAreDistinct(t *testing.T) {
 			t.Errorf("code %d is allocated twice", code)
 		}
 		seen[code] = true
+	}
+}
+
+// TestWithLegacyCodePreservesStructuredData. CodeScopeDenied carries its
+// required scope as a struct, and §8.4 calls that the actionable part of the
+// error. Nesting it under "detail" to make room for legacyCode would move the
+// one field a client reads — a transition aid breaking what it exists to
+// protect, with the flag on by default.
+func TestWithLegacyCodePreservesStructuredData(t *testing.T) {
+	payload := struct {
+		RequiredScope string `json:"requiredScope"`
+	}{RequiredScope: "warehouse:read"}
+
+	err := WithLegacyCode(New(CodeScopeDenied, "denied", payload))
+	data, ok := err.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("Data = %#v, want a map", err.Data)
+	}
+	if data["requiredScope"] != "warehouse:read" {
+		t.Errorf("requiredScope = %v, want warehouse:read; it must stay at the top level",
+			data["requiredScope"])
+	}
+	if _, nested := data["detail"]; nested {
+		t.Error(`structured data was nested under "detail"; a client reading ` +
+			`error.data.requiredScope would find nothing there`)
+	}
+	if data["legacyCode"] != float64(-32007) && data["legacyCode"] != -32007 {
+		t.Errorf("legacyCode = %v, want -32007", data["legacyCode"])
+	}
+}
+
+// TestWithLegacyCodeFallsBackToDetailForANonObject. A bare string has nowhere
+// to merge into, so it keeps the "detail" wrapper.
+func TestWithLegacyCodeFallsBackToDetailForANonObject(t *testing.T) {
+	err := WithLegacyCode(New(CodeHandleNotResolvable, "nope", "a bare string"))
+	data := err.Data.(map[string]any)
+	if data["detail"] != "a bare string" {
+		t.Errorf(`detail = %v, want the original string`, data["detail"])
+	}
+	if data["legacyCode"] != -32000 {
+		t.Errorf("legacyCode = %v, want -32000", data["legacyCode"])
 	}
 }

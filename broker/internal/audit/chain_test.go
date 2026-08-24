@@ -90,7 +90,7 @@ func TestEveryFieldIsCovered(t *testing.T) {
 		"trace":       func(r *Record) { r.TraceID = "00-999-999-01" },
 		"correlation": func(r *Record) { r.CorrelationID = "mrtr_x" },
 		"outcome":     func(r *Record) { r.Outcome = OutcomeDenied },
-		"errorCode":   func(r *Record) { r.ErrorCode = -32000 },
+		"errorCode":   func(r *Record) { r.ErrorCode = 1000 },
 		"duration":    func(r *Record) { r.DurationMs = 43 },
 		"occurredAt":  func(r *Record) { r.OccurredAt = r.OccurredAt.Add(time.Second) },
 	}

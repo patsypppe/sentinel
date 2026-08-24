@@ -159,3 +159,21 @@ def test_connection_independence_rule_exists_and_passes_the_conformant_fixture(
         result = rule.evaluate(probe)
 
     assert result.outcome is Outcome.PASS, result.detail
+
+
+def test_legacy_range_rule_fires_on_the_nonconformant_fixture(
+    nonconformant_endpoint: str,
+) -> None:
+    from sentinel.probe.client import Probe
+
+    rule = {r.id: r for r in REGISTRY.all()}["MCP/2026-07-28/SHOULD/no-errors-in-legacy-range"]
+    with Probe(nonconformant_endpoint) as probe:
+        assert rule.evaluate(probe).outcome is Outcome.FAIL
+
+
+def test_legacy_range_rule_passes_the_conformant_fixture(conformant_endpoint: str) -> None:
+    from sentinel.probe.client import Probe
+
+    rule = {r.id: r for r in REGISTRY.all()}["MCP/2026-07-28/SHOULD/no-errors-in-legacy-range"]
+    with Probe(conformant_endpoint) as probe:
+        assert rule.evaluate(probe).outcome in (Outcome.PASS, Outcome.NOT_APPLICABLE)

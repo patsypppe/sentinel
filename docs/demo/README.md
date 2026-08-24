@@ -93,7 +93,7 @@ tools/call ops.deployment_apply {"plan": "<the operator's handle>"}   # as the a
 ```
 
 ```json
-{"code": -32000,
+{"code": 1000,
  "message": "handle is not resolvable: it does not exist, is not yours, has expired, or was revoked"}
 ```
 

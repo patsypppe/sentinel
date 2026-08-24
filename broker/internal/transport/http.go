@@ -36,6 +36,9 @@ type Server struct {
 	// fallback. §8.1 requires the event to be recorded; wiring it as a callback
 	// keeps the transport free of a dependency on the audit writer.
 	onDeprecatedFeature func(ctx context.Context, event, method string)
+	// legacyErrorCodes attaches data.legacyCode in writeError. Scheduled for
+	// removal with the transition release.
+	legacyErrorCodes bool
 }
 
 type Option func(*Server)
@@ -50,6 +53,16 @@ func WithAuthenticator(a Authenticator) Option {
 // WithDeprecationRecorder wires the `deprecated.feature_used` sink.
 func WithDeprecationRecorder(f func(ctx context.Context, event, method string)) Option {
 	return func(s *Server) { s.onDeprecatedFeature = f }
+}
+
+// WithLegacyErrorCodes attaches data.legacyCode to errors whose code moved out
+// of -32000…-32019 in this revision, so a client mid-migration can triage on
+// either number.
+//
+// SCHEDULED FOR REMOVAL: it exists for the transition release only, and goes
+// away with it. See BROKER_EMIT_LEGACY_ERROR_CODE.
+func WithLegacyErrorCodes(on bool) Option {
+	return func(s *Server) { s.legacyErrorCodes = on }
 }
 
 func NewServer(mux *Mux, cfg config.Config, info envelope.Info, log *slog.Logger, opts ...Option) *Server {
@@ -222,7 +235,14 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 	s.write(w, envelope.NewResultResponse(req.ID, encoded))
 }
 
+// writeError is the ONE place an RPCError becomes a response body on this
+// transport, which is why the legacy-code decoration belongs here rather than
+// at the several dozen call sites that produce one. Scattering it would make
+// envelope/errors.go stop being the sole authority for the error surface.
 func (s *Server) writeError(w http.ResponseWriter, id json.RawMessage, rpcErr *envelope.RPCError) {
+	if s.legacyErrorCodes {
+		rpcErr = envelope.WithLegacyCode(rpcErr)
+	}
 	s.write(w, envelope.NewErrorResponse(id, rpcErr))
 }
 

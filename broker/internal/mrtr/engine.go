@@ -28,9 +28,9 @@ import (
 //	                             │ retry with inputResponses + requestState
 //	                             ▼
 //	                  ┌──────────────────────┐
-//	                  │ verify seal          │  tampered → -32004
-//	                  │ verify arguments_hash│  mutated  → -32003
-//	                  │ verify principal     │  mismatch → -32000
+//	                  │ verify seal          │  tampered → 1004
+//	                  │ verify arguments_hash│  mutated  → 1003
+//	                  │ verify principal     │  mismatch → 1000
 //	                  └──────────┬───────────┘
 //	                             │ first time
 //	                             ▼

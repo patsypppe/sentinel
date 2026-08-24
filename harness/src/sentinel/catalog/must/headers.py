@@ -117,8 +117,9 @@ def header_mismatch_rejected(probe: Probe) -> RuleResult:
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Return -32602 InvalidParams for a resource that does not exist. It moved from "
-        "-32002 in this revision, and -32002 now falls in the implementation-defined range "
-        "where it means whatever the server chose."
+        "-32002 in this revision, and -32002 now sits in the retired -32000…-32019 "
+        "sub-range -- the one code the revision exempts by name, precisely because so "
+        "many servers still emit it for the meaning it used to have."
     ),
 )
 def resource_not_found_code(probe: Probe) -> RuleResult:
@@ -152,10 +153,12 @@ def resource_not_found_code(probe: Probe) -> RuleResult:
     citation=f"{ERRORS}",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
-        "Move implementation-defined error codes into -32000…-32019. The range "
-        "-32020…-32099 is reserved for the specification, and only -32020, -32021 and "
-        "-32022 are defined in it; occupying the rest means a future revision's code will "
-        "collide with yours and clients will act on the wrong meaning."
+        "Move implementation-defined error codes outside the JSON-RPC reserved range "
+        "(-32768 to -32000) entirely. The range -32020…-32099 is reserved for the "
+        "specification, and only -32020, -32021 and -32022 are defined in it; occupying "
+        "the rest means a future revision's code will collide with yours and clients will "
+        "act on the wrong meaning. -32000…-32019 is not the answer either -- this revision "
+        "retired that sub-range, which SHOULD/no-errors-in-legacy-range reports separately."
     ),
 )
 def no_reserved_range_errors(probe: Probe) -> RuleResult:
