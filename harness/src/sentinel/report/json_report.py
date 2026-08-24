@@ -33,6 +33,13 @@ def render(report: ScanReport) -> dict[str, Any]:
                 "severity": f.rule.severity.value,
                 "verifiability": f.rule.verifiability.value,
                 "citation": f.rule.citation,
+                # The lifecycle travels with the finding. A consumer diffing two
+                # archived reports has to be able to tell "this rule was retired"
+                # from "this rule stopped failing", and a namespace tells it
+                # whether the finding was ever a conformance claim at all.
+                "namespace": f.rule.namespace.value,
+                "deprecated": bool(f.rule.deprecated_in),
+                "supersededBy": f.rule.superseded_by,
                 "outcome": f.outcome.value,
                 "detail": f.result.detail,
                 "evidence": f.result.evidence,

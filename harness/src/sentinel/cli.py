@@ -70,6 +70,16 @@ def scan(
         str | None, typer.Option(help="Bearer token to present to the target.")
     ] = None,
     no_color: Annotated[bool, typer.Option("--no-color", help="Disable ANSI colour.")] = False,
+    include_deprecated_rules: Annotated[
+        bool,
+        typer.Option(
+            "--include-deprecated-rules",
+            help=(
+                "Also run rules this catalog has deprecated. Each is reported with the "
+                "rule that replaced it, so an archived report stays reproducible."
+            ),
+        ),
+    ] = False,
     sarif_anchor: Annotated[
         str,
         typer.Option(
@@ -93,7 +103,12 @@ def scan(
             raise typer.Exit(EXIT_HARNESS_ERROR) from None
 
     try:
-        report = run_scan(endpoint, timeout=timeout, bearer_token=token)
+        report = run_scan(
+            endpoint,
+            timeout=timeout,
+            bearer_token=token,
+            include_deprecated=include_deprecated_rules,
+        )
     except Exception as exc:
         typer.echo(f"sentinel: the scan could not run: {exc}", err=True)
         raise typer.Exit(EXIT_HARNESS_ERROR) from exc

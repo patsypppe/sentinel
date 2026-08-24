@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from sentinel.catalog.base import Outcome, Severity, Verifiability
-from sentinel.grade import ScanReport
+from sentinel.grade import Finding, ScanReport
 
 RESET = "\033[0m"
 BOLD = "\033[1m"
@@ -25,6 +25,23 @@ def render(report: ScanReport, *, color: bool = True) -> str:
     def paint(text: str, code: str) -> str:
         return f"{code}{text}{RESET}" if color else text
 
+    def label(f: Finding, ident: str, *, plain: bool = False) -> str:
+        """A deprecated rule keeps its id and is marked, never hidden.
+
+        `plain` is for lines the caller paints as a whole: painting the marker
+        separately would RESET the enclosing colour mid-line.
+        """
+        if not f.rule.is_deprecated:
+            return ident
+        mark = "DEPRECATED" if plain else paint("DEPRECATED", YELLOW)
+        return f"{mark} {ident}"
+
+    def detail(f: Finding) -> str:
+        """A deprecated finding names its successor where the finding is read."""
+        if f.rule.is_deprecated and f.rule.superseded_by:
+            return f"{f.result.detail} (superseded by {f.rule.superseded_by})"
+        return f.result.detail
+
     lines: list[str] = []
     lines.append(paint(f"sentinel scan · MCP {report.spec_revision}", BOLD))
     lines.append(f"target: {report.endpoint}")
@@ -36,9 +53,9 @@ def render(report: ScanReport, *, color: bool = True) -> str:
         lines.append(paint(f"{len(failures)} FAILING", BOLD + RED))
         lines.append("")
         for f in failures:
-            lines.append(f"  {paint('FAIL', RED)}  {paint(f.rule.id, BOLD)}")
+            lines.append(f"  {paint('FAIL', RED)}  {label(f, paint(f.rule.id, BOLD))}")
             lines.append(f"        {f.rule.title}")
-            lines.append(f"        {paint('observed:', DIM)}    {f.result.detail}")
+            lines.append(f"        {paint('observed:', DIM)}    {detail(f)}")
             lines.append(f"        {paint('remediation:', DIM)} {f.rule.remediation}")
             lines.append(f"        {paint('spec:', DIM)}        {paint(f.rule.citation, BLUE)}")
             if f.result.evidence:
@@ -61,9 +78,9 @@ def render(report: ScanReport, *, color: bool = True) -> str:
         )
         lines.append("")
         for f in indeterminate:
-            lines.append(f"  {paint('????', YELLOW)}  {paint(f.rule.id, BOLD)}")
+            lines.append(f"  {paint('????', YELLOW)}  {label(f, paint(f.rule.id, BOLD))}")
             lines.append(f"        {f.rule.title}")
-            lines.append(f"        {paint('why:', DIM)}  {f.result.detail}")
+            lines.append(f"        {paint('why:', DIM)}  {detail(f)}")
             lines.append(f"        {paint('spec:', DIM)} {paint(f.rule.citation, BLUE)}")
             lines.append("")
 
@@ -71,14 +88,16 @@ def render(report: ScanReport, *, color: bool = True) -> str:
     if passes:
         lines.append(paint(f"{len(passes)} passing", GREEN))
         for f in passes:
-            lines.append(f"  {paint('PASS', GREEN)}  {f.rule.id}")
+            lines.append(f"  {paint('PASS', GREEN)}  {label(f, f.rule.id)}")
         lines.append("")
 
     skipped = report.by_outcome(Outcome.NOT_APPLICABLE)
     if skipped:
         lines.append(paint(f"{len(skipped)} not applicable", DIM))
         for f in skipped:
-            lines.append(paint(f"  n/a   {f.rule.id} — {f.result.detail}", DIM))
+            lines.append(
+                paint(f"  n/a   {label(f, f.rule.id, plain=True)} — {detail(f)}", DIM)
+            )
         lines.append("")
 
     lines.append(paint("─" * 72, DIM))

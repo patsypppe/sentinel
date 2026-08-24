@@ -20,6 +20,7 @@ from sentinel import SPEC_REVISION
 from sentinel.catalog.base import (
     REGISTRY,
     BaseRule,
+    Namespace,
     Outcome,
     Registry,
     RuleResult,
@@ -83,11 +84,19 @@ class ScanReport:
         INDETERMINATE never fails it. That is not leniency — it is the whole
         point of having the bucket: a rule the harness cannot settle must not be
         reported as a verdict in either direction.
+
+        Only the MCP namespace can fail a spec gate. A SENTINEL rule is an
+        opinion this project holds and the specification does not; letting one
+        fail `--gate must` would make a conformance verdict unfalsifiable.
         """
         if severity is None:
             return EXIT_OK
-        failures = self.by_outcome(Outcome.FAIL, severity)
-        return EXIT_GATE_FAILED if failures else EXIT_OK
+        failed = [
+            f
+            for f in self.by_outcome(Outcome.FAIL, severity)
+            if f.rule.namespace is Namespace.MCP
+        ]
+        return EXIT_GATE_FAILED if failed else EXIT_OK
 
 
 def run_scan(
@@ -97,16 +106,19 @@ def run_scan(
     timeout: float = 10.0,
     bearer_token: str | None = None,
     only: set[str] | None = None,
+    include_deprecated: bool = False,
 ) -> ScanReport:
     """Evaluate every rule against one endpoint."""
     reg = registry if registry is not None else REGISTRY
     report = ScanReport(endpoint=endpoint, spec_revision=SPEC_REVISION, started_at=time.time())
 
+    rules = reg.all(include_deprecated=include_deprecated)
+    if only is not None:
+        rules = [r for r in rules if r.id in only]
+
     started = time.perf_counter()
     with Probe(endpoint, timeout=timeout, bearer_token=bearer_token) as probe:
-        for r in reg.all():
-            if only is not None and r.id not in only:
-                continue
+        for r in rules:
             rule_started = time.perf_counter()
             try:
                 result = r.evaluate(probe)
