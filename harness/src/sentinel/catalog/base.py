@@ -88,12 +88,27 @@ class Rule(Protocol):
     def evaluate(self, probe: Probe) -> RuleResult: ...
 
 
-#: `MCP/<revision>/<SEVERITY>/<slug>`.
+class Namespace(StrEnum):
+    #: Rules that restate a normative requirement of the specification. These
+    #: carry a citation and are what `--gate must` considers.
+    MCP = "MCP"
+    #: Rules this project believes in that the specification does not require.
+    #: They carry a rationale instead of a citation, and no spec gate ever
+    #: considers them -- a beyond-spec finding must never be mistakable for a
+    #: conformance failure.
+    SENTINEL = "SENTINEL"
+
+
+#: `MCP/<revision>/<SEVERITY>/<slug>` or `SENTINEL/<CATEGORY>/<slug>`.
 #:
 #: Rule IDs are PERMANENT (§8.8). Once published, an id never changes meaning:
 #: deprecate and add rather than redefine, or every historical report becomes
 #: uninterpretable.
-RULE_ID_PATTERN = re.compile(r"^MCP/\d{4}-\d{2}-\d{2}/(MUST|SHOULD|MAY)/[a-z0-9][a-z0-9-]*$")
+RULE_ID_PATTERN = re.compile(
+    r"^(?:MCP/\d{4}-\d{2}-\d{2}/(?:MUST|SHOULD|MAY)"
+    r"|SENTINEL/(?:SECURITY|STYLE|OPS))"
+    r"/[a-z0-9][a-z0-9-]*$"
+)
 
 SPEC_BASE = f"https://modelcontextprotocol.io/specification/{SPEC_REVISION}"
 
@@ -121,6 +136,30 @@ class BaseRule:
     fixtures: list[str] = field(default_factory=list)
     #: One line, shown next to the id in the text report.
     title: str = ""
+    #: The sentinel version this rule first shipped in.
+    introduced_in: str = "0.1.0"
+    #: The sentinel version that deprecated it, or None while it is live. A
+    #: deprecated rule is excluded from scans by default but keeps its id
+    #: forever, so an archived report stays readable.
+    deprecated_in: str | None = None
+    #: The rule id that replaced it. Required when deprecated_in is set.
+    superseded_by: str | None = None
+    #: Why a beyond-spec rule exists. SENTINEL-namespace rules carry this
+    #: INSTEAD of a citation -- a citation field pointing at nothing is how a
+    #: catalog starts lying.
+    rationale: str = ""
+
+    @property
+    def namespace(self) -> Namespace:
+        return Namespace.SENTINEL if self.id.startswith("SENTINEL/") else Namespace.MCP
+
+    @property
+    def is_deprecated(self) -> bool:
+        return self.deprecated_in is not None
+
+    @property
+    def slug(self) -> str:
+        return self.id.rsplit("/", 1)[-1]
 
     def evaluate(self, probe: Probe) -> RuleResult:
         if self.verifiability is Verifiability.UNVERIFIABLE:
@@ -150,13 +189,22 @@ class Registry:
         self._rules[rule.id] = rule
         return rule
 
-    def all(self) -> list[BaseRule]:
+    def all(self, *, include_deprecated: bool = False) -> list[BaseRule]:
         # Sorted by id so a report's order is stable across runs and two reports
         # can be diffed.
-        return sorted(self._rules.values(), key=lambda r: r.id)
+        rules = self._rules.values()
+        if not include_deprecated:
+            rules = [r for r in rules if not r.is_deprecated]  # type: ignore[assignment]
+        return sorted(rules, key=lambda r: r.id)
 
-    def by_severity(self, severity: Severity) -> list[BaseRule]:
-        return [r for r in self.all() if r.severity is severity]
+    def by_severity(
+        self, severity: Severity, *, include_deprecated: bool = False
+    ) -> list[BaseRule]:
+        return [
+            r
+            for r in self.all(include_deprecated=include_deprecated)
+            if r.severity is severity
+        ]
 
     def __len__(self) -> int:
         return len(self._rules)
@@ -174,10 +222,14 @@ def rule(
     id: str,
     title: str,
     severity: Severity,
-    citation: str,
     verifiability: Verifiability,
     remediation: str,
+    citation: str = "",
+    rationale: str = "",
     fixtures: list[str] | None = None,
+    introduced_in: str = "0.1.0",
+    deprecated_in: str | None = None,
+    superseded_by: str | None = None,
 ) -> Callable[[Callable[[Probe], RuleResult]], BaseRule]:
     """Declare and register a rule."""
 
@@ -188,10 +240,14 @@ def rule(
                 title=title,
                 severity=severity,
                 citation=citation,
+                rationale=rationale,
                 verifiability=verifiability,
                 remediation=remediation,
                 check=check,
                 fixtures=fixtures or [FIXTURE_NONCONFORMANT, FIXTURE_CONFORMANT],
+                introduced_in=introduced_in,
+                deprecated_in=deprecated_in,
+                superseded_by=superseded_by,
             )
         )
 
@@ -213,20 +269,46 @@ def validate_registry(registry: Registry | None = None) -> list[ValidationProble
     """
     reg = registry if registry is not None else REGISTRY
     problems: list[ValidationProblem] = []
+    known = {r.id for r in reg.all(include_deprecated=True)}
+    live_slugs: dict[str, str] = {}
 
-    for r in reg.all():
+    for r in reg.all(include_deprecated=True):
         if not RULE_ID_PATTERN.match(r.id):
             problems.append(ValidationProblem(r.id, f"id does not match {RULE_ID_PATTERN.pattern}"))
-        if f"/{r.severity.upper()}/" not in r.id:
-            problems.append(
-                ValidationProblem(r.id, f"id does not carry its severity ({r.severity})")
-            )
-        if not r.citation:
-            problems.append(ValidationProblem(r.id, "has no spec citation"))
-        elif not r.citation.startswith(SPEC_BASE):
-            problems.append(
-                ValidationProblem(r.id, f"citation does not point into {SPEC_BASE}: {r.citation}")
-            )
+
+        if r.namespace is Namespace.MCP:
+            if f"/{r.severity.upper()}/" not in r.id:
+                problems.append(
+                    ValidationProblem(r.id, f"id does not carry its severity ({r.severity})")
+                )
+            if not r.citation:
+                problems.append(ValidationProblem(r.id, "has no spec citation"))
+            elif not r.citation.startswith(SPEC_BASE):
+                problems.append(
+                    ValidationProblem(
+                        r.id, f"citation does not point into {SPEC_BASE}: {r.citation}"
+                    )
+                )
+            if r.rationale:
+                problems.append(
+                    ValidationProblem(
+                        r.id,
+                        "carries a rationale; an MCP rule restates the spec and cites it, "
+                        "so a rationale means it belongs in the SENTINEL namespace",
+                    )
+                )
+        else:
+            if r.citation:
+                problems.append(
+                    ValidationProblem(
+                        r.id, "carries a citation; a beyond-spec rule has nothing to cite"
+                    )
+                )
+            if len(r.rationale) < 20:
+                problems.append(
+                    ValidationProblem(r.id, "has no rationale, or one too short to justify it")
+                )
+
         if not r.remediation:
             problems.append(ValidationProblem(r.id, "has no remediation"))
         elif len(r.remediation) < 20:
@@ -237,5 +319,33 @@ def validate_registry(registry: Registry | None = None) -> list[ValidationProble
             problems.append(ValidationProblem(r.id, "has no title"))
         if not r.fixtures:
             problems.append(ValidationProblem(r.id, "names no fixture profile"))
+
+        if r.is_deprecated:
+            if not r.superseded_by:
+                problems.append(
+                    ValidationProblem(
+                        r.id, "is deprecated but names no successor in superseded_by"
+                    )
+                )
+            elif r.superseded_by not in known:
+                problems.append(
+                    ValidationProblem(
+                        r.id, f"superseded_by names an unknown rule: {r.superseded_by}"
+                    )
+                )
+        else:
+            previous = live_slugs.get(r.slug)
+            if previous is not None:
+                problems.append(
+                    ValidationProblem(r.id, f"shares the live slug {r.slug!r} with {previous}")
+                )
+            live_slugs[r.slug] = r.id
+
+        if r.verifiability is Verifiability.UNVERIFIABLE and r.severity is not Severity.MUST:
+            problems.append(
+                ValidationProblem(
+                    r.id, "is UNVERIFIABLE but not a MUST; nothing else needs the bucket"
+                )
+            )
 
     return problems

@@ -70,6 +70,16 @@ def scan(
         str | None, typer.Option(help="Bearer token to present to the target.")
     ] = None,
     no_color: Annotated[bool, typer.Option("--no-color", help="Disable ANSI colour.")] = False,
+    include_deprecated_rules: Annotated[
+        bool,
+        typer.Option(
+            "--include-deprecated-rules",
+            help=(
+                "Also run rules this catalog has deprecated. Each is reported with the "
+                "rule that replaced it, so an archived report stays reproducible."
+            ),
+        ),
+    ] = False,
     sarif_anchor: Annotated[
         str,
         typer.Option(
@@ -93,7 +103,12 @@ def scan(
             raise typer.Exit(EXIT_HARNESS_ERROR) from None
 
     try:
-        report = run_scan(endpoint, timeout=timeout, bearer_token=token)
+        report = run_scan(
+            endpoint,
+            timeout=timeout,
+            bearer_token=token,
+            include_deprecated=include_deprecated_rules,
+        )
     except Exception as exc:
         typer.echo(f"sentinel: the scan could not run: {exc}", err=True)
         raise typer.Exit(EXIT_HARNESS_ERROR) from exc
@@ -189,13 +204,29 @@ def catalog_validate() -> None:
     if problems:
         for p in problems:
             typer.echo(f"{p.rule_id}: {p.problem}", err=True)
-        typer.echo(f"\n{len(problems)} problem(s) in {len(REGISTRY)} rules", err=True)
+        typer.echo(
+            f"\n{len(problems)} problem(s) in "
+            f"{len(REGISTRY.all(include_deprecated=True))} rules",
+            err=True,
+        )
         raise typer.Exit(EXIT_HARNESS_ERROR)
 
+    live = REGISTRY.all()
     must = REGISTRY.by_severity(Severity.MUST)
     unverifiable = unverifiable_rules()
-    typer.echo(f"{len(REGISTRY)} rules validate: {len(must)} MUST, "
+    # len(REGISTRY) counts deprecated rules too. Reporting that as the catalog
+    # size would overstate what a scan actually runs, so the headline is the
+    # live count and the deprecated ones get their own line.
+    typer.echo(f"{len(live)} rules validate: {len(must)} MUST, "
                f"{len(REGISTRY.by_severity(Severity.SHOULD))} SHOULD")
+    retired = [r for r in REGISTRY.all(include_deprecated=True) if r.is_deprecated]
+    if retired:
+        typer.echo(
+            f"{len(retired)} deprecated rule(s) keep their ids and are skipped unless "
+            "--include-deprecated-rules is passed:"
+        )
+        for r in retired:
+            typer.echo(f"  {r.id} -> {r.superseded_by}")
     typer.echo(
         f"{len(unverifiable)} MUST rule(s) are UNVERIFIABLE black-box and always "
         "report INDETERMINATE:"

@@ -10,6 +10,7 @@ import pytest
 from sentinel.catalog.base import (
     REGISTRY,
     RULE_ID_PATTERN,
+    Namespace,
     Outcome,
     Severity,
     Verifiability,
@@ -47,6 +48,11 @@ def test_rule_ids_carry_their_severity() -> None:
     severity being in the id means an old report is still interpretable without
     the catalog that produced it."""
     for r in REGISTRY:
+        if r.namespace is not Namespace.MCP:
+            # A SENTINEL/ id is namespaced by category, not severity, because a
+            # beyond-spec rule's severity is this project's opinion rather than
+            # something the specification assigned it.
+            continue
         assert f"/{r.severity.upper()}/" in r.id, f"{r.id} does not carry {r.severity}"
 
 
@@ -134,3 +140,22 @@ def test_probe_does_not_use_an_mcp_sdk() -> None:
                     offenders.append(f"{path.name}: imports {name}")
 
     assert not offenders, "\n".join(offenders)
+
+
+def test_connection_independence_rule_exists_and_passes_the_conformant_fixture(
+    conformant_endpoint: str,
+) -> None:
+    """The MUST the deprecated deterministic-ordering rule stood in for.
+
+    "MUST NOT vary per-connection" needs two connections to observe; twenty
+    calls on one connection cannot see it.
+    """
+    from sentinel.probe.client import Probe
+
+    by_id = {r.id: r for r in REGISTRY.all()}
+    rule = by_id["MCP/2026-07-28/MUST/tools-list-connection-independent"]
+
+    with Probe(conformant_endpoint) as probe:
+        result = rule.evaluate(probe)
+
+    assert result.outcome is Outcome.PASS, result.detail

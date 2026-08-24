@@ -1,0 +1,19 @@
+{
+  "source": "https://modelcontextprotocol.io/specification/2026-07-28/deprecated",
+  "fetched_on": "2026-08-23",
+  "note": "Transcribed verbatim. If the registry changes, this file changes and the test that reads it says so.",
+  "features": [
+    {"id": "roots", "sep": "SEP-2577", "deprecated_in": "2026-07-28",
+     "earliest_removal": "First revision released on or after 2027-07-28"},
+    {"id": "sampling", "sep": "SEP-2577", "deprecated_in": "2026-07-28",
+     "earliest_removal": "First revision released on or after 2027-07-28"},
+    {"id": "logging", "sep": "SEP-2577", "deprecated_in": "2026-07-28",
+     "earliest_removal": "First revision released on or after 2027-07-28"},
+    {"id": "oauth-dcr", "sep": "PR #2858", "deprecated_in": "2026-07-28",
+     "earliest_removal": "First revision released on or after 2027-07-28"},
+    {"id": "include-context", "sep": "SEP-2596", "deprecated_in": "2025-11-25",
+     "earliest_removal": "Follows Sampling (SEP-2577)"},
+    {"id": "http-sse", "sep": "SEP-2596", "deprecated_in": "2025-03-26",
+     "earliest_removal": "Three months after SEP-2596 reaches Final"}
+  ]
+}

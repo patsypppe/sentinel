@@ -184,7 +184,14 @@ break this:
 exactly **one** distinct SHA-256 — then reload your registry and assert the hash is unchanged.
 Reload is where determinism usually dies.
 
-**Detected by:** `MUST/tools-list-is-deterministic`, `SHOULD/tools-sorted-by-name`.
+**Use a second connection for the hundred-and-first call.** Ordering is a SHOULD; the MUST in the
+same paragraph is a different property — the tool set "MUST NOT vary per-connection or as a side
+effect of other requests on the connection". A hundred calls down one connection cannot see that,
+and per-connection state is exactly what a server carries over from the session-based revision. Two
+clients holding the same credential must be told about the same tools.
+
+**Detected by:** `MUST/tools-list-connection-independent`, `SHOULD/tools-list-is-deterministic`,
+`SENTINEL/STYLE/tools-sorted-by-name` — the last is beyond-spec and never fails the gate.
 
 ---
 

@@ -114,7 +114,7 @@ against the ones the user approved, in canonical form, excluding `requestState` 
 next month are created at boot, an hourly job rolls them forward, and a missing partition is
 created on demand. If it does, `SELECT ensure_invocation_partition(now());`.
 
-**Scan reports 26 failures against a server you believe is fine** — check it is running.
+**Scan reports 25 MUST failures against a server you believe is fine** — check it is running.
 `sentinel` reports an unreachable target as `INDETERMINATE`, but a server that is *up* and
 answering everything with an error will genuinely fail most rules.
 

@@ -151,7 +151,7 @@ def main() -> int:
         time.sleep(2)
 
     try:
-        heading(1, "Scan an unmigrated server — 26 MUST failures, each with a citation")
+        heading(1, "Scan an unmigrated server — 25 MUST failures, each with a citation")
         shell(f"uv run sentinel scan --endpoint {FIXTURE} --gate must --no-color | head -32",
               expect_exit=0)
         shell(f"uv run sentinel scan --endpoint {FIXTURE} --gate must --no-color > /dev/null",

@@ -45,8 +45,28 @@ def test_every_result_references_a_declared_rule(conformant_endpoint: str) -> No
 def test_every_rule_carries_its_citation_as_a_help_uri(conformant_endpoint: str) -> None:
     doc = render(run_scan(conformant_endpoint))
     for r in doc["runs"][0]["tool"]["driver"]["rules"]:
-        assert r["helpUri"].startswith("https://modelcontextprotocol.io/"), r["id"]
         assert r["fullDescription"]["text"], r["id"]
+        if r["id"].startswith("SENTINEL/"):
+            continue
+        assert r["helpUri"].startswith("https://modelcontextprotocol.io/"), r["id"]
+
+
+def test_a_beyond_spec_rule_cites_nothing_and_says_why(conformant_endpoint: str) -> None:
+    """The namespace exists so a rule with nothing to cite cannot pretend.
+
+    An empty helpUri and a bare "Specification: " would put a citation-shaped
+    hole in the one report format a reviewer reads inside GitHub, which is
+    exactly the lie SENTINEL/ was introduced to make impossible.
+    """
+    doc = render(run_scan(conformant_endpoint))
+    beyond = [r for r in doc["runs"][0]["tool"]["driver"]["rules"]
+              if r["id"].startswith("SENTINEL/")]
+    assert beyond, "the conformant scan produced no beyond-spec rules to check"
+    for r in beyond:
+        assert "helpUri" not in r, f"{r['id']} carries a helpUri with nothing behind it"
+        assert "Specification:" not in r["help"]["text"], r["id"]
+        assert "Rationale:" in r["help"]["text"], r["id"]
+        assert r["properties"]["namespace"] == "SENTINEL", r["id"]
 
 
 def test_indeterminate_is_never_rendered_as_a_pass(conformant_endpoint: str) -> None:
