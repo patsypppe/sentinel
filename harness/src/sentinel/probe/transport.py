@@ -23,6 +23,10 @@ import httpx
 #: Default per-request timeout. A hung target must not hang the scan (§9.4).
 DEFAULT_TIMEOUT = 10.0
 
+#: "The client MUST include an Accept header listing both application/json and
+#: text/event-stream as supported content types."
+ACCEPT_VALUE = "application/json, text/event-stream"
+
 
 @dataclass(slots=True)
 class RawResponse:
@@ -138,7 +142,11 @@ class Transport:
         self.close()
 
     def send(self, request: Request) -> RawResponse:
-        headers = {"Content-Type": "application/json", **request.headers}
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": ACCEPT_VALUE,
+            **request.headers,
+        }
         if self.bearer_token and "Authorization" not in headers:
             headers["Authorization"] = f"Bearer {self.bearer_token}"
 

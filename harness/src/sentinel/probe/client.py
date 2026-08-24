@@ -29,6 +29,10 @@ KEY_TRACEPARENT = "traceparent"
 
 HEADER_MCP_METHOD = "Mcp-Method"
 HEADER_MCP_NAME = "Mcp-Name"
+#: Required on EVERY POST, and its value MUST match the protocolVersion in the
+#: body's _meta. A server enforcing this rejects a request without it outright,
+#: which means a probe that omits it cannot grade anything.
+HEADER_PROTOCOL_VERSION = "MCP-Protocol-Version"
 
 #: Methods that take a name, and the params field carrying it (§8.2).
 NAME_BEARING = {
@@ -38,6 +42,13 @@ NAME_BEARING = {
 }
 
 CLIENT_INFO = {"name": "sentinel-probe", "version": "0.1.0"}
+
+#: The probe declares no client capabilities, which is the truth: it cannot
+#: sample, elicit, or serve roots. Declaring capabilities it does not have would
+#: invite servers into MRTR flows the probe cannot complete, and the spec is
+#: explicit that a server MUST NOT ask for a capability the client did not
+#: declare -- which is itself a rule worth being able to test.
+CLIENT_CAPABILITIES: dict[str, Any] = {}
 
 #: Distinguishes "the caller did not mention the version" from "the caller
 #: asked for it to be omitted". `None` is a meaningful value here — it is the
@@ -70,19 +81,48 @@ class Probe:
     def __exit__(self, *exc: object) -> None:
         self.close()
 
+    def new_connection(self) -> Probe:
+        """A second probe to the same endpoint over a separate HTTP client.
+
+        The specification says a list result "MUST NOT vary per-connection".
+        Proving that needs two connections; a rule holding one `Probe` has one.
+        The caller owns the returned probe and must close it.
+        """
+        return Probe(
+            self.endpoint,
+            timeout=self._transport.timeout,
+            bearer_token=self._transport.bearer_token,
+            protocol_version=self.protocol_version,
+        )
+
     # -- request construction ---------------------------------------------
 
-    def meta(self, *, version: Any = _UNSET) -> dict[str, Any]:
+    def meta(
+        self,
+        *,
+        version: Any = _UNSET,
+        omit_client_capabilities: bool = False,
+        client_capabilities: Any = _UNSET,
+    ) -> dict[str, Any]:
         """Build a `_meta` object.
+
+        `protocolVersion` and `clientCapabilities` are Required: Yes on every
+        request; `clientInfo` is Required: No but SHOULD be sent, so it is.
 
         `version=None` omits the protocol version entirely — the unversioned
         case §8.1 treats as a legacy fallback — which is different from not
-        passing the argument at all.
+        passing the argument at all. `omit_client_capabilities` is the same idea
+        for the other required field: a rule that tests the MUST has to be able
+        to break it deliberately.
         """
         meta: dict[str, Any] = {KEY_CLIENT_INFO: CLIENT_INFO}
         resolved = self.protocol_version if version is _UNSET else version
         if resolved is not None:
             meta[KEY_PROTOCOL_VERSION] = resolved
+        if not omit_client_capabilities:
+            meta[KEY_CLIENT_CAPABILITIES] = (
+                CLIENT_CAPABILITIES if client_capabilities is _UNSET else client_capabilities
+            )
         return meta
 
     def expected_name(self, method: str, params: dict[str, Any] | None) -> str:
@@ -105,12 +145,20 @@ class Probe:
         omit_mcp_name: bool = False,
         mcp_method: str | None = None,
         mcp_name: str | None = None,
+        omit_client_capabilities: bool = False,
+        client_capabilities: Any = _UNSET,
+        omit_protocol_version_header: bool = False,
+        protocol_version_header: str | None = None,
         request_id: Any = None,
     ) -> Request:
         """Build a conformant request, then apply whatever the caller overrode."""
         body_params = dict(params or {})
         if include_meta:
-            body_params["_meta"] = self.meta(version=version)
+            body_params["_meta"] = self.meta(
+                version=version,
+                omit_client_capabilities=omit_client_capabilities,
+                client_capabilities=client_capabilities,
+            )
 
         built: dict[str, str] = {}
         if not omit_mcp_method:
@@ -119,6 +167,16 @@ class Probe:
             built[HEADER_MCP_NAME] = (
                 mcp_name if mcp_name is not None else self.expected_name(method, params)
             )
+        if not omit_protocol_version_header:
+            declared = self.meta(version=version).get(KEY_PROTOCOL_VERSION)
+            resolved_header = (
+                protocol_version_header if protocol_version_header is not None else declared
+            )
+            # When the caller asked for an unversioned body there is nothing for
+            # the header to agree with, so sending one would manufacture the
+            # very mismatch the header rule exists to detect.
+            if resolved_header is not None:
+                built[HEADER_PROTOCOL_VERSION] = str(resolved_header)
         built.update(headers or {})
 
         return Request(
