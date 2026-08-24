@@ -227,10 +227,10 @@ touch.
 
 ### 4.2 Probe: HTTP layer, more methods, connection control
 
-Today `RawResponse` carries the parsed JSON-RPC body and a transport error. Rules cannot see HTTP
-status, and the spec mandates specific statuses in at least six places.
+`RawResponse` already carries `status`, lower-cased `headers`, and the raw body; no rule reads any
+of them, and the spec mandates specific statuses in at least six places. So the work here is
+consuming what exists and adding what does not.
 
-- `RawResponse` exposes `status: int`, `headers: Mapping[str, str]`, and `body_bytes`.
 - `Transport` gains `verify` (TLS: bool | CA bundle path), `proxy`, `client_cert`, and a bounded
   retry with backoff for *transport* failures only — never for a response the server actually sent,
   because retrying a served response would corrupt idempotency-sensitive rules.
