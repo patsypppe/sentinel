@@ -9,8 +9,19 @@ import "fmt"
 //
 // The 2026-07-28 allocation policy partitions the JSON-RPC server-error range:
 //
-//	-32000 … -32019   implementation-defined — ours
+//	-32000 … -32019   LEGACY. Allocated by implementations before the policy
+//	                  existed. "New codes MUST NOT be allocated in this
+//	                  sub-range, and new implementations SHOULD NOT use codes
+//	                  from this sub-range at all."
 //	-32020 … -32099   reserved for the specification — never allocate here
+//
+// And: "New error codes for purposes not defined by this specification SHOULD
+// be allocated outside the JSON-RPC reserved range (-32768 to -32000)."
+//
+// Sentinel is a new implementation, so its own codes live at 1000…1019 —
+// outside the reserved range entirely. They were at -32000…-32019 through
+// v0.1.0, which this revision retired; LegacyCode maps each new code back to
+// the one it replaced, and WithLegacyCode attaches it for the transition.
 //
 // Standard JSON-RPC codes pre-date the partition and sit outside it.
 
@@ -37,35 +48,83 @@ const (
 	CodeUnsupportedProtocolVersion = -32022
 )
 
-// Sentinel's own codes, all inside -32000…-32019.
+// Sentinel's own codes, outside the JSON-RPC reserved range.
 //
-// -32002 is deliberately skipped. It is legal for us to allocate, but it was
-// resource-not-found before this revision, and reusing it makes error triage
-// ambiguous for exactly the clients most likely to be mid-migration.
+// The low ordinal is preserved from the pre-migration code so triage knowledge
+// transfers: -32007 became 1007. 1002 is skipped for the same reason -32002
+// was — it was resource-not-found before this revision, and reusing the ordinal
+// makes triage ambiguous for exactly the clients most likely to be mid-migration.
 const (
 	// CodeHandleNotResolvable is returned for a handle that does not exist,
 	// belongs to another principal, has expired, or has been revoked. The four
 	// cases are deliberately indistinguishable — see handles/resolve.go.
-	CodeHandleNotResolvable = -32000
+	CodeHandleNotResolvable = 1000
 	// CodeMRTRFlowExpired: the flow sat awaiting input past mrtr.flow_ttl.
-	CodeMRTRFlowExpired = -32001
+	CodeMRTRFlowExpired = 1001
 	// CodeMRTRArgumentsMutated: a retry whose arguments differ from the original.
-	CodeMRTRArgumentsMutated = -32003
+	CodeMRTRArgumentsMutated = 1003
 	// CodeMRTRStateInvalid: requestState failed to unseal — tampered, forged,
 	// or sealed for a different tool.
-	CodeMRTRStateInvalid = -32004
+	CodeMRTRStateInvalid = 1004
 	// CodeMRTRResultNoLongerAvailable: the flow was consumed and the recorded
 	// result has aged out of mrtr.replay_window. Never a re-execution.
-	CodeMRTRResultNoLongerAvailable = -32005
+	CodeMRTRResultNoLongerAvailable = 1005
 	// CodeTokenBudgetExceeded: the response would exceed the tool's TokenCap
 	// and no handle could be minted.
-	CodeTokenBudgetExceeded = -32006
+	CodeTokenBudgetExceeded = 1006
 	// CodeScopeDenied: the principal's scopes do not cover the request.
-	CodeScopeDenied = -32007
+	CodeScopeDenied = 1007
 	// CodeAuditWriteFailed: the audit row could not be written, so the
 	// invocation did not happen. Fail closed.
-	CodeAuditWriteFailed = -32008
+	CodeAuditWriteFailed = 1008
 )
+
+// legacyCodes maps each migrated code to the code it carried through v0.1.0.
+//
+// maps error codes to their predecessors and contains no secret.
+//
+//nolint:gosec // G101 pattern-matches the identifier as a credential table
+var legacyCodes = map[int]int{
+	CodeHandleNotResolvable:         -32000,
+	CodeMRTRFlowExpired:             -32001,
+	CodeMRTRArgumentsMutated:        -32003,
+	CodeMRTRStateInvalid:            -32004,
+	CodeMRTRResultNoLongerAvailable: -32005,
+	CodeTokenBudgetExceeded:         -32006,
+	CodeScopeDenied:                 -32007,
+	CodeAuditWriteFailed:            -32008,
+}
+
+// LegacyCode returns the code this one replaced, if it replaced one.
+func LegacyCode(code int) (int, bool) {
+	old, ok := legacyCodes[code]
+	return old, ok
+}
+
+// WithLegacyCode attaches data.legacyCode so a client mid-migration can triage
+// on either number. Scheduled for removal — see BROKER_EMIT_LEGACY_ERROR_CODE.
+func WithLegacyCode(err *RPCError) *RPCError {
+	old, ok := LegacyCode(err.Code)
+	if !ok {
+		return err
+	}
+	data := map[string]any{}
+	if existing, isMap := err.Data.(map[string]any); isMap {
+		for k, v := range existing {
+			data[k] = v
+		}
+	} else if err.Data != nil {
+		data["detail"] = err.Data
+	}
+	data["legacyCode"] = old
+	return &RPCError{Code: err.Code, Message: err.Message, Data: data}
+}
+
+// IsJSONRPCReserved reports whether code is inside JSON-RPC's reserved range.
+func IsJSONRPCReserved(code int) bool { return code <= -32000 && code >= -32768 }
+
+// IsLegacySubRange reports whether code is in the sub-range this revision retired.
+func IsLegacySubRange(code int) bool { return code <= -32000 && code >= -32019 }
 
 // RPCError is a JSON-RPC error object.
 type RPCError struct {
