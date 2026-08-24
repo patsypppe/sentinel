@@ -205,7 +205,17 @@ def test_untrusted_listener_denies_the_ops_family(gateway: None) -> None:
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/call",
-                "params": {"name": "ops.deployment_apply", "arguments": {"plan": "hnd_x"}},
+                "params": {
+                    "name": "ops.deployment_apply",
+                    "arguments": {"plan": "hnd_x"},
+                    # A valid request in every other respect, so the
+                    # refusal under test is attributable to the header
+                    # and not to a missing required field.
+                    "_meta": {
+                        "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                        "io.modelcontextprotocol/clientCapabilities": {},
+                    },
+                },
             }
         ),
         headers={
@@ -229,7 +239,14 @@ def test_untrusted_listener_allows_the_warehouse_family(gateway: None) -> None:
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/call",
-                "params": {"name": "warehouse.query", "arguments": {}},
+                "params": {
+                    "name": "warehouse.query",
+                    "arguments": {},
+                    "_meta": {
+                        "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                        "io.modelcontextprotocol/clientCapabilities": {},
+                    },
+                },
             }
         ),
         headers={
@@ -335,7 +352,17 @@ def test_routed_by_header_rejected_by_body_check(gateway: None) -> None:
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/call",
-                "params": {"name": "ops.deployment_apply", "arguments": {}},
+                "params": {
+                    "name": "ops.deployment_apply",
+                    "arguments": {},
+                    # A valid request in every other respect, so the
+                    # refusal under test is attributable to the header
+                    # and not to a missing required field.
+                    "_meta": {
+                        "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                        "io.modelcontextprotocol/clientCapabilities": {},
+                    },
+                },
             }
         ),
         headers={

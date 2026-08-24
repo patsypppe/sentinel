@@ -301,7 +301,19 @@ def test_discovery_needs_no_token() -> None:
     """A client cannot discover a server it must already be authenticated to."""
     resp = httpx.post(
         BROKER,
-        content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "server/discover"}),
+        content=json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "server/discover",
+                # clientCapabilities is Required: Yes on every request, this one
+                # included. The protocol version is not: server/discover is how
+                # a client learns which versions the server speaks, so it cannot
+                # be required to declare one first -- and with none in the body
+                # there is nothing for a version header to agree with.
+                "params": {"_meta": {"io.modelcontextprotocol/clientCapabilities": {}}},
+            }
+        ),
         headers={
             "Content-Type": "application/json",
             "Mcp-Method": "server/discover",
