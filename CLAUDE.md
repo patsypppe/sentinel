@@ -18,7 +18,8 @@ The spec is `docs/HANDOFF.md` (SN-HND-001). **Where this repository and the
    the sealed `requestState`, never the JSON-RPC id. A duplicate retry returns the recorded result
    and performs **zero** additional side effects.
 3. **Deterministic where the spec asks for determinism.** 100 `tools/list` calls → one SHA-256.
-   Every list/read result carries `ttlMs` and `cacheScope`. `Mcp-Method`/`Mcp-Name` required on POST.
+   Every list/read result carries `ttlMs` and `cacheScope`. `Mcp-Method` required on every POST; `Mcp-Name` on
+   `tools/call`, `resources/read`, `prompts/get` only.
 4. **Every invocation is audited; no token is trusted that was not issued for this server.**
    Validate the audience exactly. Never forward an inbound token downstream. If the audit write
    fails, the invocation fails.

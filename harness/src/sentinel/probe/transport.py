@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import json
 import time
-import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -26,6 +25,14 @@ DEFAULT_TIMEOUT = 10.0
 #: "The client MUST include an Accept header listing both application/json and
 #: text/event-stream as supported content types."
 ACCEPT_VALUE = "application/json, text/event-stream"
+
+#: How many times a request that never reached the server is retried. A scan is
+#: long and a single dropped connection should not turn a conformant rule into
+#: an INDETERMINATE.
+DEFAULT_RETRIES = 2
+
+#: Backoff between attempts: BACKOFF_BASE_S * 2**attempt.
+BACKOFF_BASE_S = 0.1
 
 
 @dataclass(slots=True)
@@ -98,7 +105,10 @@ class Request:
 
     method: str
     params: dict[str, Any] | None = None
-    request_id: Any = None
+    #: `None` means *notification*: `body()` omits `"id"` entirely, which is
+    #: what makes a notification a notification rather than a request whose id
+    #: nobody looked at.
+    request_id: Any | None = None
     headers: dict[str, str] = field(default_factory=dict)
     #: Overrides the whole body, for rules that need to send something a dict
     #: cannot express — malformed JSON, a missing `jsonrpc`, a duplicate key.
@@ -107,11 +117,10 @@ class Request:
     def body(self) -> bytes:
         if self.raw_body is not None:
             return self.raw_body
-        envelope: dict[str, Any] = {
-            "jsonrpc": "2.0",
-            "id": self.request_id if self.request_id is not None else str(uuid.uuid4()),
-            "method": self.method,
-        }
+        envelope: dict[str, Any] = {"jsonrpc": "2.0"}
+        if self.request_id is not None:
+            envelope["id"] = self.request_id
+        envelope["method"] = self.method
         if self.params is not None:
             envelope["params"] = self.params
         return json.dumps(envelope).encode()
@@ -126,11 +135,27 @@ class Transport:
         *,
         timeout: float = DEFAULT_TIMEOUT,
         bearer_token: str | None = None,
+        verify: bool | str = True,
+        proxy: str | None = None,
+        client_cert: str | tuple[str, str] | None = None,
+        retries: int = DEFAULT_RETRIES,
     ) -> None:
         self.endpoint = endpoint
         self.timeout = timeout
         self.bearer_token = bearer_token
-        self._client = httpx.Client(timeout=timeout, follow_redirects=False)
+        self.verify = verify
+        self.proxy = proxy
+        self.client_cert = client_cert
+        self.retries = max(0, retries)
+        self._client = httpx.Client(
+            timeout=timeout,
+            follow_redirects=False,
+            verify=verify,
+            # httpx 0.28 removed the plural `proxies=`; `proxy=` is the
+            # surviving spelling and takes a single URL.
+            proxy=proxy,
+            cert=client_cert,
+        )
 
     def close(self) -> None:
         self._client.close()
@@ -151,20 +176,30 @@ class Transport:
             headers["Authorization"] = f"Bearer {self.bearer_token}"
 
         started = time.perf_counter()
-        try:
-            resp = self._client.post(self.endpoint, content=request.body(), headers=headers)
-        except httpx.RequestError as exc:
+        last_error: str | None = None
+        for attempt in range(self.retries + 1):
+            try:
+                resp = self._client.post(self.endpoint, content=request.body(), headers=headers)
+            except httpx.RequestError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+                if attempt < self.retries:
+                    # Transport failures only. A response the server actually
+                    # sent is never retried: re-running a tools/call would
+                    # re-run its side effects and make every idempotency rule
+                    # in the catalog meaningless.
+                    time.sleep(BACKOFF_BASE_S * (2**attempt))
+                    continue
+                return RawResponse(
+                    status=0,
+                    headers={},
+                    body=b"",
+                    elapsed_s=time.perf_counter() - started,
+                    transport_error=last_error,
+                )
             return RawResponse(
-                status=0,
-                headers={},
-                body=b"",
+                status=resp.status_code,
+                headers={k.lower(): v for k, v in resp.headers.items()},
+                body=resp.content,
                 elapsed_s=time.perf_counter() - started,
-                transport_error=f"{type(exc).__name__}: {exc}",
             )
-
-        return RawResponse(
-            status=resp.status_code,
-            headers={k.lower(): v for k, v in resp.headers.items()},
-            body=resp.content,
-            elapsed_s=time.perf_counter() - started,
-        )
+        raise AssertionError("unreachable: the loop returns on every path")

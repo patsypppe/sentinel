@@ -161,7 +161,9 @@ def run_oracle(rounds: int = 12) -> OracleRun:
     from sentinel.catalog.base import REGISTRY, Outcome
     from sentinel.grade import run_scan
     from server.common import serve_background
+    from server.conformant import BEHAVIOUR as CONFORMANT_BEHAVIOUR
     from server.conformant import dispatch as conformant
+    from server.nonconformant import BEHAVIOUR as NONCONFORMANT_BEHAVIOUR
     from server.nonconformant import SEEDED_VIOLATIONS
     from server.nonconformant import dispatch as nonconformant
 
@@ -173,8 +175,18 @@ def run_oracle(rounds: int = 12) -> OracleRun:
             return int(sock.getsockname()[1])
 
     bad_port, good_port = free_port(), free_port()
-    bad, _ = serve_background(nonconformant, bad_port, banner="measure: nonconformant")
-    good, _ = serve_background(conformant, good_port, banner="measure: conformant")
+    # **BEHAVIOUR carries the faults that live outside `dispatch` -- the
+    # response Content-Type, the status for a bare GET. Omitting it silently
+    # serves a MORE conformant fixture than the one the tests scan, and the
+    # seeded violations that depend on it are then counted as recall misses
+    # against a scanner that would have caught them. Recall is the headline
+    # number in MEASUREMENTS.md; it has to describe the same fixture.
+    bad, _ = serve_background(
+        nonconformant, bad_port, banner="measure: nonconformant", **NONCONFORMANT_BEHAVIOUR
+    )
+    good, _ = serve_background(
+        conformant, good_port, banner="measure: conformant", **CONFORMANT_BEHAVIOUR
+    )
 
     try:
         bad_report = run_scan(f"http://127.0.0.1:{bad_port}/mcp")

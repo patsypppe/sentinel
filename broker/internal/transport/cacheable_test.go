@@ -59,7 +59,7 @@ func TestCacheableFieldsPresent(t *testing.T) {
 	for _, method := range endpoints {
 		t.Run(method, func(t *testing.T) {
 			body := `{"jsonrpc":"2.0","id":1,"method":"` + method +
-				`","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}`
+				`","params":{"_meta":{"io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}`
 			resp := post(t, srv, body)
 			if resp.Error != nil {
 				t.Fatalf("%s: %d %s", method, resp.Error.Code, resp.Error.Message)
@@ -91,12 +91,13 @@ func TestCacheableFieldsPresent(t *testing.T) {
 // from -32002 to -32602 in this revision.
 func TestResourceNotFoundIsMinus32602OverHTTP(t *testing.T) {
 	srv := fullServer(t)
-	body := `{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"warehouse://nope","_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}`
+	body := `{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"warehouse://nope","_meta":{"io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}`
 	resp := postRaw(t, srv, body, map[string]string{
-		HeaderMcpMethod: "resources/read",
-		HeaderMcpName:   "warehouse://nope",
-		HeaderPrincipal: "p1",
-		HeaderScopes:    "warehouse:read",
+		HeaderMcpMethod:       "resources/read",
+		HeaderMcpName:         "warehouse://nope",
+		HeaderProtocolVersion: "2026-07-28",
+		HeaderPrincipal:       "p1",
+		HeaderScopes:          "warehouse:read",
 	})
 
 	if resp.Error == nil {
@@ -113,7 +114,7 @@ func TestResourceNotFoundIsMinus32602OverHTTP(t *testing.T) {
 // perfectly deterministic while the transport re-serializes and undoes it.
 func TestToolsListIsByteStableOverHTTP(t *testing.T) {
 	srv := fullServer(t)
-	body := `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}`
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}`
 
 	seen := map[string]int{}
 	for i := 0; i < 100; i++ {
@@ -133,7 +134,7 @@ func TestToolsListIsByteStableOverHTTP(t *testing.T) {
 // tell them apart has to guess.
 func TestEmptyListsAreNotAbsentMethods(t *testing.T) {
 	srv := fullServer(t)
-	body := `{"jsonrpc":"2.0","id":1,"method":"resources/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}`
+	body := `{"jsonrpc":"2.0","id":1,"method":"resources/list","params":{"_meta":{"io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}`
 	resp := post(t, srv, body)
 
 	if resp.Error != nil {
@@ -180,7 +181,7 @@ func TestDiscoveryAndListsNeedNoPrincipal(t *testing.T) {
 	} {
 		t.Run(method, func(t *testing.T) {
 			body := `{"jsonrpc":"2.0","id":1,"method":"` + method +
-				`","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}`
+				`","params":{"_meta":{"io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}`
 			if resp := post(t, srv, body); resp.Error != nil {
 				t.Fatalf("%s required a principal (%d %s); a client cannot discover a server "+
 					"it must already be authenticated to", method, resp.Error.Code, resp.Error.Message)
@@ -205,7 +206,7 @@ func TestAuthenticatedMethodsFailClosedWithNoAuthenticator(t *testing.T) {
 	srv := httptest.NewServer(s.Routes())
 	defer srv.Close()
 
-	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"anything","_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}`
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"anything","_meta":{"io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}`
 	resp := post(t, srv, body)
 	if resp.Error == nil {
 		t.Fatal("a server with no authenticator served tools/call anonymously")

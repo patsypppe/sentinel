@@ -113,6 +113,15 @@ static_resources:
                             - header: { key: "X-Sentinel-Route", value: "reject-unroutable" }
 
                         # The policy. Two header matches, no body.
+                        #
+                        # BOTH must match, which is why list traffic is
+                        # unaffected: `Mcp-Name` is defined for `tools/call`,
+                        # `resources/read` and `prompts/get` alone, so a
+                        # conformant `tools/list` carries none, matches neither
+                        # condition, and falls through to `allow_remainder`.
+                        # A policy that had keyed on `Mcp-Name` alone would have
+                        # started denying — or failing open on — every list call
+                        # the moment the header stopped being sent.
                         - name: deny_ops_family
                           match:
                             prefix: "/mcp"

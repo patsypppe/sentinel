@@ -46,7 +46,7 @@ Because retries are client-driven, they will be duplicated. A duplicate retry of
 
 ### Rule 3 — Deterministic where the spec asks for determinism
 
-`tools/list` **SHOULD** return tools in deterministic order, explicitly so clients can cache and so LLM prompt-cache hit rates improve. `CacheableResult` requires `ttlMs` and `cacheScope` on every list and read result. `Mcp-Method` and `Mcp-Name` headers are **required** on Streamable HTTP POST so gateways and WAFs can route and authorize without parsing the body.
+`tools/list` **SHOULD** return tools in deterministic order, explicitly so clients can cache and so LLM prompt-cache hit rates improve. `CacheableResult` requires `ttlMs` and `cacheScope` on every list and read result. The `Mcp-Method` header is **required** on every Streamable HTTP POST and `Mcp-Name` on the three name-bearing methods, so gateways and WAFs can route and authorize without parsing the body.
 
 Determinism here is measurable, so measure it: 100 consecutive `tools/list` calls must produce one distinct SHA-256. A manifest that reorders under reload silently destroys every downstream client's cache.
 
@@ -405,9 +405,13 @@ On stdio, `server/discover` doubles as a backward-compatibility probe: a `2025-1
 
 ### 8.2 The header contract
 
-Streamable HTTP POST requires `Mcp-Method` and `Mcp-Name`. The reason is architectural: a gateway or WAF must be able to route and authorize **without parsing the JSON body**.
+Streamable HTTP POST requires `Mcp-Method` on every request and `Mcp-Name` on the three methods that carry a name. The reason is architectural: a gateway or WAF must be able to route and authorize **without parsing the JSON body**.
 
-Validation: `Mcp-Method` must equal the JSON-RPC `method`; `Mcp-Name` must equal the tool, prompt, or resource name where the method takes one, and the method name otherwise. Mismatch is `-32020 HeaderMismatch`.
+Each header is **sourced from a body field**: `Mcp-Method` from `method`, `Mcp-Name` from `params.name` or `params.uri`. `Mcp-Method` is required on all requests; `Mcp-Name` is required on `tools/call`, `resources/read` and `prompts/get`, which are the three methods that have such a field.
+
+Validation, in both directions: `Mcp-Method` must equal the JSON-RPC `method`; on those three methods `Mcp-Name` must be present and must equal the field it is sourced from. On every other method there is no corresponding body value, so `Mcp-Name` must be **absent** — one sent there asserts a value that does not exist and is itself a mismatch, and one *demanded* there refuses a request that satisfies every MUST. Mismatch is `-32020 HeaderMismatch`.
+
+> **Recorded divergence — corrected in WP-16.** This section previously read "`Mcp-Name` must equal the tool, prompt, or resource name where the method takes one, **and the method name otherwise**". That "otherwise" clause is an invention of this handoff: the specification's Standard Request Headers table gives `Mcp-Name` the source `params.name` or `params.uri` and the scope "`tools/call`, `resources/read`, `prompts/get` requests" — "All requests" is `Mcp-Method`'s row. The clause had teeth in both products. The broker *required* `Mcp-Name` on every method, so a conformant client that sent none got `-32020` on its first `tools/list`; the harness probe *sent* the method name as `Mcp-Name`, so a strict server could have refused every probe request and the harness would have graded a conformant server as broken. Per `CLAUDE.md`, where this repository and the specification disagree the specification wins, so both sides were changed together and `MCP/2026-07-28/MUST/mcp-name-not-required-where-undefined` was added to the catalog so a scanned server carrying the same defect is caught rather than assumed away. See `docs/PRD.md`.
 
 Prove the point rather than asserting it: `envoy/envoy.yaml` routes on `Mcp-Method` and denies `tools/call` with `Mcp-Name: ops.*` from an untrusted route, with **no body parsing configured anywhere**. An integration test sends a body claiming a different method and shows Envoy routed on the header while Broker rejected the mismatch. That pair — routed by header, rejected by body check — is the demonstration.
 
@@ -651,7 +655,7 @@ docker compose up -d postgres && docker compose ps
 **Acceptance.**
 ```bash
 go test ./broker/internal/envelope/... -run TestNegotiation -v
-curl -s localhost:8080/mcp -H 'Mcp-Method: server/discover' -H 'Mcp-Name: server/discover' \
+curl -s localhost:8080/mcp -H 'Mcp-Method: server/discover' \
   -d @testdata/discover.json | jq '.result.resultType, .result.supportedVersions'
 ```
 
@@ -665,7 +669,7 @@ Required tests: the fifteen-cell negotiation matrix from §8.1; `TestEveryResult
 
 ### WP-2 — Header contract and Envoy routing · Sep 8 · `SN-CAP-05` · `SN-FR-07`
 
-**Objective.** `Mcp-Method` and `Mcp-Name` are required and validated against the body; Envoy routes and authorizes on headers alone.
+**Objective.** `Mcp-Method` is required on every request and `Mcp-Name` on the three methods §8.2 names; both are validated against the body, in both directions; Envoy routes and authorizes on headers alone.
 
 **Files.** `internal/transport/http.go` (header validation), `envoy/envoy.yaml`, `tests/e2e/test_header_routing.py`.
 
@@ -675,7 +679,7 @@ docker compose up -d envoy broker
 uv run pytest tests/e2e/test_header_routing.py -v
 ```
 
-Tests: a missing header is rejected; a header disagreeing with the body returns `-32020`; Envoy routes `tools/call` with `Mcp-Name: ops.*` to a restricted route and denies it from an untrusted listener — with **no body parsing anywhere in the Envoy config**, which a test asserts by grepping the config for JSON filters.
+Tests: a missing header is rejected; a header disagreeing with the body returns `-32020`; an `Mcp-Name` on a method that has no `params.name` or `params.uri` returns `-32020`, and one omitted there is served; Envoy routes `tools/call` with `Mcp-Name: ops.*` to a restricted route and denies it from an untrusted listener — with **no body parsing anywhere in the Envoy config**, which a test asserts by grepping the config for JSON filters.
 
 **Pitfalls.** An Envoy config error denies valid traffic silently. Add a config test to CI on day one.
 

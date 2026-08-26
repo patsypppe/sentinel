@@ -207,7 +207,9 @@ def test_a_rule_that_raises_becomes_indeterminate_not_a_failure(conformant_endpo
 def test_unreachable_target_is_indeterminate_not_a_failure() -> None:
     """An outage is not a conformance failure. Reporting one as the other means
     a scan that ran against a stopped server reports 25 defects."""
-    report = run_scan("http://127.0.0.1:1/mcp", timeout=1.0)
+    # retries=0: the port is closed on purpose, and retrying every request in
+    # the catalog to exhaustion only buys backoff.
+    report = run_scan("http://127.0.0.1:1/mcp", timeout=1.0, retries=0)
 
     assert not report.by_outcome(Outcome.FAIL), (
         "an unreachable server produced conformance FAILURES; an outage would be "

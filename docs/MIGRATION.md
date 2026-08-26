@@ -197,10 +197,19 @@ clients holding the same credential must be told about the same tools.
 
 ## The header contract
 
-Streamable HTTP POST requires `Mcp-Method` and `Mcp-Name`.
+Streamable HTTP POST requires `Mcp-Method` on every request, and `Mcp-Name` on `tools/call`,
+`resources/read` and `prompts/get`.
 
 The reason is architectural: a gateway or WAF must be able to route and authorize **without
 parsing the JSON body**. For a streaming JSON-RPC endpoint that also means without *buffering* it.
+
+Each header is **sourced from a body field** — `Mcp-Method` from `method`, `Mcp-Name` from
+`params.name` or `params.uri` — which is what fixes their scope. Only three methods have such a
+field, so only three carry `Mcp-Name`. On a `tools/list` there is nothing for the header to be
+matched against, and both mistakes are real: sending one asserts a body value that does not exist,
+and **requiring** one refuses a request that satisfies every MUST. A conformant client sends no
+`Mcp-Name` on `tools/list`, so a server that demands it there answers `-32020` to the first call
+every client makes.
 
 **What it costs you:** an hour on the server. The gateway config is where the value is.
 
@@ -214,7 +223,7 @@ Without the second half the first is decorative — a caller lies in the header 
 served regardless. With both, the headers are **binding**: routed by header, rejected by body check.
 
 **Detected by:** `MUST/mcp-method-header-required`, `MUST/mcp-name-header-required`,
-`MUST/header-body-mismatch-rejected`.
+`MUST/mcp-name-not-required-where-undefined`, `MUST/header-body-mismatch-rejected`.
 
 ---
 

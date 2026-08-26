@@ -21,7 +21,12 @@ func TestStdioSharesTheDispatchPath(t *testing.T) {
 		AllowLegacy:   true,
 	})
 
-	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"server/discover"}` + "\n")
+	// No declared version — server/discover must answer without one — but
+	// clientCapabilities all the same: the required `_meta` fields are a base
+	// protocol requirement, not an HTTP one, so this adapter enforces them too.
+	in := strings.NewReader(
+		`{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{` +
+			`"_meta":{"io.modelcontextprotocol/clientCapabilities":{}}}}` + "\n")
 	var out bytes.Buffer
 	if err := s.Serve(context.Background(), in, &out); err != nil {
 		t.Fatal(err)

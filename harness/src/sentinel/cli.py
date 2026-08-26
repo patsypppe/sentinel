@@ -26,6 +26,7 @@ from sentinel.grade import (
     run_scan,
     unverifiable_rules,
 )
+from sentinel.probe.transport import DEFAULT_RETRIES
 from sentinel.report.text import render as render_text
 
 app = typer.Typer(
@@ -90,6 +91,36 @@ def scan(
             )
         ),
     ] = "README.md",
+    insecure: Annotated[
+        bool,
+        typer.Option(
+            "--insecure",
+            help=(
+                "Do not verify the target's TLS certificate. Warns on stderr: a scan of "
+                "a server whose certificate you did not check cannot be attributed to it."
+            ),
+        ),
+    ] = False,
+    ca_bundle: Annotated[
+        pathlib.Path | None,
+        typer.Option(help="Verify the target's certificate against this CA bundle instead."),
+    ] = None,
+    proxy: Annotated[
+        str | None, typer.Option(help="Send every request through this proxy URL.")
+    ] = None,
+    client_cert: Annotated[
+        pathlib.Path | None,
+        typer.Option(help="PEM file holding the client certificate and its key, for mTLS."),
+    ] = None,
+    retries: Annotated[
+        int,
+        typer.Option(
+            help=(
+                "Retry a request this many times when it never reached the server. "
+                "A response the server actually sent is never retried."
+            )
+        ),
+    ] = DEFAULT_RETRIES,
 ) -> None:
     """Scan an MCP server and grade it against the rule catalog."""
     severity: Severity | None = None
@@ -102,12 +133,42 @@ def scan(
             )
             raise typer.Exit(EXIT_HARNESS_ERROR) from None
 
+    if insecure and ca_bundle is not None:
+        typer.echo(
+            "sentinel: --insecure and --ca-bundle contradict each other; pass one",
+            err=True,
+        )
+        raise typer.Exit(EXIT_HARNESS_ERROR)
+
+    verify: bool | str = True
+    if insecure:
+        # A scan of a server whose certificate you did not check is a scan you
+        # cannot attribute: anything on the path could have answered, and the
+        # report would name the endpoint you meant rather than the one you got.
+        typer.echo(
+            "sentinel: WARNING --insecure disables TLS certificate verification. "
+            "Any host on the path can answer for this endpoint, so the findings "
+            "below cannot be attributed to it.",
+            err=True,
+        )
+        verify = False
+    elif ca_bundle is not None:
+        verify = str(ca_bundle)
+
+    if retries < 0:
+        typer.echo(f"--retries {retries} is negative; use 0 or more", err=True)
+        raise typer.Exit(EXIT_HARNESS_ERROR)
+
     try:
         report = run_scan(
             endpoint,
             timeout=timeout,
             bearer_token=token,
             include_deprecated=include_deprecated_rules,
+            verify=verify,
+            proxy=proxy,
+            client_cert=None if client_cert is None else str(client_cert),
+            retries=retries,
         )
     except Exception as exc:
         typer.echo(f"sentinel: the scan could not run: {exc}", err=True)
