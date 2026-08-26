@@ -29,6 +29,9 @@ from sentinel.grade import (
     run_scan,
     unverifiable_rules,
 )
+from sentinel.plan import build_plan
+from sentinel.plan import render_json as render_plan_json
+from sentinel.plan import render_text as render_plan_text
 from sentinel.probe.transport import DEFAULT_RETRIES
 from sentinel.report.text import render as render_text
 
@@ -248,6 +251,50 @@ def scan(
 
     raise typer.Exit(report.gate(severity))
 
+
+
+@app.command()
+def migrate(
+    endpoint: Annotated[str, typer.Option(help="The MCP endpoint to size a migration for.")],
+    fmt: Annotated[str, typer.Option("--format", help="text | json")] = "text",
+    out: Annotated[
+        pathlib.Path | None, typer.Option(help="Write the report here instead of stdout.")
+    ] = None,
+    timeout: Annotated[float, typer.Option(help="Per-request timeout, seconds.")] = 10.0,
+    token: Annotated[
+        str | None, typer.Option(help="Bearer token to present to the target.")
+    ] = None,
+) -> None:
+    """Size the migration to 2026-07-28 for a server built against an older revision.
+
+    Always exits 0 unless the harness itself broke. A migration report describes
+    work, and work is not a verdict: a team should be able to run this against a
+    server they already know is non-conformant without CI going red twice for
+    the same reason. `scan --gate must` is where a verdict belongs.
+    """
+    try:
+        report = run_scan(endpoint, timeout=timeout, bearer_token=token)
+    except Exception as exc:
+        typer.echo(f"sentinel: the scan could not run: {exc}", err=True)
+        raise typer.Exit(EXIT_HARNESS_ERROR) from exc
+
+    plan_ = build_plan(report)
+    if fmt == "text":
+        rendered = render_plan_text(plan_) + "\n"
+    elif fmt == "json":
+        rendered = json.dumps(render_plan_json(plan_), indent=2) + "\n"
+    else:
+        typer.echo(f"--format {fmt!r} is not one of text, json", err=True)
+        raise typer.Exit(EXIT_HARNESS_ERROR)
+
+    if out is not None:
+        out.write_text(rendered)
+        typer.echo(f"wrote {out}")
+        typer.echo(render_plan_text(plan_))
+    else:
+        typer.echo(rendered, nl=False)
+
+    raise typer.Exit(EXIT_OK)
 
 @app.command()
 def deprecations(
