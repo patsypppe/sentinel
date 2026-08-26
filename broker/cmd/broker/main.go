@@ -357,10 +357,15 @@ func serve(out io.Writer) error {
 
 	errCh := make(chan error, 1)
 	go func() {
+		// allowed_origins is logged because its default — reject every request
+		// that carries an Origin at all — is a REFUSAL, and an operator
+		// debugging a browser client that gets 403 should find the reason in
+		// the first line of the log rather than in the source.
 		log.Info("broker listening",
 			"addr", cfg.Addr,
 			"protocol", envelope.RevisionCurrent,
-			"legacy_fallback", cfg.AllowLegacyUnversioned)
+			"legacy_fallback", cfg.AllowLegacyUnversioned,
+			"allowed_origins", cfg.AllowedOrigins)
 		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}

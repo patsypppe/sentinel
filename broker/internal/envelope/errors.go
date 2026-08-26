@@ -281,6 +281,19 @@ func ErrInvalidRequest(detail string) *RPCError {
 	return New(CodeInvalidRequest, detail, nil)
 }
 
+// ErrMissingRequiredMetaField is the refusal the base protocol requires for a
+// request that omits a required `_meta` field: "A request missing any required
+// field is malformed; the server MUST reject it with JSON-RPC error code
+// -32602 (Invalid params)."
+//
+// It names the field and says what the field is FOR, because a client told only
+// that it is missing something has to go and read the specification to find out
+// what to send.
+func ErrMissingRequiredMetaField(key, why string) *RPCError {
+	return New(CodeInvalidParams,
+		fmt.Sprintf("_meta.%s is required on every request: %s", key, why), nil)
+}
+
 func ErrInternal(detail string) *RPCError {
 	return New(CodeInternalError, detail, nil)
 }

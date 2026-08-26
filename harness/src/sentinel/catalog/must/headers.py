@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from sentinel.catalog.base import SPEC_BASE, RuleResult, Severity, Verifiability, rule
-from sentinel.probe.client import HEADER_MCP_METHOD, HEADER_MCP_NAME, Probe
+from sentinel.probe.client import HEADER_MCP_METHOD, Probe
 from sentinel.probe.transport import RawResponse, Request
 
 TRANSPORT = f"{SPEC_BASE}/basic/transports"
@@ -15,6 +15,28 @@ ERRORS = f"{SPEC_BASE}/basic/index#error-codes"
 #: Codes -32020…-32099 are reserved for the specification, and only these three
 #: are defined in it.
 SPEC_ALLOCATED = {-32020, -32021, -32022}
+
+
+def _named_tool(probe: Probe) -> str | None:
+    """The name of any tool this server advertises, or None.
+
+    `probe.first_tool_name()` reads the first entry only, and a server whose
+    first tool has no name is precisely the kind this catalog expects to meet --
+    `tools-are-named` exists because such servers are real. Falling back to an
+    invented name would be worse than useless here: the refusal that came back
+    would be about the unknown tool, not about the missing header.
+    """
+    result = probe.tools_list().result()
+    tools = (result or {}).get("tools")
+    if not isinstance(tools, list):
+        return None
+    for tool in tools:
+        if not isinstance(tool, dict):
+            continue
+        name = tool.get("name")
+        if isinstance(name, str) and name:
+            return name
+    return None
 
 
 @rule(
@@ -41,34 +63,148 @@ def mcp_method_required(probe: Probe) -> RuleResult:
             "policy in front of this server can be bypassed by omitting the header",
             evidence=str(resp.result())[:300],
         )
-    if resp.status >= 400:
-        return RuleResult.passed(f"a request with no Mcp-Method was refused (HTTP {resp.status})")
-    return RuleResult.passed(f"a request with no Mcp-Method was refused (code {resp.error_code()})")
+
+    # -32020 AND HTTP 400, not either. A missing required standard header is a
+    # validation failure, and for those "servers MUST return HTTP status 400 Bad
+    # Request and MUST include a JSON-RPC error response". 0.1.0 accepted any
+    # status >= 400 or any error code, which passed a server that answered 200
+    # with a house error -- telling the client it failed and every intermediary
+    # between them that it succeeded. Narrowing what passes does not change what
+    # the rule means, so the id is unchanged.
+    code = resp.error_code()
+    problems: list[str] = []
+    if code != -32020:
+        problems.append(f"the JSON-RPC error code was {code}, not -32020")
+    if resp.status != 400:
+        problems.append(f"HTTP status was {resp.status}, not 400")
+    if problems:
+        return RuleResult.failed(
+            "a request with no Mcp-Method was refused, but not as the spec requires: "
+            + "; ".join(problems),
+            evidence=f"HTTP {resp.status}, code {code}",
+        )
+    return RuleResult.passed("a request with no Mcp-Method was rejected with -32020 and HTTP 400")
 
 
 @rule(
     id="MCP/2026-07-28/MUST/mcp-name-header-required",
-    title="Mcp-Name is required on Streamable HTTP POST",
+    title="Mcp-Name is required on a tools/call, resources/read or prompts/get POST",
     severity=Severity.MUST,
     citation=f"{TRANSPORT}#streamable-http",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
-        "Reject a POST with no Mcp-Name header. Without it a gateway cannot tell one "
-        "tools/call from another, so it cannot authorize a specific tool without reading "
-        "the body."
+        "Reject a tools/call, resources/read or prompts/get with no Mcp-Name header. "
+        "Without it a gateway cannot tell one tools/call from another, so it cannot "
+        "authorize a specific tool without reading the body. The header table requires "
+        "Mcp-Name for those three methods only -- 'All requests' is Mcp-Method's row."
     ),
 )
 def mcp_name_required(probe: Probe) -> RuleResult:
-    resp = probe.tools_list(omit_mcp_name=True)
+    # Mcp-Name is required for tools/call, resources/read and prompts/get -- not
+    # for "All requests", which is Mcp-Method's row in the table. Provoking on
+    # tools/list would demand a header the specification does not require there.
+    name = _named_tool(probe)
+    if name is None:
+        return RuleResult.indeterminate(
+            "this server advertises no named tool, so there is no tools/call to omit "
+            "Mcp-Name from"
+        )
+
+    resp = probe.tools_call(name, {}, omit_mcp_name=True)
     if not resp.reached_server:
         return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
 
     if resp.result() is not None:
         return RuleResult.failed(
-            "tools/list was served with no Mcp-Name header",
+            f"tools/call {name!r} was served with no Mcp-Name header; a gateway "
+            "authorizing one tool and not another cannot do so if the header naming "
+            "the tool is optional",
             evidence=str(resp.result())[:300],
         )
-    return RuleResult.passed("a request with no Mcp-Name was refused")
+
+    # The same call WITH the header. If that is refused identically, the refusal
+    # was about the call and not about the missing header, and this rule has not
+    # been settled -- an unverifiable MUST is INDETERMINATE, never a pass.
+    control = probe.tools_call(name, {})
+    if control.result() is None and control.error_code() == resp.error_code():
+        return RuleResult.indeterminate(
+            f"tools/call {name!r} is refused with {resp.error_code()} whether or not "
+            f"Mcp-Name is sent, so the refusal cannot be attributed to the header: "
+            f"{str(control.error())[:200]}"
+        )
+    return RuleResult.passed("a tools/call with no Mcp-Name was refused")
+
+
+#: Methods the header table does NOT define `Mcp-Name` for. Every one of them is
+#: a list-style method with neither `params.name` nor `params.uri`, so there is
+#: no body value for a header to be matched against.
+NO_NAME_METHODS = [
+    "tools/list",
+    "resources/list",
+    "resources/templates/list",
+    "prompts/list",
+]
+
+
+@rule(
+    id="MCP/2026-07-28/MUST/mcp-name-not-required-where-undefined",
+    title="Mcp-Name is not demanded on a method the header table does not define it for",
+    severity=Severity.MUST,
+    citation=f"{TRANSPORT}#streamable-http",
+    verifiability=Verifiability.BLACK_BOX,
+    introduced_in="0.2.0",
+    remediation=(
+        "Require Mcp-Name for tools/call, resources/read and prompts/get only, and serve "
+        "a list request that carries none. The header is SOURCED FROM params.name or "
+        "params.uri; a method with neither has nothing for it to match, so demanding one "
+        "there refuses a request that satisfies every MUST. A conformant client sends no "
+        "Mcp-Name on tools/list, so a server that requires it everywhere answers -32020 to "
+        "the very first call and looks broken to every client but its own."
+    ),
+)
+def mcp_name_not_required_where_undefined(probe: Probe) -> RuleResult:
+    # The probe already omits Mcp-Name on these methods, so each of these is
+    # simply a conformant request. What is being asked is whether it is served.
+    offenders: list[str] = []
+    checked = 0
+
+    for method in NO_NAME_METHODS:
+        resp = probe.call(method)
+        if not resp.reached_server:
+            return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+        if resp.result() is not None:
+            checked += 1
+            continue
+
+        # Refused. Attributing that refusal to the missing header needs the
+        # control: the SAME request carrying Mcp-Name set to the method name,
+        # which is the value a server that invented an "otherwise" clause for
+        # the header table would be expecting. If that one is served and this
+        # one was not, the header is what decided it.
+        control = probe.call(method, mcp_name=method)
+        if control.result() is None:
+            # Refused either way -- the method is not implemented, or the
+            # refusal is about something else entirely. Not this rule's finding.
+            continue
+        checked += 1
+        offenders.append(f"{method} (refused with {resp.error_code()})")
+
+    if checked == 0:
+        return RuleResult.indeterminate(
+            "no method in the header table's non-Mcp-Name set could be settled: each was "
+            "refused whether or not the header was sent, so nothing is attributable to it"
+        )
+    if offenders:
+        return RuleResult.failed(
+            f"{len(offenders)} of {checked} method(s) were refused without Mcp-Name and "
+            f"served with it: {offenders}. The header table requires Mcp-Name for "
+            "tools/call, resources/read and prompts/get -- 'All requests' is Mcp-Method's "
+            "row -- so this server refuses conformant traffic",
+            evidence=f"refused without Mcp-Name, served with it: {offenders}",
+        )
+    return RuleResult.passed(
+        f"{checked} method(s) with no params.name or params.uri were served with no Mcp-Name"
+    )
 
 
 @rule(
@@ -93,9 +229,6 @@ def header_mismatch_rejected(probe: Probe) -> RuleResult:
     if not resp.reached_server:
         return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
 
-    code = resp.error_code()
-    if code == -32020:
-        return RuleResult.passed("a header/body mismatch returned -32020")
     if resp.result() is not None:
         return RuleResult.failed(
             "a request whose Mcp-Method header said tools/list while its body called "
@@ -103,10 +236,26 @@ def header_mismatch_rejected(probe: Probe) -> RuleResult:
             "different request than the one that ran",
             evidence=str(resp.result())[:300],
         )
-    return RuleResult.failed(
-        f"a header/body mismatch returned {code} rather than -32020",
-        evidence=str(resp.error()),
-    )
+
+    # HTTP 400 is required alongside the code, and 0.1.0 never looked at the
+    # status at all: "servers MUST return HTTP status 400 Bad Request and MUST
+    # include a JSON-RPC error response". A HeaderMismatch inside an HTTP 200 is
+    # the worst version of this defect, because the gateway whose decision was
+    # bypassed is precisely the component that reads only the status line. This
+    # narrows what passes without changing what the rule means, so the id stays.
+    code = resp.error_code()
+    problems: list[str] = []
+    if code != -32020:
+        problems.append(f"the JSON-RPC error code was {code}, not -32020")
+    if resp.status != 400:
+        problems.append(f"HTTP status was {resp.status}, not 400")
+    if problems:
+        return RuleResult.failed(
+            "a header/body mismatch was refused, but not as the spec requires: "
+            + "; ".join(problems),
+            evidence=f"HTTP {resp.status}, code {code}, error {resp.error()}",
+        )
+    return RuleResult.passed("a header/body mismatch returned -32020 and HTTP 400")
 
 
 @rule(
@@ -247,7 +396,10 @@ def malformed_json(probe: Probe) -> RuleResult:
         Request(
             method="tools/list",
             raw_body=b'{"jsonrpc":"2.0","id":1,"method":',
-            headers={HEADER_MCP_METHOD: "tools/list", HEADER_MCP_NAME: "tools/list"},
+            # Mcp-Method only: tools/list has no params.name or params.uri, so
+            # an Mcp-Name here would assert a body value that does not exist --
+            # and against an unparseable body, nothing could match it anyway.
+            headers={HEADER_MCP_METHOD: "tools/list"},
         )
     )
     if not resp.reached_server:

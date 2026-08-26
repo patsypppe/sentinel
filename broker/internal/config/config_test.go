@@ -76,3 +76,46 @@ func TestLegacyErrorCodeEmissionCanBeDisabled(t *testing.T) {
 		t.Fatal("BROKER_EMIT_LEGACY_ERROR_CODE=false must turn the transition aid off")
 	}
 }
+
+// TestAllowedOriginsDefaultsToRejectingEveryOrigin. The default is not a
+// placeholder: this server has no browser clients, so a request carrying an
+// Origin came from a page, and defaulting to permissive would ship exactly the
+// DNS rebinding hole that Origin validation exists to close.
+func TestAllowedOriginsDefaultsToRejectingEveryOrigin(t *testing.T) {
+	if got := Default().AllowedOrigins; len(got) != 0 {
+		t.Fatalf("AllowedOrigins = %v, want empty: an allowlist that starts full is not an allowlist", got)
+	}
+}
+
+func TestAllowedOriginsParsesACommaSeparatedList(t *testing.T) {
+	t.Setenv("BROKER_ALLOWED_ORIGINS", "https://console.example.com, https://ops.example.com,")
+
+	c, err := FromEnv()
+	if err != nil {
+		t.Fatalf("FromEnv: %v", err)
+	}
+	want := []string{"https://console.example.com", "https://ops.example.com"}
+	if len(c.AllowedOrigins) != len(want) {
+		t.Fatalf("AllowedOrigins = %v, want %v", c.AllowedOrigins, want)
+	}
+	for i, origin := range want {
+		if c.AllowedOrigins[i] != origin {
+			t.Fatalf("AllowedOrigins[%d] = %q, want %q", i, c.AllowedOrigins[i], origin)
+		}
+	}
+}
+
+// TestEmptyAllowedOriginsAllowsNothing. A blank entry would match the empty
+// Origin, so `""` and a trailing comma must produce no entries rather than one
+// that matches by accident.
+func TestEmptyAllowedOriginsAllowsNothing(t *testing.T) {
+	t.Setenv("BROKER_ALLOWED_ORIGINS", " , ")
+
+	c, err := FromEnv()
+	if err != nil {
+		t.Fatalf("FromEnv: %v", err)
+	}
+	if len(c.AllowedOrigins) != 0 {
+		t.Fatalf("AllowedOrigins = %q, want no entries", c.AllowedOrigins)
+	}
+}

@@ -111,3 +111,76 @@ def test_new_connection_is_a_separate_client_to_the_same_endpoint() -> None:
             assert b.protocol_version == a.protocol_version
         finally:
             b.close()
+
+
+def test_a_notification_has_no_id() -> None:
+    """A notification is a notification because it carries no id."""
+    with Probe("http://unused.invalid/mcp") as probe:
+        request = probe.build_notification("notifications/does-not-exist")
+    body = json.loads(request.body())
+    assert "id" not in body
+    assert body["jsonrpc"] == "2.0"
+    assert body["method"] == "notifications/does-not-exist"
+
+
+def test_building_a_notification_leaves_the_request_alone() -> None:
+    """`build` still produces a request with an id; only the copy loses it."""
+    with Probe("http://unused.invalid/mcp") as probe:
+        assert "id" in json.loads(probe.build("tools/list").body())
+
+
+def test_transport_options_propagate_to_a_new_connection() -> None:
+    """The second connection must differ in one respect: being a second one."""
+    with Probe(
+        "http://unused.invalid/mcp", verify=False, proxy="http://p:1", retries=5
+    ) as a:
+        b = a.new_connection()
+        try:
+            assert b._transport.verify is False
+            assert b._transport.proxy == "http://p:1"
+            assert b._transport.retries == 5
+        finally:
+            b.close()
+
+
+def test_a_transport_error_is_retried_but_a_served_response_is_not(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Retry transport failures only.
+
+    Retrying a response the server actually sent would re-run side effects and
+    corrupt every idempotency-sensitive rule in the catalog.
+    """
+    import httpx
+
+    from sentinel.probe.transport import Request, Transport
+
+    calls = {"n": 0}
+
+    def flaky(*args: object, **kwargs: object) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise httpx.ConnectError("boom")
+        return httpx.Response(500, json={"jsonrpc": "2.0", "id": "1", "error": {"code": -1}})
+
+    with Transport("http://unused.invalid/mcp", retries=2) as transport:
+        monkeypatch.setattr(transport._client, "post", flaky)
+        response = transport.send(
+            Request(method="tools/list", params=None, request_id="1", headers={})
+        )
+
+    assert calls["n"] == 3          # two retries, then success
+    assert response.status == 500   # and the 500 is NOT retried
+    assert response.reached_server
+
+
+def test_retries_are_bounded_and_the_failure_is_reported() -> None:
+    """When every attempt fails the transport error is surfaced, not raised."""
+    from sentinel.probe.transport import Request, Transport
+
+    with Transport("http://127.0.0.1:1/mcp", timeout=1.0, retries=1) as transport:
+        response = transport.send(Request(method="tools/list", request_id="1"))
+
+    assert not response.reached_server
+    assert response.status == 0
+    assert response.transport_error

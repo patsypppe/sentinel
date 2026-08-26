@@ -18,6 +18,9 @@ import httpx
 import pytest
 import yaml
 
+#: Required on every POST, and its value must agree with the body's _meta.
+PROTOCOL = "2026-07-28"
+
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 ENVOY_CONFIG = REPO_ROOT / "envoy" / "envoy.yaml"
 
@@ -128,8 +131,12 @@ def _wait_for(url: str, timeout: float = 60.0) -> None:
     last: httpx.RequestError | None = None
     while time.time() < deadline:
         try:
-            httpx.post(url, json={"jsonrpc": "2.0", "id": 1, "method": "server/discover"},
-                       headers={"Mcp-Method": "server/discover", "Mcp-Name": "server/discover"},
+            httpx.post(url, json={"jsonrpc": "2.0", "id": 1, "method": "server/discover",
+             "params": {"_meta": {
+                 "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                 "io.modelcontextprotocol/clientCapabilities": {},
+             }}},
+                       headers={"MCP-Protocol-Version": PROTOCOL, "Mcp-Method": "server/discover"},
                        timeout=3.0)
             return
         except httpx.RequestError as exc:
@@ -149,11 +156,19 @@ def gateway() -> None:
 def test_trusted_listener_routes_on_the_method_header(gateway: None) -> None:
     resp = httpx.post(
         TRUSTED,
-        content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "server/discover"}),
+        content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "server/discover",
+             "params": {"_meta": {
+                 "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                 "io.modelcontextprotocol/clientCapabilities": {},
+             }}}),
         headers={
             "Content-Type": "application/json",
+            "MCP-Protocol-Version": PROTOCOL,
             "Mcp-Method": "server/discover",
-            "Mcp-Name": "server/discover",
+            # No Mcp-Name: the header table defines it for tools/call,
+            # resources/read and prompts/get only. server/discover has no
+            # params.name or params.uri for a server to match it against, so
+            # sending one asserts a body value that does not exist.
         },
         timeout=10.0,
     )
@@ -168,8 +183,12 @@ def test_gateway_refuses_a_request_it_cannot_route(gateway: None) -> None:
     It refuses instead, which is the behaviour the contract is for."""
     resp = httpx.post(
         TRUSTED,
-        content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "server/discover"}),
-        headers={"Content-Type": "application/json"},
+        content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "server/discover",
+             "params": {"_meta": {
+                 "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                 "io.modelcontextprotocol/clientCapabilities": {},
+             }}}),
+        headers={"Content-Type": "application/json", "MCP-Protocol-Version": PROTOCOL},
         timeout=10.0,
     )
     assert resp.status_code == 400
@@ -186,11 +205,22 @@ def test_untrusted_listener_denies_the_ops_family(gateway: None) -> None:
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/call",
-                "params": {"name": "ops.deployment_apply", "arguments": {"plan": "hnd_x"}},
+                "params": {
+                    "name": "ops.deployment_apply",
+                    "arguments": {"plan": "hnd_x"},
+                    # A valid request in every other respect, so the
+                    # refusal under test is attributable to the header
+                    # and not to a missing required field.
+                    "_meta": {
+                        "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                        "io.modelcontextprotocol/clientCapabilities": {},
+                    },
+                },
             }
         ),
         headers={
             "Content-Type": "application/json",
+            "MCP-Protocol-Version": PROTOCOL,
             "Mcp-Method": "tools/call",
             "Mcp-Name": "ops.deployment_apply",
         },
@@ -209,11 +239,19 @@ def test_untrusted_listener_allows_the_warehouse_family(gateway: None) -> None:
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/call",
-                "params": {"name": "warehouse.query", "arguments": {}},
+                "params": {
+                    "name": "warehouse.query",
+                    "arguments": {},
+                    "_meta": {
+                        "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                        "io.modelcontextprotocol/clientCapabilities": {},
+                    },
+                },
             }
         ),
         headers={
             "Content-Type": "application/json",
+            "MCP-Protocol-Version": PROTOCOL,
             "Mcp-Method": "tools/call",
             "Mcp-Name": "warehouse.query",
         },
@@ -223,6 +261,75 @@ def test_untrusted_listener_allows_the_warehouse_family(gateway: None) -> None:
     # (tools/call has no registered handler until WP-3).
     assert resp.status_code == 200
     assert resp.headers.get("X-Sentinel-Route") == "untrusted-allow"
+
+
+@pytest.mark.e2e
+def test_a_list_call_with_no_mcp_name_is_routed_and_served(gateway: None) -> None:
+    """`Mcp-Name` is defined for `tools/call`, `resources/read` and `prompts/get`
+    only, so a conformant `tools/list` carries none.
+
+    Both halves must survive that. Envoy's `deny_ops_family` rule needs BOTH
+    header matches, so a request with neither falls through to `allow_remainder`
+    — and the broker must serve it rather than demand a header the specification
+    does not define for the method.
+    """
+    resp = httpx.post(
+        UNTRUSTED,
+        content=json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/list",
+                "params": {"_meta": {
+                    "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                    "io.modelcontextprotocol/clientCapabilities": {},
+                }},
+            }
+        ),
+        headers={"Content-Type": "application/json",
+                 "MCP-Protocol-Version": PROTOCOL, "Mcp-Method": "tools/list"},
+        timeout=10.0,
+    )
+    assert resp.headers.get("X-Sentinel-Route") == "untrusted-allow", (
+        "a tools/list carrying no Mcp-Name must not match the ops.* denial"
+    )
+    body = resp.json()
+    assert "error" not in body, (
+        f"the broker refused a conformant tools/list that carried no Mcp-Name: {body}"
+    )
+
+
+@pytest.mark.e2e
+def test_an_mcp_name_where_the_header_table_defines_none_is_rejected(gateway: None) -> None:
+    """The mirror image. `Mcp-Name` is SOURCED FROM `params.name` or
+    `params.uri`; `tools/list` has neither, so a header sent there asserts a body
+    value that does not exist and nothing can match it. The gateway routes it
+    through — it matches no deny rule — and the broker refuses it with -32020.
+    """
+    resp = httpx.post(
+        UNTRUSTED,
+        content=json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/list",
+                "params": {"_meta": {
+                    "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                    "io.modelcontextprotocol/clientCapabilities": {},
+                }},
+            }
+        ),
+        headers={
+            "Content-Type": "application/json",
+            "MCP-Protocol-Version": PROTOCOL,
+            "Mcp-Method": "tools/list",
+            "Mcp-Name": "tools/list",
+        },
+        timeout=10.0,
+    )
+    body = resp.json()
+    assert body["error"]["code"] == -32020, body
+    assert body["error"]["data"]["header"] == "Mcp-Name"
 
 
 @pytest.mark.e2e
@@ -245,11 +352,22 @@ def test_routed_by_header_rejected_by_body_check(gateway: None) -> None:
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/call",
-                "params": {"name": "ops.deployment_apply", "arguments": {}},
+                "params": {
+                    "name": "ops.deployment_apply",
+                    "arguments": {},
+                    # A valid request in every other respect, so the
+                    # refusal under test is attributable to the header
+                    # and not to a missing required field.
+                    "_meta": {
+                        "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                        "io.modelcontextprotocol/clientCapabilities": {},
+                    },
+                },
             }
         ),
         headers={
             "Content-Type": "application/json",
+            "MCP-Protocol-Version": PROTOCOL,
             "Mcp-Method": "tools/call",
             "Mcp-Name": "warehouse.query",
         },

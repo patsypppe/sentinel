@@ -33,9 +33,21 @@ services:
       BROKER_MIGRATE_DATABASE_URL: postgres://sentinel:sentinel_dev_only@postgres:5432/sentinel?sslmode=disable
       # Audience validation (SN-CAP-21). Static issuer + locally-minted token:
       # full OAuth is out of scope, the MUST NOT is not.
+      # The reference deployment demonstrates 2026-07-28, so it does not accept
+      # the pre-2025-06-18 unversioned fallback. With it on, a request omitting
+      # _meta.protocolVersion is served rather than refused, and the broker
+      # fails MUST/missing-protocol-version-rejected against its own harness.
+      # The default stays true in config.go for operators who genuinely have
+      # legacy clients; this is a deployment choice, not a code change.
+      BROKER_ALLOW_LEGACY_UNVERSIONED: "false"
       BROKER_OAUTH_ISSUER: https://issuer.sentinel.local
       BROKER_OAUTH_AUDIENCE: https://broker.sentinel.local
       BROKER_OTEL_ENDPOINT: otel-collector:4317
+      # The Origin allowlist, left EMPTY on purpose: nothing in this topology is
+      # a browser, so no request should carry an Origin, and empty means any
+      # request that does is refused with 403. Setting it to a permissive value
+      # here would ship the DNS rebinding hole the check exists to close.
+      BROKER_ALLOWED_ORIGINS: ""
       # Real token validation against a SEED-DERIVED development key.
       #
       # Signature, issuer, audience and expiry are all checked for real; only

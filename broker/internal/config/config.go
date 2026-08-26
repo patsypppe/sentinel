@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -48,6 +49,18 @@ type Config struct {
 
 	// Negotiation
 	AllowLegacyUnversioned bool
+
+	// AllowedOrigins is the Origin allowlist the Streamable HTTP transport
+	// checks every request against, to close the DNS rebinding attack the
+	// specification requires Origin validation for.
+	//
+	// EMPTY MEANS REJECT EVERY REQUEST THAT CARRIES AN Origin AT ALL, which is
+	// the correct default and not a placeholder: this server has no browser
+	// clients, so a request carrying an Origin came from a page rather than
+	// from an agent, and defaulting to permissive would ship exactly the hole
+	// the requirement exists to close. A request with NO Origin header — every
+	// non-browser client — is unaffected either way.
+	AllowedOrigins []string
 
 	// EmitLegacyErrorCode attaches data.legacyCode to the errors whose codes
 	// moved out of -32000…-32019 in this revision, so a client that triaged on
@@ -108,6 +121,15 @@ func FromEnv() (Config, error) {
 	str("BROKER_OAUTH_JWKS_PATH", &c.OAuthJWKSPath)
 	str("BROKER_OAUTH_DEV_SEED", &c.OAuthDevSeed)
 	str("BROKER_OTEL_ENDPOINT", &c.OTELEndpoint)
+
+	// The Origin allowlist. Comma-separated, because an operator setting one
+	// origin should not have to learn a syntax for setting two.
+	//
+	// Note that BROKER_ALLOWED_ORIGINS="" is a set value, not an unset one, and
+	// it means the same as leaving it out: allow nothing.
+	if v, ok := os.LookupEnv("BROKER_ALLOWED_ORIGINS"); ok {
+		c.AllowedOrigins = splitList(v)
+	}
 
 	// The AEAD key that seals requestState. Hex-encoded, 32 bytes.
 	//
@@ -178,6 +200,21 @@ func FromEnv() (Config, error) {
 	}
 
 	return c, c.Validate()
+}
+
+// splitList parses a comma-separated environment value, trimming surrounding
+// whitespace and dropping empty entries so `"a, b,"` is the two values it
+// visibly is rather than three with one blank. A blank entry in an ALLOWLIST is
+// the dangerous kind of typo: it would match the empty Origin.
+func splitList(v string) []string {
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if trimmed := strings.TrimSpace(p); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }
 
 // Validate rejects a configuration that would produce a subtly wrong server

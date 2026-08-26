@@ -7,7 +7,10 @@
 // a cheap pure function.
 package envelope
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 // Protocol revisions this server knows about.
 const (
@@ -123,9 +126,64 @@ var DefaultToolsListCachePolicy = CachePolicy{TTLMs: 300_000, Scope: ScopePrivat
 // supported versions and capabilities, none of which vary by principal.
 var DefaultDiscoverCachePolicy = CachePolicy{TTLMs: 600_000, Scope: ScopePublic}
 
+// HasClientCapabilities reports whether the client declared its capabilities.
+//
+// A literal `null` counts as absent. "Required: Yes" is a requirement to say
+// what the client can do, and null says nothing — a client with no capabilities
+// declares `{}`, which is a statement, rather than null, which is the absence
+// of one.
+func (m RequestMeta) HasClientCapabilities() bool {
+	trimmed := bytes.TrimSpace(m.ClientCapabilities)
+	return len(trimmed) > 0 && !bytes.Equal(trimmed, []byte("null"))
+}
+
+// RequireMetaFields enforces the base protocol's required-field table:
+//
+//	io.modelcontextprotocol/protocolVersion     Required: Yes
+//	io.modelcontextprotocol/clientInfo          Required: No
+//	io.modelcontextprotocol/clientCapabilities  Required: Yes
+//
+// "A request missing any required field is malformed; the server MUST reject it
+// with JSON-RPC error code -32602 (Invalid params)."
+//
+// clientInfo is deliberately NOT checked. It is Required: No, and demanding it
+// would be the mirror-image defect of serving a request that omits a field that
+// is required: refusing traffic that satisfies every MUST.
+//
+// The two required fields are not symmetrical, because the specification's own
+// backward-compatibility carve-out is not symmetrical:
+//
+//   - protocolVersion has one. A client that pre-dates the field declares no
+//     version anywhere, and AllowLegacy — BROKER_ALLOW_LEGACY_UNVERSIONED — is
+//     the switch deciding whether this server still serves such a client. So
+//     absence is checked THROUGH that switch rather than around it: with the
+//     fallback on, an unversioned request keeps working and is recorded as a
+//     deprecation; with it off, absence is exactly the malformed request the
+//     specification describes. server/discover is exempt either way — its whole
+//     purpose is to let a client find out which versions exist BEFORE it can
+//     name one, so refusing it for not naming one makes the server
+//     undiscoverable.
+//   - clientCapabilities has none. Nothing in the specification makes it
+//     optional for an older client, and it is what tells the server what the
+//     client can be asked to do. A server that guesses returns an input request
+//     to a client that cannot answer one, and the call stalls forever.
+func RequireMetaFields(meta RequestMeta, method string, cfg NegotiationConfig) *RPCError {
+	if !meta.HasClientCapabilities() {
+		return ErrMissingRequiredMetaField(KeyClientCapabilities,
+			"it is what tells this server what the client can be asked to do; declare {} if the "+
+				"client supports nothing beyond the base protocol")
+	}
+	if meta.ProtocolVersion == "" && !cfg.AllowLegacy && method != MethodDiscover {
+		return ErrMissingRequiredMetaField(KeyProtocolVersion,
+			"the handshake is gone, so every request declares its own version, and this server "+
+				"does not serve clients that pre-date the field")
+	}
+	return nil
+}
+
 // ExtractMeta pulls `_meta` out of a params object. Absent params and absent
-// `_meta` are both fine — they mean "no version declared", which the negotiation
-// table handles explicitly rather than treating as an error here.
+// `_meta` are both fine here — RequireMetaFields is what decides whether a
+// missing field is fatal, and it needs the parse to have succeeded first.
 func ExtractMeta(params json.RawMessage) (RequestMeta, error) {
 	if len(params) == 0 {
 		return RequestMeta{}, nil

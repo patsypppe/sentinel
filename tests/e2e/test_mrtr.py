@@ -82,19 +82,31 @@ def call(
         "method": method,
         "params": {**(params or {}), "_meta": {
             "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+            # Required: Yes on every request. This client can neither sample,
+            # elicit nor serve roots, and {} says so honestly.
+            "io.modelcontextprotocol/clientCapabilities": {},
         }},
     }
-    name = mcp_name if mcp_name is not None else (params or {}).get("name", method)
+    headers = {
+        "Content-Type": "application/json",
+        # Required on EVERY POST, and its value MUST match the protocolVersion
+        # the body declares. The broker rejects a disagreement with -32020.
+        "MCP-Protocol-Version": PROTOCOL,
+        "Mcp-Method": method,
+        "Authorization": "Bearer " + mint(principal, scopes, audience),
+    }
+    # Mcp-Name only where the header table defines it -- tools/call,
+    # resources/read, prompts/get. server/discover has no params.name or
+    # params.uri, so a header naming it would assert a body value that does not
+    # exist, and the broker refuses one.
+    name = mcp_name if mcp_name is not None else (params or {}).get("name")
+    if name is not None:
+        headers["Mcp-Name"] = name
 
     resp = httpx.post(
         BROKER,
         content=json.dumps(body),
-        headers={
-            "Content-Type": "application/json",
-            "Mcp-Method": method,
-            "Mcp-Name": name,
-            "Authorization": "Bearer " + mint(principal, scopes, audience),
-        },
+        headers=headers,
         timeout=30.0,
     )
     resp.raise_for_status()
@@ -289,11 +301,22 @@ def test_discovery_needs_no_token() -> None:
     """A client cannot discover a server it must already be authenticated to."""
     resp = httpx.post(
         BROKER,
-        content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "server/discover"}),
+        content=json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "server/discover",
+                # clientCapabilities is Required: Yes on every request, this one
+                # included. The protocol version is not: server/discover is how
+                # a client learns which versions the server speaks, so it cannot
+                # be required to declare one first -- and with none in the body
+                # there is nothing for a version header to agree with.
+                "params": {"_meta": {"io.modelcontextprotocol/clientCapabilities": {}}},
+            }
+        ),
         headers={
             "Content-Type": "application/json",
             "Mcp-Method": "server/discover",
-            "Mcp-Name": "server/discover",
         },
         timeout=10.0,
     )

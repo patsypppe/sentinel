@@ -15,10 +15,17 @@ makes a failure attributable.
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 from typing import Any
 
 from sentinel import SPEC_REVISION
-from sentinel.probe.transport import DEFAULT_TIMEOUT, RawResponse, Request, Transport
+from sentinel.probe.transport import (
+    DEFAULT_RETRIES,
+    DEFAULT_TIMEOUT,
+    RawResponse,
+    Request,
+    Transport,
+)
 
 #: `_meta` keys, spelled exactly as the specification spells them.
 KEY_PROTOCOL_VERSION = "io.modelcontextprotocol/protocolVersion"
@@ -67,10 +74,22 @@ class Probe:
         timeout: float = DEFAULT_TIMEOUT,
         bearer_token: str | None = None,
         protocol_version: str = SPEC_REVISION,
+        verify: bool | str = True,
+        proxy: str | None = None,
+        client_cert: str | tuple[str, str] | None = None,
+        retries: int = DEFAULT_RETRIES,
     ) -> None:
         self.endpoint = endpoint
         self.protocol_version = protocol_version
-        self._transport = Transport(endpoint, timeout=timeout, bearer_token=bearer_token)
+        self._transport = Transport(
+            endpoint,
+            timeout=timeout,
+            bearer_token=bearer_token,
+            verify=verify,
+            proxy=proxy,
+            client_cert=client_cert,
+            retries=retries,
+        )
 
     def close(self) -> None:
         self._transport.close()
@@ -93,6 +112,14 @@ class Probe:
             timeout=self._transport.timeout,
             bearer_token=self._transport.bearer_token,
             protocol_version=self.protocol_version,
+            # The second connection must differ from the first in exactly one
+            # respect -- being a second connection. A probe that reached the
+            # target through a proxy and a client certificate but whose twin
+            # did not would be comparing two different servers.
+            verify=self._transport.verify,
+            proxy=self._transport.proxy,
+            client_cert=self._transport.client_cert,
+            retries=self._transport.retries,
         )
 
     # -- request construction ---------------------------------------------
@@ -125,13 +152,23 @@ class Probe:
             )
         return meta
 
-    def expected_name(self, method: str, params: dict[str, Any] | None) -> str:
-        """What `Mcp-Name` must be for this request (§8.2)."""
+    def expected_name(self, method: str, params: dict[str, Any] | None) -> str | None:
+        """What `Mcp-Name` must be for this request, or None where the header is
+        not defined for the method (§8.2).
+
+        The Standard Request Headers table sources `Mcp-Name` from `params.name`
+        or `params.uri` and requires it for `tools/call`, `resources/read` and
+        `prompts/get` — "All requests" is `Mcp-Method`'s row. A method with
+        neither field has nothing for a header to be matched against, so sending
+        one would assert a body value that does not exist, and a server strict
+        enough to reject that would be right to. The probe would then grade a
+        conformant server as broken on every rule at once.
+        """
         field = NAME_BEARING.get(method)
         if field is None:
-            return method
+            return None
         value = (params or {}).get(field)
-        return str(value) if value is not None else method
+        return str(value) if value is not None else None
 
     def build(
         self,
@@ -164,9 +201,14 @@ class Probe:
         if not omit_mcp_method:
             built[HEADER_MCP_METHOD] = mcp_method if mcp_method is not None else method
         if not omit_mcp_name:
-            built[HEADER_MCP_NAME] = (
+            resolved_name = (
                 mcp_name if mcp_name is not None else self.expected_name(method, params)
             )
+            # Omitted ENTIRELY, not sent empty: a method the header table does
+            # not name has no body field for the header to match, and an empty
+            # header value is still a claim that one exists.
+            if resolved_name is not None:
+                built[HEADER_MCP_NAME] = resolved_name
         if not omit_protocol_version_header:
             declared = self.meta(version=version).get(KEY_PROTOCOL_VERSION)
             resolved_header = (
@@ -186,11 +228,24 @@ class Probe:
             headers=built,
         )
 
+    def build_notification(
+        self, method: str, params: dict[str, Any] | None = None, **overrides: Any
+    ) -> Request:
+        """A JSON-RPC notification: no id, and no response is expected."""
+        return replace(self.build(method, params, **overrides), request_id=None)
+
     def call(
         self, method: str, params: dict[str, Any] | None = None, **overrides: Any
     ) -> RawResponse:
         """Build and send in one step."""
         return self._transport.send(self.build(method, params, **overrides))
+
+    def notify(
+        self, method: str, params: dict[str, Any] | None = None, **overrides: Any
+    ) -> RawResponse:
+        """Send a notification. The HTTP response is still returned: whether a
+        server answers an id-less POST at all is itself a thing rules test."""
+        return self._transport.send(self.build_notification(method, params, **overrides))
 
     def send(self, request: Request) -> RawResponse:
         """Send a request built by hand, unchanged."""
@@ -222,6 +277,11 @@ class Probe:
 
     def prompts_list(self, **overrides: Any) -> RawResponse:
         return self.call("prompts/list", **overrides)
+
+    def prompts_get(
+        self, name: str, arguments: dict[str, Any] | None = None, **overrides: Any
+    ) -> RawResponse:
+        return self.call("prompts/get", {"name": name, "arguments": arguments or {}}, **overrides)
 
     # -- facts a rule may need more than once -----------------------------
 

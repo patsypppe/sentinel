@@ -84,7 +84,7 @@ jobs:
           uv run sentinel fixture serve --profile nonconformant &
           for _ in $(seq 1 30); do
             curl -sf -o /dev/null http://127.0.0.1:9000/mcp \
-              -H 'Mcp-Method: server/discover' -H 'Mcp-Name: server/discover' \
+              -H 'Mcp-Method: server/discover' \
               -d '{"jsonrpc":"2.0","id":1,"method":"server/discover"}' && break
             sleep 1
           done
@@ -102,7 +102,7 @@ jobs:
           uv run sentinel fixture serve --profile conformant &
           for _ in $(seq 1 30); do
             curl -sf -o /dev/null http://127.0.0.1:9001/mcp \
-              -H 'Mcp-Method: server/discover' -H 'Mcp-Name: server/discover' \
+              -H 'Mcp-Method: server/discover' \
               -d '{"jsonrpc":"2.0","id":1,"method":"server/discover"}' && break
             sleep 1
           done
