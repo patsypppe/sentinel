@@ -19,10 +19,13 @@ from typing import Annotated
 import typer
 
 from sentinel import SPEC_REVISION, __version__
+from sentinel.budget import BudgetPolicy
 from sentinel.catalog.base import REGISTRY, Severity, validate_registry
 from sentinel.grade import (
+    BEYOND_SPEC_CATEGORIES,
     EXIT_HARNESS_ERROR,
     EXIT_OK,
+    Gate,
     run_scan,
     unverifiable_rules,
 )
@@ -121,17 +124,58 @@ def scan(
             )
         ),
     ] = DEFAULT_RETRIES,
+    max_manifest_tokens: Annotated[
+        int | None,
+        typer.Option(
+            help=(
+                "Fail SENTINEL/OPS/manifest-token-budget above this many tokens for "
+                "the whole tool manifest. No default: the right ceiling depends on the "
+                "model, how many servers are mounted, and how much of the context "
+                "window the team will spend before the conversation starts. Unset, the "
+                "rule reports not-applicable rather than passing."
+            )
+        ),
+    ] = None,
+    max_tool_tokens: Annotated[
+        int | None,
+        typer.Option(
+            help=(
+                "Fail SENTINEL/OPS/per-tool-token-budget above this many tokens "
+                "for any single tool."
+            )
+        ),
+    ] = None,
+    max_schema_depth: Annotated[
+        int | None,
+        typer.Option(
+            help=(
+                "Fail SENTINEL/OPS/schema-depth-budget above this nesting depth "
+                "in any tool schema."
+            )
+        ),
+    ] = None,
 ) -> None:
     """Scan an MCP server and grade it against the rule catalog."""
-    severity: Severity | None = None
+    severity: Gate | None = None
     if gate is not None:
-        try:
-            severity = Severity(gate.lower())
-        except ValueError:
-            typer.echo(
-                f"--gate {gate!r} is not a severity; use 'must' or 'should'", err=True
-            )
-            raise typer.Exit(EXIT_HARNESS_ERROR) from None
+        chosen = gate.lower()
+        if chosen in BEYOND_SPEC_CATEGORIES:
+            # A beyond-spec gate is opt-in by name. It never considers a spec
+            # rule, so a build that goes red under `--gate ops` is making an
+            # operational claim and cannot be mistaken for a conformance one.
+            severity = Gate.beyond(chosen)
+        else:
+            try:
+                severity = Gate.spec(Severity(chosen))
+            except ValueError:
+                typer.echo(
+                    f"--gate {gate!r} is not a gate; use 'must' or 'should' for "
+                    "conformance, or "
+                    + ", ".join(repr(c) for c in BEYOND_SPEC_CATEGORIES)
+                    + " for a beyond-spec check",
+                    err=True,
+                )
+                raise typer.Exit(EXIT_HARNESS_ERROR) from None
 
     if insecure and ca_bundle is not None:
         typer.echo(
@@ -169,6 +213,11 @@ def scan(
             proxy=proxy,
             client_cert=None if client_cert is None else str(client_cert),
             retries=retries,
+            budgets=BudgetPolicy(
+                manifest_tokens=max_manifest_tokens,
+                per_tool_tokens=max_tool_tokens,
+                schema_depth=max_schema_depth,
+            ),
         )
     except Exception as exc:
         typer.echo(f"sentinel: the scan could not run: {exc}", err=True)

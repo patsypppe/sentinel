@@ -17,6 +17,7 @@ import time
 from dataclasses import dataclass, field
 
 from sentinel import SPEC_REVISION
+from sentinel.budget import BudgetPolicy
 from sentinel.catalog.base import (
     REGISTRY,
     BaseRule,
@@ -38,6 +39,47 @@ EXIT_GATE_FAILED = 1
 #: scanner that reports "the server is wrong" when it actually crashed is worse
 #: than one that reports nothing.
 EXIT_HARNESS_ERROR = 2
+
+
+#: Beyond-spec categories a gate may select, lower-cased as the CLI accepts
+#: them. Derived from RULE_ID_PATTERN so the two cannot drift apart.
+BEYOND_SPEC_CATEGORIES = ("security", "style", "ops")
+
+
+@dataclass(frozen=True, slots=True)
+class Gate:
+    """What a `--gate` selects: one namespace, and within it one bucket.
+
+    Kept as a type rather than a pair of loose arguments because the invariant
+    that matters is that the two fields are chosen together. A gate that
+    considered MCP rules with a SENTINEL category, or a beyond-spec category
+    with severity MUST, would be a verdict about nothing.
+    """
+
+    namespace: Namespace
+    severity: Severity
+    #: "" for a spec gate; "OPS" / "SECURITY" / "STYLE" for a beyond-spec one.
+    category: str = ""
+
+    @classmethod
+    def spec(cls, severity: Severity) -> Gate:
+        return cls(namespace=Namespace.MCP, severity=severity, category="")
+
+    @classmethod
+    def beyond(cls, category: str) -> Gate:
+        """A gate over one beyond-spec category.
+
+        Beyond-spec rules are declared at MUST severity so that a FAIL is a
+        FAIL; the category, not the severity, is what makes them opt-in.
+        """
+        return cls(
+            namespace=Namespace.SENTINEL,
+            severity=Severity.MUST,
+            category=category.upper(),
+        )
+
+    def __str__(self) -> str:
+        return self.category.lower() if self.category else self.severity.value
 
 
 @dataclass(slots=True)
@@ -79,23 +121,37 @@ class ScanReport:
             outcome.value: len(self.by_outcome(outcome, severity)) for outcome in Outcome
         }
 
-    def gate(self, severity: Severity | None) -> int:
-        """The exit code for a gate at `severity`.
+    def gate(self, gate: Gate | Severity | None) -> int:
+        """The exit code for `gate`.
 
         INDETERMINATE never fails it. That is not leniency — it is the whole
         point of having the bucket: a rule the harness cannot settle must not be
         reported as a verdict in either direction.
 
-        Only the MCP namespace can fail a spec gate. A SENTINEL rule is an
-        opinion this project holds and the specification does not; letting one
-        fail `--gate must` would make a conformance verdict unfalsifiable.
+        A gate selects exactly one namespace, and that separation is the
+        contract, not an implementation detail:
+
+        * A SPEC gate (`--gate must`) considers MCP rules only. A SENTINEL rule
+          is an opinion this project holds and the specification does not;
+          letting one fail `--gate must` would make a conformance verdict
+          unfalsifiable.
+        * A BEYOND-SPEC gate (`--gate ops`) considers one SENTINEL category
+          only. It cannot fail on a spec rule either, so a red build names which
+          kind of claim it is making. A team that wants both runs both.
+
+        A bare `Severity` is still accepted and still means exactly what it
+        meant before, so every existing caller and every existing CI invocation
+        keeps its behaviour byte for byte.
         """
-        if severity is None:
+        if gate is None:
             return EXIT_OK
+        if isinstance(gate, Severity):
+            gate = Gate.spec(gate)
         failed = [
             f
-            for f in self.by_outcome(Outcome.FAIL, severity)
-            if f.rule.namespace is Namespace.MCP
+            for f in self.by_outcome(Outcome.FAIL, gate.severity)
+            if f.rule.namespace is gate.namespace
+            and (not gate.category or f.rule.category == gate.category)
         ]
         return EXIT_GATE_FAILED if failed else EXIT_OK
 
@@ -112,6 +168,7 @@ def run_scan(
     proxy: str | None = None,
     client_cert: str | tuple[str, str] | None = None,
     retries: int = DEFAULT_RETRIES,
+    budgets: BudgetPolicy | None = None,
 ) -> ScanReport:
     """Evaluate every rule against one endpoint."""
     reg = registry if registry is not None else REGISTRY
@@ -130,6 +187,7 @@ def run_scan(
         proxy=proxy,
         client_cert=client_cert,
         retries=retries,
+        budgets=budgets,
     ) as probe:
         for r in rules:
             rule_started = time.perf_counter()

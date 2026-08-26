@@ -154,6 +154,20 @@ class BaseRule:
         return Namespace.SENTINEL if self.id.startswith("SENTINEL/") else Namespace.MCP
 
     @property
+    def category(self) -> str:
+        """The beyond-spec category, or "" for a spec rule.
+
+        `SENTINEL/OPS/manifest-token-budget` has category `OPS`. This is what a
+        beyond-spec gate selects on. It is derived from the id rather than
+        stored beside it, so the two can never disagree -- the id is the field
+        §8.8 makes permanent, and a second copy of part of it is a second thing
+        to keep true.
+        """
+        if self.namespace is not Namespace.SENTINEL:
+            return ""
+        return self.id.split("/", 2)[1]
+
+    @property
     def is_deprecated(self) -> bool:
         return self.deprecated_in is not None
 

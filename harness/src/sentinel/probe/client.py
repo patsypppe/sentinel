@@ -19,6 +19,7 @@ from dataclasses import replace
 from typing import Any
 
 from sentinel import SPEC_REVISION
+from sentinel.budget import BudgetPolicy
 from sentinel.probe.transport import (
     DEFAULT_RETRIES,
     DEFAULT_TIMEOUT,
@@ -78,9 +79,15 @@ class Probe:
         proxy: str | None = None,
         client_cert: str | tuple[str, str] | None = None,
         retries: int = DEFAULT_RETRIES,
+        budgets: BudgetPolicy | None = None,
     ) -> None:
         self.endpoint = endpoint
         self.protocol_version = protocol_version
+        #: Operator-supplied ceilings for the SENTINEL/OPS budget rules. Carried
+        #: here rather than read from a module global so two scans in one
+        #: process cannot silently share one, and so every input a rule reads is
+        #: reachable from its single argument.
+        self.budgets = budgets if budgets is not None else BudgetPolicy()
         self._transport = Transport(
             endpoint,
             timeout=timeout,
