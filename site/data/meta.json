@@ -1,0 +1,1 @@
+{"asOf": "2026-09-29", "exitCodes": {"broker.scan": 0,"nonconformant.scan": 1,"conformant.scan": 0,"nonconformant.with-deprecated-rules.scan": 1,"broker.deprecations": 0,"nonconformant.deprecations": 0,"nonconformant.migrate": 0}}

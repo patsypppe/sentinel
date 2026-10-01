@@ -1,0 +1,167 @@
+{
+  "endpoint": "http://127.0.0.1:9000/mcp",
+  "target_revision": "2026-07-28",
+  "breaking_changes": 10,
+  "outstanding_count": 8,
+  "outstanding_effort_hours": 96,
+  "undetectable_count": 2,
+  "changes": [
+    {
+      "id": "mrtr-replaces-server-initiated",
+      "title": "the server stops calling the client (MRTR)",
+      "impact": "blocking",
+      "confidence": "observed",
+      "effort_hours": 24,
+      "outstanding": true,
+      "remediation": "Replace server-initiated calls with an MRTR flow, and make the retry idempotent: a duplicate must replay the recorded result with no further effects.",
+      "failing_rules": [
+        "MCP/2026-07-28/MUST/sampling-create-message-removed"
+      ],
+      "passing_rules": [],
+      "indeterminate_rules": [],
+      "doc_section": "mrtr-the-server-stops-calling-the-client"
+    },
+    {
+      "id": "sessions-removed",
+      "title": "sessions were removed; state becomes server-minted handles",
+      "impact": "blocking",
+      "confidence": "observed",
+      "effort_hours": 24,
+      "outstanding": true,
+      "remediation": "Remove session affinity, make list results connection-independent, and re-verify every handle on use rather than trusting possession of it.",
+      "failing_rules": [
+        "MCP/2026-07-28/MUST/tools-list-connection-independent"
+      ],
+      "passing_rules": [],
+      "indeterminate_rules": [],
+      "doc_section": "state-sessions-become-handles"
+    },
+    {
+      "id": "handshake-removed",
+      "title": "the initialize handshake is gone",
+      "impact": "blocking",
+      "confidence": "observed",
+      "effort_hours": 16,
+      "outstanding": true,
+      "remediation": "Delete the handshake methods and read protocol version and capabilities from _meta on each request instead.",
+      "failing_rules": [
+        "MCP/2026-07-28/MUST/initialize-removed"
+      ],
+      "passing_rules": [],
+      "indeterminate_rules": [],
+      "doc_section": "removed-outright"
+    },
+    {
+      "id": "discover-required",
+      "title": "server/discover is a new MUST",
+      "impact": "blocking",
+      "confidence": "observed",
+      "effort_hours": 8,
+      "outstanding": true,
+      "remediation": "Implement server/discover and answer it before any version is agreed.",
+      "failing_rules": [
+        "MCP/2026-07-28/MUST/discover-without-negotiated-version"
+      ],
+      "passing_rules": [
+        "MCP/2026-07-28/MUST/discover-implemented"
+      ],
+      "indeterminate_rules": [],
+      "doc_section": "removed-outright"
+    },
+    {
+      "id": "header-contract",
+      "title": "Mcp-Method and Mcp-Name are required headers",
+      "impact": "blocking",
+      "confidence": "observed",
+      "effort_hours": 8,
+      "outstanding": true,
+      "remediation": "Require both headers, and reject a disagreeing body with -32020 rather than trusting either side.",
+      "failing_rules": [
+        "MCP/2026-07-28/MUST/mcp-method-header-required",
+        "MCP/2026-07-28/MUST/mcp-name-header-required",
+        "MCP/2026-07-28/MUST/header-body-mismatch-rejected"
+      ],
+      "passing_rules": [],
+      "indeterminate_rules": [],
+      "doc_section": "the-header-contract"
+    },
+    {
+      "id": "methods-removed",
+      "title": "ping, logging/setLevel and the roots methods were removed",
+      "impact": "blocking",
+      "confidence": "observed",
+      "effort_hours": 8,
+      "outstanding": true,
+      "remediation": "Remove the handlers, and answer the removed method names with method-not-found so a stale client fails loudly rather than silently.",
+      "failing_rules": [
+        "MCP/2026-07-28/MUST/ping-removed",
+        "MCP/2026-07-28/MUST/logging-set-level-removed",
+        "MCP/2026-07-28/MUST/resources-subscribe-removed",
+        "MCP/2026-07-28/MUST/resources-unsubscribe-removed",
+        "MCP/2026-07-28/MUST/roots-list-removed"
+      ],
+      "passing_rules": [],
+      "indeterminate_rules": [],
+      "doc_section": "removed-outright"
+    },
+    {
+      "id": "cacheable-result-required",
+      "title": "ttlMs and cacheScope became required on list results",
+      "impact": "blocking",
+      "confidence": "observed",
+      "effort_hours": 4,
+      "outstanding": true,
+      "remediation": "Add ttlMs and cacheScope to every list result.",
+      "failing_rules": [
+        "MCP/2026-07-28/MUST/cacheable-results-carry-ttl",
+        "MCP/2026-07-28/MUST/cacheable-results-carry-scope"
+      ],
+      "passing_rules": [],
+      "indeterminate_rules": [],
+      "doc_section": "cacheableresult-became-required"
+    },
+    {
+      "id": "error-codes-renumbered",
+      "title": "error codes were renumbered",
+      "impact": "degrading",
+      "confidence": "observed",
+      "effort_hours": 4,
+      "outstanding": true,
+      "remediation": "Move server-allocated codes out of the reserved and legacy ranges, and return invalid-params for a resource that does not exist.",
+      "failing_rules": [
+        "MCP/2026-07-28/MUST/no-errors-in-reserved-range",
+        "MCP/2026-07-28/MUST/resource-not-found-is-invalid-params",
+        "MCP/2026-07-28/SHOULD/no-errors-in-legacy-range"
+      ],
+      "passing_rules": [],
+      "indeterminate_rules": [],
+      "doc_section": "error-codes-moved"
+    },
+    {
+      "id": "sse-resumability-removed",
+      "title": "SSE resumability and Last-Event-ID were removed",
+      "impact": "degrading",
+      "confidence": "unknown",
+      "effort_hours": 8,
+      "outstanding": false,
+      "remediation": "Remove resumption logic and make the transport request-scoped, which is what the removal of sessions makes possible.",
+      "failing_rules": [],
+      "passing_rules": [],
+      "indeterminate_rules": [],
+      "doc_section": "the-shape-of-the-change"
+    },
+    {
+      "id": "tasks-moved-to-extension",
+      "title": "tasks moved out of core into an official extension",
+      "impact": "degrading",
+      "confidence": "unknown",
+      "effort_hours": 8,
+      "outstanding": false,
+      "remediation": "Declare the tasks extension explicitly rather than assuming core support, or drop the methods.",
+      "failing_rules": [],
+      "passing_rules": [],
+      "indeterminate_rules": [],
+      "doc_section": "the-shape-of-the-change"
+    }
+  ]
+}

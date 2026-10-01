@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "tool": "sentinel",
+  "specRevision": "2026-07-28",
+  "endpoint": "http://localhost:8080/mcp",
+  "asOf": "2026-09-29",
+  "minimumNoticeMonths": 12,
+  "features": [
+    {
+      "id": "roots",
+      "name": "Roots",
+      "inUse": false,
+      "confidence": "observed",
+      "evidence": "roots/list \u2192 method-not-found",
+      "deprecatedOn": "2026-07-28",
+      "removal": {
+        "kind": "fixed_revision",
+        "onOrAfter": "2027-07-28",
+        "monthsRemaining": 10
+      },
+      "replacement": "explicit tool arguments naming the paths a tool may touch",
+      "sep": "SEP-2577",
+      "citation": "https://modelcontextprotocol.io/specification/2026-07-28/changelog#sep-2577-roots-sampling-logging",
+      "note": "Roots let a server ask the client which filesystem locations it may use. In a stateless protocol there is no session to hold that answer, and a tool that needs a path should take one."
+    },
+    {
+      "id": "sampling",
+      "name": "Sampling",
+      "inUse": false,
+      "confidence": "observed",
+      "evidence": "sampling/createMessage \u2192 method-not-found",
+      "deprecatedOn": "2026-07-28",
+      "removal": {
+        "kind": "fixed_revision",
+        "onOrAfter": "2027-07-28",
+        "monthsRemaining": 10
+      },
+      "replacement": "multi round-trip requests (resultType: input_required)",
+      "sep": "SEP-2577",
+      "citation": "https://modelcontextprotocol.io/specification/2026-07-28/changelog#sep-2577-roots-sampling-logging",
+      "note": "Sampling was the server calling the client to ask a model for a completion. The server never initiates in this revision, so the whole direction is gone."
+    },
+    {
+      "id": "logging",
+      "name": "Logging",
+      "inUse": false,
+      "confidence": "observed",
+      "evidence": "logging/setLevel \u2192 method-not-found",
+      "deprecatedOn": "2026-07-28",
+      "removal": {
+        "kind": "fixed_revision",
+        "onOrAfter": "2027-07-28",
+        "monthsRemaining": 10
+      },
+      "replacement": "_meta.io.modelcontextprotocol/logLevel, set per request",
+      "sep": "SEP-2577",
+      "citation": "https://modelcontextprotocol.io/specification/2026-07-28/changelog#sep-2577-roots-sampling-logging",
+      "note": "logging/setLevel set a level for a session. There are no sessions, so the level travels with each request instead."
+    },
+    {
+      "id": "http-sse",
+      "name": "HTTP+SSE transport",
+      "inUse": false,
+      "confidence": "observed",
+      "evidence": "the endpoint replies as Streamable HTTP and advertises no SSE transport",
+      "deprecatedOn": "2025-03-26",
+      "removal": {
+        "kind": "after_event",
+        "condition": "three months after SEP-2596 reaches Final",
+        "sep": "SEP-2596",
+        "monthsRemaining": null
+      },
+      "replacement": "Streamable HTTP",
+      "sep": "SEP-2596",
+      "citation": "https://modelcontextprotocol.io/specification/2026-07-28/basic/transports#streamable-http",
+      "note": "The two-endpoint SSE transport required a server-held connection. Streamable HTTP is one POST endpoint, which is what lets a gateway route on headers."
+    },
+    {
+      "id": "oauth-dcr",
+      "name": "OAuth Dynamic Client Registration",
+      "inUse": false,
+      "confidence": "unknown",
+      "evidence": "server/discover advertises no dynamic registration endpoint. The authorization server's own metadata was NOT fetched: it may live on another host, and following a URL the scan target supplied is the SSRF the security guidance warns about.",
+      "deprecatedOn": "2026-07-28",
+      "removal": {
+        "kind": "fixed_revision",
+        "onOrAfter": "2027-07-28",
+        "monthsRemaining": 10
+      },
+      "replacement": "Client ID Metadata Documents (CIMD)",
+      "sep": "PR #2858",
+      "citation": "https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization#client-registration",
+      "note": "DCR let any client mint its own registration. CIMD makes a client's identity a document at a URL the authorization server can fetch and check."
+    },
+    {
+      "id": "include-context",
+      "name": "includeContext: \"thisServer\" / \"allServers\"",
+      "inUse": false,
+      "confidence": "observed",
+      "evidence": "the server does not accept a sampling request carrying includeContext",
+      "deprecatedOn": "2025-11-25",
+      "removal": {
+        "kind": "fixed_revision",
+        "onOrAfter": "2027-07-28",
+        "monthsRemaining": 10
+      },
+      "replacement": "explicit arguments carrying whatever context the call needs",
+      "sep": "SEP-2596",
+      "citation": "https://modelcontextprotocol.io/specification/2026-07-28/changelog#includecontext",
+      "note": "Both values asked the client to gather context on the server's behalf. \"allServers\" additionally leaked one server's context to another."
+    }
+  ]
+}

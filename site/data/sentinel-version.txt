@@ -1,0 +1,1 @@
+sentinel 0.2.0 (grades MCP 2026-07-28)

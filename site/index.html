@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Sentinel — MCP conformance, graded on the wire</title>
+  <meta name="description" content="Sentinel scans any Model Context Protocol server and grades it against the 2026-07-28 specification, rule by rule, with a spec citation per finding. This page renders real scan output.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <script type="module" src="assets/js/main.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#report">Skip to the report</a>
+
+  <header class="masthead">
+    <div class="masthead__inner">
+      <p class="masthead__id">
+        <span class="wordmark">Sentinel</span>
+        <span class="masthead__meta">Conformance report · MCP <span data-bind="spec">2026-07-28</span> · <span data-bind="version">sentinel</span></span>
+      </p>
+      <nav aria-label="Sections">
+        <ol class="toc">
+          <li><a href="#verdict"><span class="toc__n">§1</span> Verdict</a></li>
+          <li><a href="#report"><span class="toc__n">§2</span> Report</a></li>
+          <li><a href="#indeterminate"><span class="toc__n">§3</span> Indeterminate</a></li>
+          <li><a href="#deprecations"><span class="toc__n">§4</span> Deprecations</a></li>
+          <li><a href="#lifecycle"><span class="toc__n">§5</span> Rule IDs</a></li>
+          <li><a href="#architecture"><span class="toc__n">§6</span> Architecture</a></li>
+          <li><a href="#run"><span class="toc__n">§7</span> Run it</a></li>
+        </ol>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="hero-heading">
+      <p class="eyebrow">A Go MCP broker &amp; the Python harness that grades it</p>
+      <h1 id="hero-heading">Grades any MCP server against the spec, clause by clause, and <em>says plainly what it cannot see.</em></h1>
+      <div class="hero__body">
+        <p class="lede">
+          On 28 July 2026 the Model Context Protocol became stateless: sessions, the
+          <code>initialize</code> handshake and server-initiated requests were removed, and
+          <code>server/discover</code> became mandatory. <strong>Sentinel</strong> is a harness that
+          scans any endpoint over the wire and grades it rule by rule, each with the clause it comes
+          from. It also lists the deprecated features the server still uses and when each can be removed.
+          The <strong>broker</strong> is a Go server built natively on the new revision, and it is
+          graded by that same harness.
+        </p>
+        <p class="hero__provenance">
+          Everything below is rendered from JSON that <code>sentinel</code> wrote, scanned
+          <time data-bind="asOf">recently</time>. Nothing is typed in by hand.
+          <a href="https://github.com/patsypppe/sentinel/blob/main/site/data/regenerate.sh">How it was generated</a>.
+        </p>
+        <p class="hero__actions">
+          <a class="button button--primary" href="#report">Open the report</a>
+          <a class="button" href="https://github.com/patsypppe/sentinel">Source on GitHub</a>
+        </p>
+      </div>
+    </section>
+
+    <section id="verdict" class="section" aria-labelledby="verdict-heading">
+      <header class="section__head">
+        <p class="section__n" aria-hidden="true">§1</p>
+        <h2 id="verdict-heading">The same <span data-bind="ruleCount">52</span>-rule catalog, three servers, both directions</h2>
+        <p class="section__lede">
+          A gate that can only pass proves nothing. CI scans an unmigrated server that
+          <em>must</em> fail, and two correct ones that must pass. The exit code is part of the
+          contract: <code>0</code> means the target passed, <code>1</code> means the target failed the gate, and
+          <code>2</code> means the scanner itself broke.
+        </p>
+      </header>
+      <div class="verdicts" data-mount="verdicts" aria-live="polite">
+        <p class="loading">Loading scan output…</p>
+      </div>
+
+      <aside class="ledger" aria-labelledby="ledger-heading">
+        <h3 id="ledger-heading" class="ledger__title">The harness, measured</h3>
+        <dl class="ledger__grid">
+          <div><dt>Recall against the non-conformant fixture</dt><dd><span class="figure-sm">100%</span> 39 of 39 seeded violations</dd></div>
+          <div><dt>False positives against the conformant fixture</dt><dd><span class="figure-sm">0</span> rules failing a correct server</dd></div>
+          <div><dt><code>tools/list</code> determinism</dt><dd><span class="figure-sm">1</span> distinct SHA-256 over 100 hashes + 5 cold rebuilds</dd></div>
+          <div><dt>Scan wall-clock</dt><dd><span class="figure-sm">62&nbsp;ms</span> p50, conformant fixture, loopback</dd></div>
+        </dl>
+        <p class="cite">
+          Quoted from <a href="https://github.com/patsypppe/sentinel/blob/main/MEASUREMENTS.md"><code>MEASUREMENTS.md</code></a>,
+          regenerated by <code>make measure</code>. The recall denominator comes from the fixture's own
+          <code>SEEDED_VIOLATIONS</code> list, not from the scanner.
+        </p>
+      </aside>
+    </section>
+
+    <section id="report" class="section section--wide" aria-labelledby="report-heading">
+      <header class="section__head">
+        <p class="section__n" aria-hidden="true">§2</p>
+        <h2 id="report-heading">Report viewer</h2>
+        <p class="section__lede">
+          Each row is one finding from a real scan. Open a row to see what was observed, what to
+          change, and the specification clause it is graded against.
+        </p>
+      </header>
+
+      <div class="viewer" data-mount="viewer">
+        <form class="controls" role="search" aria-label="Filter findings" data-ref="controls">
+          <fieldset class="controls__group controls__group--target">
+            <legend>Target</legend>
+            <div class="segmented" data-ref="targets"></div>
+          </fieldset>
+          <fieldset class="controls__group controls__group--outcome">
+            <legend>Outcome</legend>
+            <div class="chips" data-ref="outcomes"></div>
+          </fieldset>
+          <fieldset class="controls__group controls__group--severity">
+            <legend>Severity</legend>
+            <div class="chips" data-ref="severities"></div>
+          </fieldset>
+          <fieldset class="controls__group controls__group--namespace">
+            <legend>Namespace</legend>
+            <div class="chips" data-ref="namespaces"></div>
+          </fieldset>
+          <div class="controls__group controls__group--search">
+            <label for="q">Search rule ID, title, observation</label>
+            <input id="q" name="q" type="search" autocomplete="off" spellcheck="false" placeholder="e.g. header, -32020, cacheScope" data-ref="search">
+          </div>
+        </form>
+
+        <div class="viewer__meta">
+          <p class="viewer__count" data-ref="count" role="status" aria-live="polite"></p>
+          <p class="viewer__summary" data-ref="summary"></p>
+        </div>
+        <ol class="findings" data-ref="list" aria-label="Findings"></ol>
+        <p class="findings__empty" data-ref="empty" hidden>No finding matches these filters.</p>
+      </div>
+    </section>
+
+    <section id="indeterminate" class="section" aria-labelledby="indet-heading">
+      <header class="section__head">
+        <p class="section__n" aria-hidden="true">§3</p>
+        <h2 id="indet-heading">Five MUSTs a scan cannot settle, and does not pretend to</h2>
+        <p class="section__lede">
+          Some requirements are invisible from the client side. Sentinel reports them as
+          <span class="tag tag--indeterminate">Indeterminate</span>, never as passes. It
+          <strong>excludes them from the gate</strong> and <strong>reprints them on every scan</strong>,
+          so a green build can never be read as covering them. The same five appear, with the same
+          wording, on all three scans above.
+        </p>
+      </header>
+      <div class="indet">
+        <ol class="indet__list" data-mount="indeterminate"></ol>
+        <aside class="indet__aside">
+          <h3>So who does check them?</h3>
+          <p>
+            The broker's own test suite, which has the access a scan lacks. Per the
+            <a href="https://github.com/patsypppe/sentinel#limitations-stated-plainly">README</a>:
+          </p>
+          <ul class="mono-list">
+            <li>TestTokenForAnotherAudienceRejected</li>
+            <li>TestInboundTokenNeverForwarded</li>
+            <li>TestCrossPrincipalHandleRefused</li>
+            <li>TestDuplicateRetryIsIdempotent</li>
+            <li>TestChainDetectsTampering</li>
+          </ul>
+          <p class="pullquote">“A clean scan is not a clean bill of health.”</p>
+        </aside>
+      </div>
+    </section>
+
+    <section id="deprecations" class="section section--wide" aria-labelledby="dep-heading">
+      <header class="section__head">
+        <p class="section__n" aria-hidden="true">§4</p>
+        <h2 id="dep-heading">Deprecated-feature inventory, against the removal clock</h2>
+        <p class="section__lede">
+          <code>sentinel deprecations</code> probes for each deprecated feature and records how
+          it knows: <em>observed</em> on the wire, or <em>advertised</em> in
+          <code>server/discover</code>. This inventory never fails a gate. A deprecated feature
+          that still works is a migration to plan, not a defect.
+        </p>
+      </header>
+      <div data-mount="timeline"></div>
+    </section>
+
+    <section id="migration" class="section" aria-labelledby="mig-heading">
+      <header class="section__head">
+        <p class="section__n" aria-hidden="true">§4.1</p>
+        <h2 id="mig-heading">Sizing the migration from the same evidence</h2>
+        <p class="section__lede">
+          <code>sentinel migrate</code> maps failing rules onto the revision's breaking changes.
+          Changes the wire cannot reveal are listed as <em>not checkable from here</em> rather than
+          marked done. The hours are the harness's planning estimates, not measurements.
+        </p>
+      </header>
+      <div data-mount="migration"></div>
+    </section>
+
+    <section id="lifecycle" class="section" aria-labelledby="life-heading">
+      <header class="section__head">
+        <p class="section__n" aria-hidden="true">§5</p>
+        <h2 id="life-heading">A rule ID never changes meaning</h2>
+        <p class="section__lede">
+          A report from six months ago names rules by ID and nothing else, so redefining a rule
+          would silently rewrite what that report said. When a rule turns out to be wrong it is
+          <strong>deprecated</strong>, and a successor is <strong>published under a new ID</strong>.
+          Retired rules are skipped by default and never deleted. Re-running with
+          <code>--include-deprecated-rules</code> reproduces an old report.
+        </p>
+      </header>
+      <div data-mount="lifecycle"></div>
+      <p class="cite">
+        All three corrections in 0.2.0 went the same way: sentinel had been demanding more than the
+        specification does. Reasons are quoted from the
+        <a href="https://github.com/patsypppe/sentinel#rule-lifecycle">README</a>. Outcomes are from
+        a replay scan of the unmigrated fixture.
+      </p>
+    </section>
+
+    <section id="architecture" class="section section--wide" aria-labelledby="arch-heading">
+      <header class="section__head">
+        <p class="section__n" aria-hidden="true">§6</p>
+        <h2 id="arch-heading">Two products, one wire between them</h2>
+        <p class="section__lede">
+          The harness never imports server internals and runs against any endpoint URL. Its probe is
+          a deliberately literal client, with no MCP SDK. An SDK that helpfully adds
+          <code>Mcp-Method</code> would make the rule that requires <code>Mcp-Method</code>
+          untestable.
+        </p>
+      </header>
+
+      <figure class="arch" aria-labelledby="arch-caption">
+        <div class="arch__col arch__col--harness">
+          <p class="arch__label">harness/ · Python</p>
+          <h3 class="arch__title">sentinel</h3>
+          <ol class="arch__stack">
+            <li><b>probe</b><span>hand-built JSON-RPC over HTTP, no SDK</span></li>
+            <li><b>catalog</b><span><span data-bind="ruleCount">52</span> live rules: MUST · SHOULD · SENTINEL/ beyond-spec, each with a citation or a rationale</span></li>
+            <li><b>grade</b><span>PASS · FAIL · INDETERMINATE · N/A, then the gate</span></li>
+            <li><b>report</b><span>text · JSON · SARIF for GitHub code scanning</span></li>
+          </ol>
+        </div>
+
+        <div class="arch__wire" aria-hidden="true">
+          <div class="arch__wall"><span>no imports cross this line</span></div>
+          <p class="arch__packet">POST /mcp<br>Mcp-Method: tools/call<br>Mcp-Name: warehouse.query</p>
+          <div class="arch__arrow"></div>
+        </div>
+
+        <div class="arch__col arch__col--targets">
+          <p class="arch__label">any endpoint URL</p>
+          <div class="arch__target">
+            <h3 class="arch__title">broker <small>Go · 2026-07-28 native</small></h3>
+            <ul class="arch__facts">
+              <li>Envoy routes and authorizes on <code>Mcp-Method</code>/<code>Mcp-Name</code>, with no body-parsing filter</li>
+              <li>Stateless: cross-call state is a principal-bound handle, re-verified on every use</li>
+              <li>MRTR with exactly-once effects: a duplicate retry replays the recorded result</li>
+              <li>Exact-audience tokens; hash-chained, append-only audit log in Postgres</li>
+            </ul>
+          </div>
+          <div class="arch__target arch__target--fixture">
+            <h3 class="arch__title">oracle fixtures <small>Python</small></h3>
+            <ul class="arch__facts">
+              <li><b>non-conformant</b>: tags each seeded violation in its own source</li>
+              <li><b>conformant</b>: a minimal correct server. Any FAIL against it is a false positive</li>
+            </ul>
+          </div>
+        </div>
+        <figcaption id="arch-caption">
+          Broker claims are summarized from the
+          <a href="https://github.com/patsypppe/sentinel#what-the-broker-demonstrates">README</a>.
+          The rule count is the length of the scan reports on this page.
+        </figcaption>
+      </figure>
+    </section>
+
+    <section id="run" class="section" aria-labelledby="run-heading">
+      <header class="section__head">
+        <p class="section__n" aria-hidden="true">§7</p>
+        <h2 id="run-heading">Run it yourself</h2>
+        <p class="section__lede">
+          Requires Go 1.23+, Python 3.12, uv ≥ 0.5 and Docker. No model API key is needed anywhere.
+          The broker serves tools and never calls a model.
+        </p>
+      </header>
+      <div class="run">
+        <div class="run__block">
+          <h3>The whole stack</h3>
+          <pre class="code" tabindex="0"><code>make up             # postgres + broker + envoy + smokescreen + otel-collector
+make check          # golangci-lint, go test -race, ruff, mypy, pytest
+make scan-broker    # grade the broker against its own harness
+make scan-fixture   # grade an unmigrated server; expected to exit 1
+make demo           # the nine-step demo</code></pre>
+        </div>
+        <div class="run__block">
+          <h3>Scanning your own server</h3>
+          <pre class="code" tabindex="0"><code>uv run sentinel scan --endpoint https://your-server.example/mcp --gate must \
+  --token "$TOKEN" --format sarif --out scan.sarif
+uv run sentinel deprecations --endpoint https://your-server.example/mcp</code></pre>
+        </div>
+        <div class="run__block">
+          <h3>Regenerating this page's data</h3>
+          <pre class="code" tabindex="0"><code>bash site/data/regenerate.sh 2026-09-29</code></pre>
+          <p>The script header lists the prerequisites: the broker, both fixtures, and a dev token from <code>broker mint-token</code>.</p>
+        </div>
+      </div>
+      <p class="cite">Commands quoted from the repository <a href="https://github.com/patsypppe/sentinel#quick-start">README</a>.</p>
+    </section>
+  </main>
+
+  <footer class="colophon">
+    <p>
+      <strong>Precedence.</strong> Where this repository and the
+      <a href="https://modelcontextprotocol.io/specification/2026-07-28/">MCP specification</a>
+      disagree, the specification wins and this repository is wrong.
+    </p>
+    <p class="colophon__links">
+      <a href="https://github.com/patsypppe/sentinel">github.com/patsypppe/sentinel</a> ·
+      <a href="https://github.com/patsypppe/sentinel/blob/main/docs/MIGRATION.md">Migration guide</a> ·
+      <a href="https://github.com/patsypppe/sentinel/tree/main/site/data">Raw scan data</a> ·
+      MIT licence
+    </p>
+  </footer>
+  <noscript><p class="noscript">This report is rendered from JSON by a small script. The raw data is in <a href="https://github.com/patsypppe/sentinel/tree/main/site/data">site/data</a>.</p></noscript>
+</body>
+</html>

@@ -1,0 +1,93 @@
+/*
+ * Design tokens. The direction is a printed standards document: paper and ink,
+ * hairline rules, numbered sections, a serif for prose and a monospace for
+ * anything the harness emitted. Colour is reserved for verdicts.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* surfaces + ink */
+  --color-paper: #f5f3ec;
+  --color-paper-raised: #fbfaf6;
+  --color-paper-sunk: #ebe8de;
+  --color-ink: #17171b;
+  --color-ink-2: #45454d;
+  --color-ink-3: #5f5e66;
+  --color-rule: #d6d2c4;
+  --color-rule-strong: #17171b;
+  --color-accent: #2340b8;
+  --color-focus: #2340b8;
+  --color-code-bg: #17171b;
+  --color-code-ink: #f5f3ec;
+
+  /* verdicts: text colour + tinted ground, AA on both paper and their ground */
+  --color-pass: #1b6337;
+  --color-pass-bg: #dcede1;
+  --color-fail: #a8231b;
+  --color-fail-bg: #f6dcd7;
+  --color-indet: #7c5100;
+  --color-indet-bg: #f3e4c0;
+  --color-na: #55555c;
+  --color-na-bg: #e4e1d8;
+
+  /* type */
+  --font-serif: "Newsreader", "Iowan Old Style", "Charter", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem);
+  --text-lg: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+  --text-xl: clamp(1.625rem, 1.3rem + 1.4vw, 2.25rem);
+  --text-hero: clamp(2.375rem, 1.4rem + 4.6vw, 5rem);
+  --text-figure: clamp(2.75rem, 2rem + 3.4vw, 4.75rem);
+
+  /* space: a modular rhythm, not one padding value everywhere */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-section: clamp(3.5rem, 2.5rem + 4vw, 7rem);
+  --gutter: clamp(1rem, 0.5rem + 2.5vw, 2.5rem);
+  --measure: 66ch;
+  --page-max: 78rem;
+
+  --radius-tag: 2px;
+  --hairline: 1px solid var(--color-rule);
+  --shadow-raised: 0 1px 0 var(--color-rule), 0 12px 32px -18px rgb(23 23 27 / 0.28);
+
+  --duration-fast: 140ms;
+  --duration-normal: 260ms;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-paper: #111114;
+    --color-paper-raised: #19191d;
+    --color-paper-sunk: #0b0b0d;
+    --color-ink: #ecebe5;
+    --color-ink-2: #bdbcb5;
+    --color-ink-3: #9d9ca3;
+    --color-rule: #2e2e35;
+    --color-rule-strong: #ecebe5;
+    --color-accent: #9db1ff;
+    --color-focus: #9db1ff;
+    --color-code-bg: #0b0b0d;
+    --color-code-ink: #ecebe5;
+
+    --color-pass: #74d394;
+    --color-pass-bg: #142b1c;
+    --color-fail: #ff8f7e;
+    --color-fail-bg: #351613;
+    --color-indet: #efc060;
+    --color-indet-bg: #30240b;
+    --color-na: #a9a8ae;
+    --color-na-bg: #222226;
+
+    --shadow-raised: 0 1px 0 var(--color-rule), 0 16px 36px -20px rgb(0 0 0 / 0.8);
+  }
+}
