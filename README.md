@@ -5,6 +5,12 @@
 [![ci](https://github.com/patsypppe/sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/patsypppe/sentinel/actions/workflows/ci.yml)
 [![conformance](https://github.com/patsypppe/sentinel/actions/workflows/conformance.yml/badge.svg)](https://github.com/patsypppe/sentinel/actions/workflows/conformance.yml)
 
+**[Live showcase → patsypppe.github.io/sentinel](https://patsypppe.github.io/sentinel/)**: an interactive
+viewer over real `sentinel` output, with rule-by-rule findings, the deprecation timeline and the
+INDETERMINATE design. The data comes from the scans in [`site/data/`](site/data/).
+
+[![Three scans side by side: the unmigrated server fails the MUST gate, the broker and the conformant fixture pass it](site/assets/img/showcase.png)](https://patsypppe.github.io/sentinel/)
+
 On **28 July 2026** the Model Context Protocol shipped the largest breaking revision in its
 history: it converted MCP from a stateful, session-based, bidirectional protocol into a
 **stateless request/response protocol**. Sessions are gone. The `initialize` handshake is gone.
