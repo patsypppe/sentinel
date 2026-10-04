@@ -43,7 +43,7 @@ def _named_tool(probe: Probe) -> str | None:
     id="MCP/2026-07-28/MUST/mcp-method-header-required",
     title="Mcp-Method is required on Streamable HTTP POST",
     severity=Severity.MUST,
-    citation=f"{TRANSPORT}#streamable-http",
+    citation=f"{TRANSPORT}#request-metadata",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Reject a POST with no Mcp-Method header. The header exists so a gateway or WAF "
@@ -90,7 +90,7 @@ def mcp_method_required(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/mcp-name-header-required",
     title="Mcp-Name is required on a tools/call, resources/read or prompts/get POST",
     severity=Severity.MUST,
-    citation=f"{TRANSPORT}#streamable-http",
+    citation=f"{TRANSPORT}#request-metadata",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Reject a tools/call, resources/read or prompts/get with no Mcp-Name header. "
@@ -150,7 +150,7 @@ NO_NAME_METHODS = [
     id="MCP/2026-07-28/MUST/mcp-name-not-required-where-undefined",
     title="Mcp-Name is not demanded on a method the header table does not define it for",
     severity=Severity.MUST,
-    citation=f"{TRANSPORT}#streamable-http",
+    citation=f"{TRANSPORT}#request-metadata",
     verifiability=Verifiability.BLACK_BOX,
     introduced_in="0.2.0",
     remediation=(
@@ -211,7 +211,7 @@ def mcp_name_not_required_where_undefined(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/header-body-mismatch-rejected",
     title="A header disagreeing with the body is rejected with -32020",
     severity=Severity.MUST,
-    citation=f"{TRANSPORT}#header-contract",
+    citation=f"{TRANSPORT}#request-metadata",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Compare Mcp-Method and Mcp-Name against the JSON-RPC body and return -32020 "
@@ -262,7 +262,7 @@ def header_mismatch_rejected(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/resource-not-found-is-invalid-params",
     title="Resource not found is -32602, not -32002",
     severity=Severity.MUST,
-    citation=f"{CHANGELOG}#error-code-reallocation",
+    citation=f"{ERRORS}",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Return -32602 InvalidParams for a resource that does not exist. It moved from "
