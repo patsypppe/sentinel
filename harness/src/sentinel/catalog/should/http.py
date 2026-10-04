@@ -27,7 +27,7 @@ LEGACY_METHODS = ("GET", "DELETE")
     id="MCP/2026-07-28/SHOULD/get-delete-405",
     title="A bare GET or DELETE on the endpoint answers 405 Method Not Allowed",
     severity=Severity.SHOULD,
-    citation=f"{STREAMABLE}#backwards-compatibility",
+    citation=f"{STREAMABLE}#backward-compatibility",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Answer 405 Method Not Allowed to a GET or a DELETE on the MCP endpoint. Both "

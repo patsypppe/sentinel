@@ -19,7 +19,7 @@ CHANGELOG = f"{SPEC_BASE}/changelog"
     id="MCP/2026-07-28/SHOULD/tools-sorted-by-name",
     title="tools/list returns tools in byte-wise name order",
     severity=Severity.SHOULD,
-    citation=f"{CHANGELOG}#deterministic-tool-ordering",
+    citation=f"{CHANGELOG}#minor-changes",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Sort tools by name byte-wise (not case-insensitively, not by locale collation). "
@@ -43,7 +43,7 @@ def tools_sorted(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/SHOULD/tools-have-descriptions",
     title="Every tool has a description",
     severity=Severity.SHOULD,
-    citation=f"{SPEC_BASE}/basic/index#tools",
+    citation=f"{SPEC_BASE}/server/tools#listing-tools",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Describe every tool. The description is what a model reads to choose between "

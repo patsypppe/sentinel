@@ -28,7 +28,7 @@ SECURITY = f"{SPEC_BASE}/basic/security_best_practices"
     id="MCP/2026-07-28/MUST/token-audience-validated",
     title="The server rejects tokens not issued for it",
     severity=Severity.MUST,
-    citation=f"{SECURITY}#token-audience-binding",
+    citation=f"{SECURITY}#token-passthrough",
     verifiability=Verifiability.UNVERIFIABLE,
     remediation=(
         "Check that the token's `aud` claim contains this server's identifier, by exact "
@@ -75,7 +75,7 @@ def no_token_passthrough(_: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/handle-possession-is-not-authentication",
     title="Server-minted handles are re-verified against the caller",
     severity=Severity.MUST,
-    citation=f"{SECURITY}#state-handles",
+    citation=f"{SECURITY}#state-handle-hijacking",
     verifiability=Verifiability.UNVERIFIABLE,
     remediation=(
         "Re-verify the principal and tenant on EVERY handle resolution, against the "
@@ -98,7 +98,7 @@ def handle_possession_not_auth(_: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/mrtr-retries-are-idempotent",
     title="A duplicate MRTR retry performs no additional side effect",
     severity=Severity.MUST,
-    citation=f"{SPEC_BASE}/basic/patterns/mrtr#idempotency",
+    citation=f"{SPEC_BASE}/basic/patterns/mrtr#basic-workflow",
     verifiability=Verifiability.UNVERIFIABLE,
     remediation=(
         "Record the result when a flow is consumed and replay it verbatim on any duplicate "
@@ -121,7 +121,7 @@ def mrtr_idempotent(_: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/invocations-are-audited",
     title="Every tool invocation is recorded in an append-only log",
     severity=Severity.MUST,
-    citation=f"{SECURITY}#audit-logging",
+    citation=f"{SECURITY}#token-passthrough",
     verifiability=Verifiability.UNVERIFIABLE,
     remediation=(
         "Write an append-only, hash-chained row for every invocation, and fail the "
