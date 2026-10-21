@@ -12,6 +12,7 @@ forged `requestState` — can, because nothing here will correct them.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import time
 from dataclasses import dataclass, field
@@ -33,6 +34,39 @@ DEFAULT_RETRIES = 2
 
 #: Backoff between attempts: BACKOFF_BASE_S * 2**attempt.
 BACKOFF_BASE_S = 0.1
+
+#: Sent on every request, so the operator of a scanned server can see what is
+#: talking to it and where to read about it. Overridable, never omitted.
+DEFAULT_USER_AGENT = "sentinel-mcp-conformance (+https://github.com/patsypppe/sentinel)"
+
+
+def sse_messages(body: bytes) -> list[Any]:
+    """The JSON payloads of every event in a text/event-stream body.
+
+    A server may answer a POST with `Content-Type: text/event-stream` and carry
+    the JSON-RPC response as an SSE event. Reading only bare JSON would score
+    every such reply as "no JSON-RPC response", which is a scanner bug wearing
+    the costume of a server defect. Events are split on blank lines, their
+    `data:` lines joined with newlines as the SSE format specifies, and an event
+    whose data is not JSON is skipped rather than guessed at.
+    """
+    try:
+        text = body.decode()
+    except UnicodeDecodeError:
+        return []
+    messages: list[Any] = []
+    data: list[str] = []
+    for line in [*text.replace("\r\n", "\n").split("\n"), ""]:
+        if line == "":
+            if data:
+                with contextlib.suppress(json.JSONDecodeError):
+                    messages.append(json.loads("\n".join(data)))
+                data = []
+            continue
+        if line.startswith("data:"):
+            value = line[len("data:") :]
+            data.append(value[1:] if value.startswith(" ") else value)
+    return messages
 
 
 @dataclass(slots=True)
@@ -56,13 +90,27 @@ class RawResponse:
         """Parse the body, or raise. Rules call `.envelope()` instead."""
         return json.loads(self.body)
 
+    @property
+    def is_event_stream(self) -> bool:
+        return "text/event-stream" in self.headers.get("content-type", "")
+
     def envelope(self) -> dict[str, Any] | None:
         """The JSON-RPC envelope, or None if the body was not a JSON object.
 
         A server that returns something unparseable has failed whatever rule
         called this; returning None lets the rule say so rather than crashing
         the whole scan.
+
+        A text/event-stream reply carries its response inside an SSE event, so
+        the envelope is the first event that is a JSON-RPC *response* (it has
+        `result` or `error`); notifications streamed before it are skipped.
         """
+        if self.is_event_stream:
+            messages = [m for m in sse_messages(self.body) if isinstance(m, dict)]
+            for message in messages:
+                if "result" in message or "error" in message:
+                    return message
+            return messages[0] if messages else None
         try:
             parsed = json.loads(self.body)
         except (json.JSONDecodeError, UnicodeDecodeError):
@@ -139,8 +187,10 @@ class Transport:
         proxy: str | None = None,
         client_cert: str | tuple[str, str] | None = None,
         retries: int = DEFAULT_RETRIES,
+        user_agent: str = DEFAULT_USER_AGENT,
     ) -> None:
         self.endpoint = endpoint
+        self.user_agent = user_agent
         self.timeout = timeout
         self.bearer_token = bearer_token
         self.verify = verify
@@ -170,6 +220,7 @@ class Transport:
         headers = {
             "Content-Type": "application/json",
             "Accept": ACCEPT_VALUE,
+            "User-Agent": self.user_agent,
             **request.headers,
         }
         if self.bearer_token and "Authorization" not in headers:
