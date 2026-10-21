@@ -46,9 +46,7 @@ _CONTEXTS: dict[tuple[str, str], ssl.SSLContext] = {}
 _CONTEXT_LOCK = threading.Lock()
 
 
-def _verify_argument(
-    verify: bool | str, client_cert: object
-) -> bool | str | ssl.SSLContext:
+def _verify_argument(verify: bool | str, client_cert: object) -> bool | str | ssl.SSLContext:
     """What to hand httpx as `verify`.
 
     Building a verifying client loads the whole CA bundle, about 40 ms. A scan

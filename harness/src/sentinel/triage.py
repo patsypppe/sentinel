@@ -45,9 +45,7 @@ def effective_registry(policy: Policy, registry: Registry | None = None) -> Regi
     return derived
 
 
-def apply_waivers(
-    report: ScanReport, waivers: Iterable[Waiver], today: datetime.date
-) -> None:
+def apply_waivers(report: ScanReport, waivers: Iterable[Waiver], today: datetime.date) -> None:
     """Attach waivers to the findings they cover, and note the housekeeping.
 
     An expired waiver does not apply: the finding stays a failure, is labelled,

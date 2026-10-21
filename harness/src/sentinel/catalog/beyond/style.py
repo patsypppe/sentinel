@@ -19,9 +19,7 @@ from sentinel.probe.client import Probe
         "environments -- and comparable hashes are what drift detection runs on."
     ),
     verifiability=Verifiability.BLACK_BOX,
-    remediation=(
-        "Sort tools by name byte-wise (not case-insensitively, not by locale collation)."
-    ),
+    remediation=("Sort tools by name byte-wise (not case-insensitively, not by locale collation)."),
     introduced_in="0.2.0",
 )
 def tools_sorted_by_name(probe: Probe) -> RuleResult:

@@ -12,6 +12,8 @@ false-positive count is how that gets noticed.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import sys
 from typing import Any
 
@@ -54,11 +56,22 @@ ALLOWED_ORIGINS = frozenset({"http://localhost:3000", "http://127.0.0.1:3000"})
 TOOLS: list[dict[str, Any]] = sorted(
     [
         {
+            # A tool that asks before it acts, and answers honestly when it cannot
+            # ask. See `approve_deploy` below.
+            "name": "approve.deploy",
+            "description": "Deploy after the user confirms.",
+            "inputSchema": {"type": "object", "properties": {}},
+        },
+        {
             "name": "echo.reverse",
             "description": "Return the given text, reversed.",
             "inputSchema": {
                 "type": "object",
-                "properties": {"text": {"type": "string"}},
+                "properties": {
+                    "text": {"type": "string"},
+                    # One valid header annotation: a token, a string parameter.
+                    "region": {"type": "string", "x-mcp-header": "Region"},
+                },
                 "required": ["text"],
             },
         },
@@ -100,6 +113,63 @@ NO_VERSION_REQUIRED = {"server/discover"}
 #: Spelled out here rather than imported from the harness, for the reason §9.5
 #: gives: a fixture that shared the harness's spelling could never contradict it.
 KEY_CLIENT_CAPABILITIES = "io.modelcontextprotocol/clientCapabilities"
+
+
+#: Seals a requestState so it can be verified, and so it cannot be forged by a
+#: client that was never issued one. A real server would also bind it to the
+#: principal and expire it; the fixture needs only to refuse a state it did not
+#: mint, which is the property `tampered-requeststate-rejected` grades.
+_STATE_KEY = b"sentinel-conformant-fixture"
+
+
+def seal_state(tool: str) -> str:
+    return "v1." + hmac.new(_STATE_KEY, tool.encode(), hashlib.sha256).hexdigest()
+
+
+def state_is_valid(tool: str, state: object) -> bool:
+    return isinstance(state, str) and hmac.compare_digest(state, seal_state(tool))
+
+
+def approve_deploy(request_id: Any, params: dict[str, Any], version: str) -> dict[str, Any]:
+    """The multi round-trip tool.
+
+    Asks only a client that declared it can be asked: "a server MUST NOT ask for a
+    capability the client did not declare". A client that declared nothing gets a
+    plain answer, not an unanswerable question.
+    """
+    state = params.get("requestState")
+    if state is not None:
+        if not state_is_valid("approve.deploy", state):
+            return error(request_id, -32602, "requestState is not valid")
+        return result(
+            request_id, enveloped({"content": [{"type": "text", "text": "deployed"}]}, version)
+        )
+    capabilities = declared_meta({"params": params}).get(KEY_CLIENT_CAPABILITIES)
+    if isinstance(capabilities, dict) and "elicitation" in capabilities:
+        return result(
+            request_id,
+            enveloped(
+                {
+                    "resultType": "input_required",
+                    "inputRequests": [
+                        {
+                            "name": "confirm",
+                            "kind": "elicitation",
+                            "prompt": "Deploy to production?",
+                        }
+                    ],
+                    "requestState": seal_state("approve.deploy"),
+                },
+                version,
+            ),
+        )
+    return result(
+        request_id,
+        enveloped(
+            {"content": [{"type": "text", "text": "not deployed: no way to ask for approval"}]},
+            version,
+        ),
+    )
 
 
 def cacheable(payload: dict[str, Any], *, ttl_ms: int, scope: str) -> dict[str, Any]:
@@ -197,7 +267,8 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
         return 400, error(request_id, -32020, "Mcp-Method is required on Streamable HTTP POST")
     if header_method != method:
         return 400, error(
-            request_id, -32020,
+            request_id,
+            -32020,
             f"Mcp-Method is {header_method!r} but the body says {method!r}",
         )
     # Mcp-Name is required for the three methods the header table names, and
@@ -207,18 +278,18 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
     # DEMANDED there refuses a request that satisfies every MUST.
     if method in NAME_BEARING:
         if header_name is None:
-            return 400, error(
-                request_id, -32020, f"Mcp-Name is required on a {method} POST"
-            )
+            return 400, error(request_id, -32020, f"Mcp-Name is required on a {method} POST")
         want_name = expected_name(method, params)
         if header_name != want_name:
             return 400, error(
-                request_id, -32020,
+                request_id,
+                -32020,
                 f"Mcp-Name is {header_name!r} but the body names {want_name!r}",
             )
     elif header_name is not None:
         return 400, error(
-            request_id, -32020,
+            request_id,
+            -32020,
             f"Mcp-Name is {header_name!r} but {method} carries no params.name or "
             "params.uri for it to match",
         )
@@ -231,7 +302,8 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
     meta = declared_meta(payload)
     if KEY_CLIENT_CAPABILITIES not in meta:
         return 400, error(
-            request_id, -32602,
+            request_id,
+            -32602,
             f"_meta.{KEY_CLIENT_CAPABILITIES} is required on every request",
         )
     # server/discover is exempt, and only from the version. Its whole purpose is
@@ -240,7 +312,8 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
     # guessed right. Nothing exempts it from declaring capabilities.
     if method not in NO_VERSION_REQUIRED and KEY_PROTOCOL_VERSION not in meta:
         return 400, error(
-            request_id, -32602,
+            request_id,
+            -32602,
             f"_meta.{KEY_PROTOCOL_VERSION} is required on every request; "
             "this revision has no handshake to carry it",
         )
@@ -262,22 +335,25 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
     if method not in NO_VERSION_REQUIRED:
         if header_version is None:
             return 400, error(
-                request_id, -32020,
+                request_id,
+                -32020,
                 "the MCP-Protocol-Version header is required on every POST",
             )
         declared = meta.get(KEY_PROTOCOL_VERSION)
         if header_version != declared:
             return 400, error(
-                request_id, -32020,
-                f"MCP-Protocol-Version is {header_version!r} but the body declares "
-                f"{declared!r}",
+                request_id,
+                -32020,
+                f"MCP-Protocol-Version is {header_version!r} but the body declares {declared!r}",
             )
 
     # 4. Negotiation, on every request — there is no handshake to fall back on.
     version = declared_version(payload)
     if method not in NO_VERSION_REQUIRED and version is not None and version != PROTOCOL:
         return 200, error(
-            request_id, -32022, f"unsupported protocol version {version!r}",
+            request_id,
+            -32022,
+            f"unsupported protocol version {version!r}",
             {"supportedVersions": [PROTOCOL]},
         )
     resolved = version if version == PROTOCOL else PROTOCOL
@@ -296,41 +372,66 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
         return 404, error(request_id, -32601, message, {"removedIn": PROTOCOL})
 
     if method == "server/discover":
-        return 200, result(request_id, enveloped(cacheable({
-            "serverInfo": SERVER_INFO,
-            "supportedVersions": [PROTOCOL],
-            "capabilities": {
-                # False, and true. subscriptions/listen is not implemented, so
-                # claiming otherwise would make this fixture fail the very rule
-                # it exists to pass.
-                "tools": {"listChanged": False},
-                "resources": {"listChanged": False, "subscribe": False},
-                "prompts": {"listChanged": False},
-            },
-            "extensions": [],
-        }, ttl_ms=600_000, scope="public"), resolved))
+        return 200, result(
+            request_id,
+            enveloped(
+                cacheable(
+                    {
+                        "serverInfo": SERVER_INFO,
+                        "supportedVersions": [PROTOCOL],
+                        "capabilities": {
+                            # False, and true. subscriptions/listen is not implemented, so
+                            # claiming otherwise would make this fixture fail the very rule
+                            # it exists to pass.
+                            "tools": {"listChanged": False},
+                            "resources": {"listChanged": False, "subscribe": False},
+                            "prompts": {"listChanged": False},
+                        },
+                        "extensions": [],
+                    },
+                    ttl_ms=600_000,
+                    scope="public",
+                ),
+                resolved,
+            ),
+        )
 
     if method == "tools/list":
-        return 200, result(request_id, enveloped(cacheable(
-            {"tools": TOOLS},
-            # private: a server whose tool set varies by caller must not let a
-            # shared intermediary reuse one caller's list for another. This one
-            # does not vary, but private is the safe default and the cost of
-            # being wrong in the other direction is a cross-tenant disclosure.
-            ttl_ms=300_000, scope="private",
-        ), resolved))
+        return 200, result(
+            request_id,
+            enveloped(
+                cacheable(
+                    {"tools": TOOLS},
+                    # private: a server whose tool set varies by caller must not let a
+                    # shared intermediary reuse one caller's list for another. This one
+                    # does not vary, but private is the safe default and the cost of
+                    # being wrong in the other direction is a cross-tenant disclosure.
+                    ttl_ms=300_000,
+                    scope="private",
+                ),
+                resolved,
+            ),
+        )
 
     if method == "resources/list":
-        return 200, result(request_id, enveloped(cacheable(
-            {"resources": []}, ttl_ms=300_000, scope="private"), resolved))
+        return 200, result(
+            request_id,
+            enveloped(cacheable({"resources": []}, ttl_ms=300_000, scope="private"), resolved),
+        )
 
     if method == "resources/templates/list":
-        return 200, result(request_id, enveloped(cacheable(
-            {"resourceTemplates": []}, ttl_ms=300_000, scope="private"), resolved))
+        return 200, result(
+            request_id,
+            enveloped(
+                cacheable({"resourceTemplates": []}, ttl_ms=300_000, scope="private"), resolved
+            ),
+        )
 
     if method == "prompts/list":
-        return 200, result(request_id, enveloped(cacheable(
-            {"prompts": []}, ttl_ms=300_000, scope="private"), resolved))
+        return 200, result(
+            request_id,
+            enveloped(cacheable({"prompts": []}, ttl_ms=300_000, scope="private"), resolved),
+        )
 
     if method == "resources/read":
         uri = params.get("uri")
@@ -344,13 +445,17 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
         tool = next((t for t in TOOLS if t["name"] == name), None)
         if tool is None:
             return 200, error(
-                request_id, -32602,
+                request_id,
+                -32602,
                 f"no such tool {name!r}; call tools/list for the current manifest",
             )
+        if name == "approve.deploy":
+            return 200, approve_deploy(request_id, params, resolved)
         text = str((params.get("arguments") or {}).get("text", ""))
         output = text[::-1] if name == "echo.reverse" else text.upper()
-        return 200, result(request_id, enveloped(
-            {"content": [{"type": "text", "text": output}]}, resolved))
+        return 200, result(
+            request_id, enveloped({"content": [{"type": "text", "text": output}]}, resolved)
+        )
 
     # Implementation-defined codes would go outside the JSON-RPC reserved range
     # entirely (this revision retired -32000…-32019 along with reserving

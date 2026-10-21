@@ -165,6 +165,9 @@ class ScanReport:
             if f.outcome is outcome and (severity is None or f.rule.severity is severity)
         ]
 
+    def by_outcome_fail(self) -> list[Finding]:
+        return self.by_outcome(Outcome.FAIL)
+
     @property
     def must_failures(self) -> list[Finding]:
         return self.by_outcome(Outcome.FAIL, Severity.MUST)
@@ -174,9 +177,7 @@ class ScanReport:
         return self.by_outcome(Outcome.INDETERMINATE)
 
     def counts(self, severity: Severity | None = None) -> dict[str, int]:
-        return {
-            outcome.value: len(self.by_outcome(outcome, severity)) for outcome in Outcome
-        }
+        return {outcome.value: len(self.by_outcome(outcome, severity)) for outcome in Outcome}
 
     def gate(self, gate: Gate | Severity | None) -> int:
         """The exit code for `gate`.

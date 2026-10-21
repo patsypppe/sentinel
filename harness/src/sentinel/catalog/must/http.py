@@ -160,9 +160,7 @@ def protocol_version_header_body_mismatch_rejected(probe: Probe) -> RuleResult:
             "requires: " + "; ".join(problems),
             evidence=f"HTTP {response.status}, code {code}",
         )
-    return RuleResult.passed(
-        "a header/body protocol-version mismatch returned -32020 and HTTP 400"
-    )
+    return RuleResult.passed("a header/body protocol-version mismatch returned -32020 and HTTP 400")
 
 
 @rule(
@@ -280,6 +278,5 @@ def notification_not_answered_with_a_result(probe: Probe) -> RuleResult:
             evidence=f"HTTP {response.status}",
         )
     return RuleResult.failed(
-        f"a notification was answered with HTTP {response.status}; expected 202 or an "
-        "error status"
+        f"a notification was answered with HTTP {response.status}; expected 202 or an error status"
     )

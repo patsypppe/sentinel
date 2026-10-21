@@ -76,8 +76,7 @@ def discover_without_version(probe: Probe) -> RuleResult:
 
     if absent.result() is None:
         return RuleResult.failed(
-            "server/discover was refused when no protocol version was declared: "
-            f"{absent.error()}",
+            f"server/discover was refused when no protocol version was declared: {absent.error()}",
             evidence=str(absent.error()),
         )
 

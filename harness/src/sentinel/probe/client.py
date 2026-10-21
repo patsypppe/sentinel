@@ -248,9 +248,7 @@ class Probe:
         if not omit_mcp_method:
             built[HEADER_MCP_METHOD] = mcp_method if mcp_method is not None else method
         if not omit_mcp_name:
-            resolved_name = (
-                mcp_name if mcp_name is not None else self.expected_name(method, params)
-            )
+            resolved_name = mcp_name if mcp_name is not None else self.expected_name(method, params)
             # Omitted ENTIRELY, not sent empty: a method the header table does
             # not name has no body field for the header to match, and an empty
             # header value is still a claim that one exists.
@@ -307,7 +305,12 @@ class Probe:
         return self.call("tools/list", **overrides)
 
     def tools_call(
-        self, name: str, arguments: dict[str, Any] | None = None, **overrides: Any
+        self,
+        name: str,
+        arguments: dict[str, Any] | None = None,
+        *,
+        extra_params: dict[str, Any] | None = None,
+        **overrides: Any,
     ) -> RawResponse:
         if self.safe and not self._safe_to_invoke(name):
             return RawResponse(
@@ -322,7 +325,9 @@ class Probe:
                 ),
             )
         return self.call(
-            "tools/call", {"name": name, "arguments": arguments or {}}, **overrides
+            "tools/call",
+            {"name": name, "arguments": arguments or {}, **(extra_params or {})},
+            **overrides,
         )
 
     def _safe_to_invoke(self, name: str) -> bool:

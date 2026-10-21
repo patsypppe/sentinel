@@ -142,9 +142,7 @@ def resolve_removal(
     window: RemovalWindow = feature.removal
     while isinstance(window, FollowsFeature):
         if window.feature_id in seen:
-            return AfterEvent(
-                f"a cycle in the registry's follows-chain at {window.feature_id}"
-            )
+            return AfterEvent(f"a cycle in the registry's follows-chain at {window.feature_id}")
         seen.add(window.feature_id)
         followed = table.get(window.feature_id)
         if followed is None:
@@ -245,9 +243,7 @@ FEATURES: list[DeprecatedFeature] = [
         deprecated_on=date(2025, 3, 26),
         # No date, and no way to ask for one. SEP-2596 has not reached Final,
         # so the three months have not started.
-        removal=AfterEvent(
-            "three months after SEP-2596 reaches Final", sep="SEP-2596"
-        ),
+        removal=AfterEvent("three months after SEP-2596 reaches Final", sep="SEP-2596"),
         note=(
             "The two-endpoint SSE transport required a server-held connection. Streamable "
             "HTTP is one POST endpoint, which is what lets a gateway route on headers."
@@ -277,7 +273,7 @@ FEATURES: list[DeprecatedFeature] = [
         # own, and not the twelve months from its own deprecation date either.
         removal=FollowsFeature(feature_id="sampling", sep="SEP-2577"),
         note=(
-            'Both values asked the client to gather context on the server\'s behalf. '
+            "Both values asked the client to gather context on the server's behalf. "
             '"allServers" additionally leaked one server\'s context to another.'
         ),
     ),
@@ -321,15 +317,23 @@ def _method_is_implemented(
     result = resp.result() or {}
     present = [k for k in signature_keys if k in result]
     if present:
-        return True, Confidence.OBSERVED, (
-            f"{method} returned a result carrying {present}, which only this feature "
-            "produces — an invented method name got a result too, but not that shape"
+        return (
+            True,
+            Confidence.OBSERVED,
+            (
+                f"{method} returned a result carrying {present}, which only this feature "
+                "produces — an invented method name got a result too, but not that shape"
+            ),
         )
 
-    return False, Confidence.UNKNOWN, (
-        f"{method} returned a result, but so did an invented method name and the "
-        "response carries nothing specific to this feature. This server answers "
-        "everything, so its use of the feature could not be determined."
+    return (
+        False,
+        Confidence.UNKNOWN,
+        (
+            f"{method} returned a result, but so did an invented method name and the "
+            "response carries nothing specific to this feature. This server answers "
+            "everything, so its use of the feature could not be determined."
+        ),
     )
 
 
@@ -345,7 +349,9 @@ def detect(probe: Probe) -> list[Detection]:
 
     # Sampling — the server calling the client for a completion.
     used, confidence, evidence = _method_is_implemented(
-        probe, "sampling/createMessage", {"messages": [], "maxTokens": 1},
+        probe,
+        "sampling/createMessage",
+        {"messages": [], "maxTokens": 1},
         signature_keys=("role", "content", "stopReason", "model"),
     )
     detections.append(Detection(FEATURES_BY_ID["sampling"], used, confidence, evidence))
@@ -374,7 +380,9 @@ def _detect_http_sse(probe: Probe) -> Detection:
     content_type = resp.headers.get("content-type", "")
     if "text/event-stream" in content_type:
         return Detection(
-            FEATURES_BY_ID["http-sse"], True, Confidence.OBSERVED,
+            FEATURES_BY_ID["http-sse"],
+            True,
+            Confidence.OBSERVED,
             f"the endpoint replied with Content-Type: {content_type}",
         )
 
@@ -383,12 +391,16 @@ def _detect_http_sse(probe: Probe) -> Detection:
         value = result.get(key)
         if isinstance(value, (list, str)) and "sse" in str(value).lower():
             return Detection(
-                FEATURES_BY_ID["http-sse"], True, Confidence.ADVERTISED,
+                FEATURES_BY_ID["http-sse"],
+                True,
+                Confidence.ADVERTISED,
                 f"server/discover advertises {key} = {value!r}",
             )
 
     return Detection(
-        FEATURES_BY_ID["http-sse"], False, Confidence.OBSERVED,
+        FEATURES_BY_ID["http-sse"],
+        False,
+        Confidence.OBSERVED,
         "the endpoint replies as Streamable HTTP and advertises no SSE transport",
     )
 
@@ -413,12 +425,16 @@ def _detect_oauth_dcr(probe: Probe) -> Detection:
             for marker in markers:
                 if marker in value:
                     return Detection(
-                        FEATURES_BY_ID["oauth-dcr"], True, Confidence.ADVERTISED,
+                        FEATURES_BY_ID["oauth-dcr"],
+                        True,
+                        Confidence.ADVERTISED,
                         f"server/discover advertises {key}.{marker}",
                     )
 
     return Detection(
-        FEATURES_BY_ID["oauth-dcr"], False, Confidence.UNKNOWN,
+        FEATURES_BY_ID["oauth-dcr"],
+        False,
+        Confidence.UNKNOWN,
         "server/discover advertises no dynamic registration endpoint. The authorization "
         "server's own metadata was NOT fetched: it may live on another host, and following "
         "a URL the scan target supplied is the SSRF the security guidance warns about.",
@@ -427,31 +443,44 @@ def _detect_oauth_dcr(probe: Probe) -> Detection:
 
 def _detect_include_context(probe: Probe) -> Detection:
     """includeContext appeared in sampling requests, so it goes with sampling."""
-    resp = probe.call("sampling/createMessage", {
-        "messages": [], "maxTokens": 1, "includeContext": "allServers",
-    })
+    resp = probe.call(
+        "sampling/createMessage",
+        {
+            "messages": [],
+            "maxTokens": 1,
+            "includeContext": "allServers",
+        },
+    )
     if resp.result() is not None:
         control = probe.call("sentinel/definitely-not-a-real-method", {})
         if control.result() is None:
             return Detection(
-                FEATURES_BY_ID["include-context"], True, Confidence.OBSERVED,
+                FEATURES_BY_ID["include-context"],
+                True,
+                Confidence.OBSERVED,
                 'sampling/createMessage accepted includeContext: "allServers"',
             )
         result = resp.result() or {}
         if any(k in result for k in ("role", "content", "stopReason", "model")):
             return Detection(
-                FEATURES_BY_ID["include-context"], True, Confidence.OBSERVED,
+                FEATURES_BY_ID["include-context"],
+                True,
+                Confidence.OBSERVED,
                 'sampling/createMessage accepted includeContext: "allServers" and returned '
                 "a sampling-shaped result",
             )
         return Detection(
-            FEATURES_BY_ID["include-context"], False, Confidence.UNKNOWN,
+            FEATURES_BY_ID["include-context"],
+            False,
+            Confidence.UNKNOWN,
             "this server answers every method, and its reply to a sampling request "
             "carrying includeContext is indistinguishable from that catch-all",
         )
 
     return Detection(
-        FEATURES_BY_ID["include-context"], False, Confidence.OBSERVED,
+        FEATURES_BY_ID["include-context"],
+        False,
+        Confidence.OBSERVED,
         "the server does not accept a sampling request carrying includeContext",
     )
 
@@ -498,8 +527,10 @@ def render_text(inventory: Inventory, *, color: bool = True) -> str:
                 )
             else:
                 window = f"removable {resolved.describe()} (not yet scheduled)"
-            lines.append(f"  {red}IN USE{reset}  {bold}{f.name}{reset}"
-                         + (f"  {dim}({f.sep}){reset}" if f.sep else ""))
+            lines.append(
+                f"  {red}IN USE{reset}  {bold}{f.name}{reset}"
+                + (f"  {dim}({f.sep}){reset}" if f.sep else "")
+            )
             lines.append(f"          deprecated:  {f.deprecated_on.isoformat()}")
             lines.append(f"          {window}")
             lines.append(f"          replace with: {f.replacement}")

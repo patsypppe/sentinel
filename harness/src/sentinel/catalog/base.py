@@ -227,9 +227,7 @@ class Registry:
         self, severity: Severity, *, include_deprecated: bool = False
     ) -> list[BaseRule]:
         return [
-            r
-            for r in self.all(include_deprecated=include_deprecated)
-            if r.severity is severity
+            r for r in self.all(include_deprecated=include_deprecated) if r.severity is severity
         ]
 
     def __len__(self) -> int:
@@ -353,9 +351,7 @@ def validate_registry(registry: Registry | None = None) -> list[ValidationProble
         if r.is_deprecated:
             if not r.superseded_by:
                 problems.append(
-                    ValidationProblem(
-                        r.id, "is deprecated but names no successor in superseded_by"
-                    )
+                    ValidationProblem(r.id, "is deprecated but names no successor in superseded_by")
                 )
             elif r.superseded_by not in known:
                 problems.append(

@@ -14,6 +14,8 @@ from server.conformant import BEHAVIOUR as CONFORMANT_BEHAVIOUR
 from server.conformant import dispatch as conformant_dispatch
 from server.nonconformant import BEHAVIOUR as NONCONFORMANT_BEHAVIOUR
 from server.nonconformant import dispatch as nonconformant_dispatch
+from server.partial import BEHAVIOUR as PARTIAL_BEHAVIOUR
+from server.partial import dispatch as partial_dispatch
 
 
 def free_port() -> int:
@@ -64,6 +66,17 @@ def conformant_endpoint() -> Iterator[str]:
     httpd, _ = serve_background(
         conformant_dispatch, port, banner="test conformant", **CONFORMANT_BEHAVIOUR
     )
+    endpoint = f"http://127.0.0.1:{port}/mcp"
+    _wait(endpoint)
+    yield endpoint
+    httpd.shutdown()
+    httpd.server_close()
+
+
+@pytest.fixture(scope="session")
+def partial_endpoint() -> Iterator[str]:
+    port = free_port()
+    httpd, _ = serve_background(partial_dispatch, port, banner="test partial", **PARTIAL_BEHAVIOUR)
     endpoint = f"http://127.0.0.1:{port}/mcp"
     _wait(endpoint)
     yield endpoint

@@ -78,7 +78,7 @@ def render(report: ScanReport, *, gate_failed: bool | None = None) -> str:
         f"<title>sentinel · {_e(report.target)}</title><style>{STYLE}</style></head><body><main>",
         f"<h1>sentinel scan · MCP {_e(report.spec_revision)} "
         f'<span class="verdict {"v-fail" if gate_failed else "v-pass"}">'
-        f'{"FAIL" if gate_failed else "PASS"}</span></h1>',
+        f"{'FAIL' if gate_failed else 'PASS'}</span></h1>",
         f'<p class="sub">{_e(report.target)}'
         + (
             f" · manifest <code>{_e(report.manifest_hash[:16])}</code>"

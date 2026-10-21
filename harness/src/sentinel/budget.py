@@ -68,7 +68,8 @@ class BudgetPolicy:
     @property
     def any_set(self) -> bool:
         return any(
-            v is not None for v in (
+            v is not None
+            for v in (
                 self.manifest_tokens,
                 self.per_tool_tokens,
                 self.schema_depth,

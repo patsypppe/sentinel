@@ -91,8 +91,11 @@ def render(report: ScanReport, *, color: bool = True) -> str:
 
     if report.fixed:
         lines.append(
-            paint(f"{len(report.fixed)} FIXED since the baseline — remove them with "
-                  "`sentinel baseline prune`", GREEN)
+            paint(
+                f"{len(report.fixed)} FIXED since the baseline — remove them with "
+                "`sentinel baseline prune`",
+                GREEN,
+            )
         )
         lines.append("")
 
@@ -143,9 +146,7 @@ def render(report: ScanReport, *, color: bool = True) -> str:
     if skipped:
         lines.append(paint(f"{len(skipped)} not applicable", DIM))
         for f in skipped:
-            lines.append(
-                paint(f"  n/a   {label(f, f.rule.id, plain=True)} — {detail(f)}", DIM)
-            )
+            lines.append(paint(f"  n/a   {label(f, f.rule.id, plain=True)} — {detail(f)}", DIM))
         lines.append("")
 
     lines.append(paint("─" * 72, DIM))
@@ -160,8 +161,7 @@ def render(report: ScanReport, *, color: bool = True) -> str:
     should = report.counts(Severity.SHOULD)
     if any(should.values()):
         lines.append(
-            f"SHOULD: {should['pass']} pass, {should['fail']} fail, "
-            f"{should['not_applicable']} n/a"
+            f"SHOULD: {should['pass']} pass, {should['fail']} fail, {should['not_applicable']} n/a"
         )
     lines.append(f"{len(report.findings)} rules in {report.elapsed_s:.2f}s")
 

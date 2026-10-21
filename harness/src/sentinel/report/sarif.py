@@ -37,7 +37,9 @@ from sentinel.catalog.base import Namespace, Outcome, Severity
 from sentinel.grade import ScanReport
 
 SARIF_VERSION = "2.1.0"
-SCHEMA = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
+SCHEMA = (
+    "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
+)
 
 #: SARIF levels. A MUST failure is an error; a SHOULD failure is a warning.
 LEVEL = {
@@ -89,9 +91,7 @@ def render(report: ScanReport, *, anchor: str = DEFAULT_ANCHOR) -> dict[str, Any
             "shortDescription": {"text": r.title},
             "fullDescription": {"text": r.remediation},
             "properties": properties,
-            "defaultConfiguration": {
-                "level": LEVEL.get((Outcome.FAIL, r.severity), "warning")
-            },
+            "defaultConfiguration": {"level": LEVEL.get((Outcome.FAIL, r.severity), "warning")},
         }
 
         if r.namespace is Namespace.MCP:

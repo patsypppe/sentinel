@@ -136,9 +136,7 @@ def targets_from_listing(entries: Iterable[dict[str, Any]]) -> list[Target]:
                     server=str(server.get("name", "")),
                     version=str(server.get("version", "")),
                     url=url,
-                    needs_headers=any(
-                        isinstance(h, dict) and h.get("isRequired") for h in headers
-                    ),
+                    needs_headers=any(isinstance(h, dict) and h.get("isRequired") for h in headers),
                 )
             )
     return found
@@ -216,10 +214,15 @@ def classify(probe: Probe) -> tuple[str, int | None, str, str]:
     if discover.status == 404 or discover.status >= 500:
         return CLASS_UNREACHABLE, discover.status, f"HTTP {discover.status}", framing
     code = discover.error_code()
-    return CLASS_OTHER, discover.status, (
-        f"server/discover answered HTTP {discover.status}"
-        + (f" with JSON-RPC error {code}" if code is not None else " with no JSON-RPC response")
-    ), framing
+    return (
+        CLASS_OTHER,
+        discover.status,
+        (
+            f"server/discover answered HTTP {discover.status}"
+            + (f" with JSON-RPC error {code}" if code is not None else " with no JSON-RPC response")
+        ),
+        framing,
+    )
 
 
 def scan_target(target: Target, *, timeout: float = 10.0) -> Result:

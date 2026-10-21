@@ -49,7 +49,7 @@ typecheck: ## mypy --strict over the harness
 
 .PHONY: test-py
 test-py: ## Harness unit tests
-	$(UV) run pytest tests -m unit -q
+	$(UV) run pytest tests -m unit -q -n auto
 
 .PHONY: test-e2e
 test-e2e: ## End-to-end suite (requires `make up`)

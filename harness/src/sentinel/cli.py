@@ -211,6 +211,19 @@ def scan(
     target_name: Annotated[
         str | None, typer.Option(help="A stable name for this target, used in fingerprints.")
     ] = None,
+    targets: Annotated[
+        pathlib.Path | None,
+        typer.Option(
+            help=(
+                "Scan every target in this fleet file (YAML or TOML), each with its own "
+                "credential and gate, and write one report per target plus a rollup."
+            )
+        ),
+    ] = None,
+    out_dir: Annotated[
+        pathlib.Path,
+        typer.Option(help="With --targets: the directory for per-target reports and the rollup."),
+    ] = pathlib.Path("sentinel-fleet"),
 ) -> None:
     """Scan an MCP server and grade it against the rule catalog."""
     from sentinel import baseline as baseline_mod
@@ -239,14 +252,54 @@ def scan(
     except ConfigError as exc:
         raise _fail(str(exc)) from exc
 
+    if fmt not in FORMATS:
+        raise _fail(f"--format {fmt!r} is not one of {', '.join(FORMATS)}")
+    verify = _tls(insecure, ca_bundle)
+    budgets = BudgetPolicy(
+        manifest_tokens=max_manifest_tokens,
+        per_tool_tokens=max_tool_tokens,
+        schema_depth=max_schema_depth,
+        latency_p95_ms=max_p95_ms,
+    )
+
+    if targets is not None:
+        from sentinel import fleet as fleet_mod
+
+        try:
+            fleet = fleet_mod.load_fleet(targets)
+        except ConfigError as exc:
+            raise _fail(str(exc)) from exc
+        results = fleet_mod.scan_fleet(
+            fleet,
+            policy,
+            concurrency=concurrency,
+            options=lambda _t: {
+                "verify": verify,
+                "proxy": proxy,
+                "client_cert": None if client_cert is None else str(client_cert),
+                "budgets": budgets,
+            },
+        )
+        extension = {"markdown": "md", "sarif": "sarif", "text": "txt"}.get(fmt, fmt)
+        written = fleet_mod.write_reports(
+            results,
+            out_dir,
+            fmt,
+            lambda f, r: render_report(
+                f, r, sarif_anchor=sarif_anchor, schema_version=schema_version, color=False
+            ),
+            extension,
+        )
+        summary = fleet_mod.rollup(results)
+        typer.echo(summary.to_text(), nl=False)
+        typer.echo(f"wrote {len(written)} file(s) to {out_dir}")
+        raise typer.Exit(fleet_mod.exit_code(results))
+
     if policy.endpoint is None:
         raise _fail(
             "no endpoint: pass --endpoint, set SENTINEL_ENDPOINT, or set scan.endpoint "
             "in sentinel.toml"
         )
-    if fmt not in FORMATS:
-        raise _fail(f"--format {fmt!r} is not one of {', '.join(FORMATS)}")
-    verify = _tls(insecure, ca_bundle)
 
     try:
         report = scan_target(
@@ -257,12 +310,7 @@ def scan(
                 verify=verify,
                 proxy=proxy,
                 client_cert=None if client_cert is None else str(client_cert),
-                budgets=BudgetPolicy(
-                    manifest_tokens=max_manifest_tokens,
-                    per_tool_tokens=max_tool_tokens,
-                    schema_depth=max_schema_depth,
-                    latency_p95_ms=max_p95_ms,
-                ),
+                budgets=budgets,
                 baseline=loaded_baseline,
                 snapshot=loaded_snapshot,
                 target_name=target_name,
@@ -357,8 +405,10 @@ def baseline_prune(
     report, _ = _scan_for_baseline(endpoint, config, token, timeout)
     pruned, dropped = baseline_mod.prune(existing, report)  # type: ignore[arg-type]
     baseline_mod.save(pruned, baseline)
-    typer.echo(f"pruned {len(dropped)} fixed entr{'y' if len(dropped) == 1 else 'ies'}; "
-               f"{len(pruned.entries)} remain")
+    typer.echo(
+        f"pruned {len(dropped)} fixed entr{'y' if len(dropped) == 1 else 'ies'}; "
+        f"{len(pruned.entries)} remain"
+    )
     raise typer.Exit(EXIT_OK)
 
 
@@ -555,6 +605,7 @@ def migrate(
 
     raise typer.Exit(EXIT_OK)
 
+
 @app.command()
 def deprecations(
     endpoint: Annotated[str, typer.Option(help="The MCP endpoint to inventory.")],
@@ -621,8 +672,7 @@ def catalog_validate() -> None:
         for p in problems:
             typer.echo(f"{p.rule_id}: {p.problem}", err=True)
         typer.echo(
-            f"\n{len(problems)} problem(s) in "
-            f"{len(REGISTRY.all(include_deprecated=True))} rules",
+            f"\n{len(problems)} problem(s) in {len(REGISTRY.all(include_deprecated=True))} rules",
             err=True,
         )
         raise typer.Exit(EXIT_HARNESS_ERROR)
@@ -633,8 +683,10 @@ def catalog_validate() -> None:
     # len(REGISTRY) counts deprecated rules too. Reporting that as the catalog
     # size would overstate what a scan actually runs, so the headline is the
     # live count and the deprecated ones get their own line.
-    typer.echo(f"{len(live)} rules validate: {len(must)} MUST, "
-               f"{len(REGISTRY.by_severity(Severity.SHOULD))} SHOULD")
+    typer.echo(
+        f"{len(live)} rules validate: {len(must)} MUST, "
+        f"{len(REGISTRY.by_severity(Severity.SHOULD))} SHOULD"
+    )
     retired = [r for r in REGISTRY.all(include_deprecated=True) if r.is_deprecated]
     if retired:
         typer.echo(
@@ -667,12 +719,14 @@ def catalog_list(
 
 @fixture_app.command("serve")
 def fixture_serve(
-    profile: Annotated[str, typer.Option(help="nonconformant | conformant")],
+    profile: Annotated[str, typer.Option(help="nonconformant | conformant | partial")],
     port: Annotated[int | None, typer.Option(help="Port to listen on.")] = None,
 ) -> None:
     """Run one of the oracle fixture servers."""
-    if profile not in ("nonconformant", "conformant"):
-        typer.echo(f"--profile {profile!r} is not 'nonconformant' or 'conformant'", err=True)
+    if profile not in ("nonconformant", "conformant", "partial"):
+        typer.echo(
+            f"--profile {profile!r} is not 'nonconformant', 'conformant' or 'partial'", err=True
+        )
         raise typer.Exit(EXIT_HARNESS_ERROR)
 
     fixtures = REPO_ROOT / "fixtures"

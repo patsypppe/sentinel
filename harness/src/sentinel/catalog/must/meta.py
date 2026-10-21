@@ -134,6 +134,5 @@ def missing_capability_error_shape(probe: Probe) -> RuleResult:
         return RuleResult.passed(f"-32021 named the capabilities it needed: {required}")
 
     return RuleResult.not_applicable(
-        "no request the probe can make required a client capability, so -32021 was "
-        "never provoked"
+        "no request the probe can make required a client capability, so -32021 was never provoked"
     )

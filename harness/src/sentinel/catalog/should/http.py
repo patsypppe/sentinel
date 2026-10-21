@@ -66,6 +66,4 @@ def get_delete_405(probe: Probe) -> RuleResult:
             "rather than waiting on a stream that no longer exists",
             evidence="; ".join(observed),
         )
-    return RuleResult.passed(
-        f"both legacy methods answer 405: {'; '.join(observed)}"
-    )
+    return RuleResult.passed(f"both legacy methods answer 405: {'; '.join(observed)}")

@@ -329,5 +329,20 @@ def _parse_layer_waiver(raw: dict[str, Any], index: int, layer: _Layer) -> Waive
     return parse_waiver(raw, index)
 
 
+def waivers_from(path: Path, registry: Registry | None = None) -> tuple[Waiver, ...]:
+    """Read only the `[[waivers]]` of a sentinel.toml, for a fleet target that keeps
+    its own."""
+    reg = registry if registry is not None else REGISTRY
+    layer = _Layer(path, str(path), _read(path))
+    parsed: list[Waiver] = []
+    for index, raw in enumerate(layer.data.get("waivers", [])):
+        if not isinstance(raw, dict):
+            raise ConfigError(f"{path}: waivers[{index}] must be a table")
+        waiver = _parse_layer_waiver(raw, index, layer)
+        _check_rule_ids(reg, f"{path}: waivers[{index}]", [waiver.rule])
+        parsed.append(waiver)
+    return tuple(parsed)
+
+
 def today() -> datetime.date:
     return datetime.datetime.now(datetime.UTC).date()

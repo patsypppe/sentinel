@@ -327,8 +327,12 @@ def _schema_changes(name: str, before: Any, after: Any) -> list[Change]:
         changes.append(Change(ChangeKind.SCHEMA_NARROWED, name, "; ".join(narrowed)))
     if not widened and not narrowed and _strip_descriptions(before) != _strip_descriptions(after):
         changes.append(
-            Change(ChangeKind.SCHEMA_CHANGED, name, "the input schema changed in a way "
-                   "that is neither a widening nor a narrowing (types or constraints)")
+            Change(
+                ChangeKind.SCHEMA_CHANGED,
+                name,
+                "the input schema changed in a way "
+                "that is neither a widening nor a narrowing (types or constraints)",
+            )
         )
     return changes
 
