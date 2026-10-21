@@ -150,17 +150,63 @@ make scan-fixture            # grade an unmigrated server; expected to exit 1
 make demo                    # the nine-step demo
 ```
 
-Requires Go 1.23+, Python 3.12, uv ≥ 0.5 and Docker. **No model API key is required anywhere** —
+Requires Go 1.23+, Python 3.12+, uv ≥ 0.5 and Docker. **No model API key is required anywhere** —
 the broker serves tools, it does not call models, which is why CI is fast, free, and never flaky
 for a reason outside this repository.
 
 ### Scanning your own server
+
+No clone needed: every GitHub release publishes the harness to PyPI as
+`sentinel-mcp-conformance` (the `release` workflow).
+
+```bash
+uvx sentinel-mcp-conformance scan --endpoint https://your-server.example/mcp --gate must
+pipx install sentinel-mcp-conformance   # then: sentinel scan ...
+```
+
+From a clone:
 
 ```bash
 uv run sentinel scan --endpoint https://your-server.example/mcp --gate must \
   --token "$TOKEN" --format sarif --out scan.sarif
 uv run sentinel deprecations --endpoint https://your-server.example/mcp
 ```
+
+### In CI, as a GitHub Action
+
+```yaml
+permissions:
+  security-events: write      # only needed for the code-scanning upload
+steps:
+  - run: ./start-my-server.sh &
+  - uses: patsypppe/sentinel@v0.3.0
+    with:
+      endpoint: http://localhost:3000/mcp
+      gate: must              # fail the job on any MUST violation
+```
+
+The job fails on a MUST violation, writes a summary to the run page, and uploads the findings to
+code scanning. The action's own CI runs it against both fixtures and asserts it passes one and
+fails the other.
+
+### Scanning a server you do not own: `--safe`
+
+Three rules prove a MUST by calling one of the server's own tools with empty arguments. On your
+server that is fine; on someone else's, a tool call can still do something. With `--safe`, Sentinel
+only invokes a tool the server has annotated `readOnlyHint: true`. Every rule that needed any other
+call reports `INDETERMINATE (skipped in safe mode)` — never a pass, never a fail.
+
+### Scanning the whole registry
+
+```bash
+sentinel registry-scan --out-dir scan     # every remote server in the official MCP registry
+```
+
+Classifies each endpoint (speaks `2026-07-28`, legacy `2025-11-25` only, needs credentials,
+unreachable), grades the ones on the current revision in safe mode with one connection per host
+and no retries, and writes an aggregate summary that names no server. Per-server results stay
+local, so a finding can reach its maintainer first. The `registry-scan` workflow runs it on
+demand.
 
 Exit codes are a contract: **0** passed, **1** the *target* failed the gate, **2** the *scanner*
 could not run. CI needs to tell "the server is wrong" from "the scanner broke", so those are never

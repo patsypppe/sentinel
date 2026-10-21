@@ -46,6 +46,10 @@ class Handler(BaseHTTPRequestHandler):
     dispatch: Any = None
     response_content_type: str = JSON_CONTENT_TYPE
     bare_method_status: int = METHOD_NOT_ALLOWED
+    #: Carry each JSON-RPC response as one SSE event instead of a bare JSON body.
+    #: The transport allows either, so a fixture framed this way is exactly as
+    #: conformant as one that is not -- which is what the harness is tested on.
+    sse_framing: bool = False
     server_version = "sentinel-fixture/0.1"
 
     def log_message(self, fmt: str, *args: Any) -> None:
@@ -59,8 +63,12 @@ class Handler(BaseHTTPRequestHandler):
         status, payload = type(self).dispatch(self, body)
 
         encoded = json.dumps(payload).encode() if payload is not None else b""
+        content_type = type(self).response_content_type
+        if type(self).sse_framing and encoded:
+            encoded = b"event: message\ndata: " + encoded + b"\n\n"
+            content_type = "text/event-stream"
         self.send_response(status)
-        self.send_header("Content-Type", type(self).response_content_type)
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(encoded)))
         self.end_headers()
         if encoded:
@@ -110,7 +118,7 @@ def serve(dispatch: Any, port: int, *, banner: str, **behaviour: Any) -> Threadi
     """Start a fixture on `port` and return the server.
 
     `behaviour` overrides `Handler`'s HTTP-layer class attributes —
-    `response_content_type` and `bare_method_status`. Each fixture publishes its
+    `response_content_type`, `bare_method_status` and `sse_framing`. Each fixture publishes its
     own as a `BEHAVIOUR` dict, so a violation that lives outside the JSON-RPC
     body is still declared in the fixture that seeds it rather than here.
     """

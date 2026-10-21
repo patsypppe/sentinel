@@ -1,0 +1,59 @@
+# Grades every remote server in the official MCP registry against 2026-07-28.
+#
+# Manual only: this touches servers nobody here owns, so it runs when someone
+# decides it should, never on a push. Every scan is in safe mode (no tool is
+# invoked unless the server annotates it read-only), one connection per host,
+# no retries, and every request names this repository in its User-Agent.
+#
+# The aggregate summary is uploaded as an artifact. Per-server results are NOT,
+# unless asked for: artifacts on a public repository can be downloaded by anyone
+# signed in to GitHub, and a finding should reach its maintainer first.
+
+name: registry-scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: Scan at most this many endpoints (empty for all).
+        required: false
+        default: ''
+      per_server:
+        description: Also upload per-server results (kept 3 days). Leave off for public runs.
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --quiet ./harness
+      - name: scan the registry
+        env:
+          LIMIT: ${{ inputs.limit }}
+        run: |
+          args=(registry-scan --out-dir scan --concurrency 8 --timeout 10)
+          if [ -n "$LIMIT" ]; then args+=(--limit "$LIMIT"); fi
+          sentinel "${args[@]}"
+          cat scan/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: registry-scan-summary
+          path: |
+            scan/summary.json
+            scan/summary.md
+      - if: ${{ inputs.per_server }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: registry-scan-per-server
+          path: scan/results.jsonl
+          retention-days: 3

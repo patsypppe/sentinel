@@ -7,7 +7,7 @@ name = "sentinel-workspace"
 version = "0.0.0"
 description = "Workspace root for the Sentinel conformance harness."
 requires-python = ">=3.12,<3.13"
-dependencies = ["sentinel"]
+dependencies = ["sentinel-mcp-conformance"]
 
 [tool.uv]
 package = false
@@ -16,7 +16,7 @@ package = false
 members = ["harness"]
 
 [tool.uv.sources]
-sentinel = { workspace = true }
+sentinel-mcp-conformance = { workspace = true }
 
 [dependency-groups]
 dev = [

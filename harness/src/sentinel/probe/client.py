@@ -64,6 +64,28 @@ CLIENT_CAPABILITIES: dict[str, Any] = {}
 #: the default.
 _UNSET: Any = object()
 
+#: The transport_error a safe-mode probe reports for a tools/call it declined to
+#: send. Rules already treat "did not reach the server" as INDETERMINATE, so a
+#: declined call degrades every rule that needs it to an honest "could not
+#: verify" without any rule having to know safe mode exists.
+SAFE_MODE_REFUSAL = "not sent: safe mode does not invoke"
+
+
+def is_read_only(tool: dict[str, Any]) -> bool:
+    """Whether a tool's own annotations promise that calling it changes nothing.
+
+    `readOnlyHint` is the server's statement that a tool does not modify its
+    environment; `destructiveHint` defaults to true in the specification, so a
+    tool is only treated as safe when it is explicitly read-only AND not
+    explicitly destructive. An unannotated tool is not read-only: the absence
+    of a promise is not a promise.
+    """
+    annotations = tool.get("annotations")
+    if not isinstance(annotations, dict):
+        return False
+    read_only = annotations.get("readOnlyHint") is True
+    return read_only and annotations.get("destructiveHint") is not True
+
 
 class Probe:
     """A literal MCP client with an override on every convenience."""
@@ -80,8 +102,17 @@ class Probe:
         client_cert: str | tuple[str, str] | None = None,
         retries: int = DEFAULT_RETRIES,
         budgets: BudgetPolicy | None = None,
+        safe: bool = False,
     ) -> None:
         self.endpoint = endpoint
+        #: Safe mode is for scanning servers you do not own. Every rule still
+        #: runs, but a tools/call naming a tool the server advertises is only
+        #: sent when that tool is annotated read-only; otherwise the call is
+        #: reported as not sent and the rule that needed it is INDETERMINATE.
+        #: Calls to invented tool names are still sent -- refusing an unknown
+        #: tool is the behaviour those rules test, and it has no side effect.
+        self.safe = safe
+        self._advertised: dict[str, bool] | None = None
         self.protocol_version = protocol_version
         #: Operator-supplied ceilings for the SENTINEL/OPS budget rules. Carried
         #: here rather than read from a module global so two scans in one
@@ -127,6 +158,7 @@ class Probe:
             proxy=self._transport.proxy,
             client_cert=self._transport.client_cert,
             retries=self._transport.retries,
+            safe=self.safe,
         )
 
     # -- request construction ---------------------------------------------
@@ -269,9 +301,38 @@ class Probe:
     def tools_call(
         self, name: str, arguments: dict[str, Any] | None = None, **overrides: Any
     ) -> RawResponse:
+        if self.safe and not self._safe_to_invoke(name):
+            return RawResponse(
+                status=0,
+                headers={},
+                body=b"",
+                elapsed_s=0.0,
+                transport_error=(
+                    f"{SAFE_MODE_REFUSAL} {name!r}, which is not annotated "
+                    "readOnlyHint=true (run without --safe to verify this rule "
+                    "against a server you own)"
+                ),
+            )
         return self.call(
             "tools/call", {"name": name, "arguments": arguments or {}}, **overrides
         )
+
+    def _safe_to_invoke(self, name: str) -> bool:
+        """In safe mode, whether calling `name` could change anything.
+
+        A name the server does not advertise is safe to send: the server is
+        expected to refuse it, and the rules that send one are testing exactly
+        that refusal. An advertised name is safe only if its annotations say so.
+        """
+        if self._advertised is None:
+            self._advertised = {}
+            result = self.tools_list().result()
+            tools = (result or {}).get("tools")
+            if isinstance(tools, list):
+                for tool in tools:
+                    if isinstance(tool, dict) and isinstance(tool.get("name"), str):
+                        self._advertised[tool["name"]] = is_read_only(tool)
+        return self._advertised.get(name, True)
 
     def resources_list(self, **overrides: Any) -> RawResponse:
         return self.call("resources/list", **overrides)

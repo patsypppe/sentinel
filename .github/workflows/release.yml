@@ -1,0 +1,59 @@
+# Publishes the harness to PyPI as `sentinel-mcp-conformance` when a GitHub
+# release is published. Uses PyPI trusted publishing, so no token is stored:
+# the one-time setup is adding this repository and workflow as a trusted
+# publisher on https://pypi.org/manage/account/publishing/ (environment: pypi).
+
+name: release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build and check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: the tag matches the package version
+        if: github.event_name == 'release'
+        run: |
+          VERSION=$(python3 -c "import tomllib;print(tomllib.load(open('harness/pyproject.toml','rb'))['project']['version'])")
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$VERSION" != "$TAG" ]; then
+            echo "::error::release tag $GITHUB_REF_NAME does not match harness version $VERSION"
+            exit 1
+          fi
+      - run: uv build harness --out-dir dist
+      - name: the wheel installs and runs
+        run: |
+          uv venv /tmp/smoke --python 3.12
+          uv pip install --python /tmp/smoke dist/*.whl
+          /tmp/smoke/bin/sentinel version
+          /tmp/smoke/bin/sentinel-mcp-conformance catalog validate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: publish to PyPI
+    needs: build
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

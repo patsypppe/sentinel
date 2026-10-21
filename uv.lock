@@ -4,7 +4,7 @@ requires-python = "==3.12.*"
 
 [manifest]
 members = [
-    "sentinel",
+    "sentinel-mcp-conformance",
     "sentinel-workspace",
 ]
 
@@ -356,8 +356,8 @@ wheels = [
 ]
 
 [[package]]
-name = "sentinel"
-version = "0.1.0"
+name = "sentinel-mcp-conformance"
+version = "0.3.0"
 source = { editable = "harness" }
 dependencies = [
     { name = "httpx" },
@@ -375,7 +375,7 @@ name = "sentinel-workspace"
 version = "0.0.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "sentinel" },
+    { name = "sentinel-mcp-conformance" },
 ]
 
 [package.dev-dependencies]
@@ -390,7 +390,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "sentinel", editable = "harness" }]
+requires-dist = [{ name = "sentinel-mcp-conformance", editable = "harness" }]
 
 [package.metadata.requires-dev]
 dev = [
