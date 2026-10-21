@@ -62,11 +62,18 @@ class BudgetPolicy:
     manifest_tokens: int | None = None
     per_tool_tokens: int | None = None
     schema_depth: int | None = None
+    #: Ceiling for the p95 latency of the read-only methods, in milliseconds.
+    latency_p95_ms: int | None = None
 
     @property
     def any_set(self) -> bool:
         return any(
-            v is not None for v in (self.manifest_tokens, self.per_tool_tokens, self.schema_depth)
+            v is not None for v in (
+                self.manifest_tokens,
+                self.per_tool_tokens,
+                self.schema_depth,
+                self.latency_p95_ms,
+            )
         )
 
 

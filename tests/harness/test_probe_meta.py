@@ -60,7 +60,7 @@ def test_client_capabilities_can_be_overridden() -> None:
 
 
 def test_every_request_carries_the_protocol_version_header() -> None:
-    """"Every POST request to the MCP endpoint MUST include an
+    """ "Every POST request to the MCP endpoint MUST include an
     MCP-Protocol-Version header." A server enforcing this rejects every
     request the harness sends today with 400 + HeaderMismatch."""
     with Probe("http://unused.invalid/mcp") as probe:
@@ -69,7 +69,7 @@ def test_every_request_carries_the_protocol_version_header() -> None:
 
 
 def test_the_protocol_version_header_matches_the_body() -> None:
-    """"The header value MUST match the io.modelcontextprotocol/protocolVersion
+    """ "The header value MUST match the io.modelcontextprotocol/protocolVersion
     field carried in the request body's _meta."
     """
     with Probe("http://unused.invalid/mcp") as probe:
@@ -80,16 +80,17 @@ def test_the_protocol_version_header_matches_the_body() -> None:
 
 def test_the_protocol_version_header_can_be_omitted_or_forced_apart() -> None:
     with Probe("http://unused.invalid/mcp") as probe:
-        assert "MCP-Protocol-Version" not in probe.build(
-            "tools/list", omit_protocol_version_header=True
-        ).headers
+        assert (
+            "MCP-Protocol-Version"
+            not in probe.build("tools/list", omit_protocol_version_header=True).headers
+        )
         skewed = probe.build("tools/list", protocol_version_header="2025-11-25")
     assert skewed.headers["MCP-Protocol-Version"] == "2025-11-25"
     assert json.loads(skewed.body())["params"]["_meta"][KEY_PROTOCOL_VERSION] == "2026-07-28"
 
 
 def test_the_accept_header_lists_both_content_types() -> None:
-    """"The client MUST include an Accept header listing both application/json
+    """ "The client MUST include an Accept header listing both application/json
     and text/event-stream as supported content types."
     """
     from sentinel.probe.transport import ACCEPT_VALUE
@@ -131,9 +132,7 @@ def test_building_a_notification_leaves_the_request_alone() -> None:
 
 def test_transport_options_propagate_to_a_new_connection() -> None:
     """The second connection must differ in one respect: being a second one."""
-    with Probe(
-        "http://unused.invalid/mcp", verify=False, proxy="http://p:1", retries=5
-    ) as a:
+    with Probe("http://unused.invalid/mcp", verify=False, proxy="http://p:1", retries=5) as a:
         b = a.new_connection()
         try:
             assert b._transport.verify is False
@@ -169,8 +168,8 @@ def test_a_transport_error_is_retried_but_a_served_response_is_not(
             Request(method="tools/list", params=None, request_id="1", headers={})
         )
 
-    assert calls["n"] == 3          # two retries, then success
-    assert response.status == 500   # and the 500 is NOT retried
+    assert calls["n"] == 3  # two retries, then success
+    assert response.status == 500  # and the 500 is NOT retried
     assert response.reached_server
 
 

@@ -48,12 +48,26 @@ def render(report: ScanReport, *, color: bool = True) -> str:
     lines.append("")
 
     # Failures first: a report whose first screen is passes buries its own point.
-    failures = report.by_outcome(Outcome.FAIL)
+    all_failures = report.by_outcome(Outcome.FAIL)
+    failures = [f for f in all_failures if not f.suppressed]
+    accepted = [f for f in all_failures if f.suppressed]
     if failures:
         lines.append(paint(f"{len(failures)} FAILING", BOLD + RED))
         lines.append("")
         for f in failures:
             lines.append(f"  {paint('FAIL', RED)}  {label(f, paint(f.rule.id, BOLD))}")
+            if f.waiver_expired is not None:
+                lines.append(
+                    paint(
+                        f"        waiver EXPIRED {f.waiver_expired.expires_at.isoformat()}"
+                        f" ({f.waiver_expired.reason})",
+                        YELLOW,
+                    )
+                )
+            if f.rule_is_new:
+                lines.append(
+                    paint("        new rule: it did not exist when the baseline was taken", YELLOW)
+                )
             lines.append(f"        {f.rule.title}")
             lines.append(f"        {paint('observed:', DIM)}    {detail(f)}")
             lines.append(f"        {paint('remediation:', DIM)} {f.rule.remediation}")
@@ -61,6 +75,32 @@ def render(report: ScanReport, *, color: bool = True) -> str:
             if f.result.evidence:
                 lines.append(f"        {paint('evidence:', DIM)}    {f.result.evidence[:200]}")
             lines.append("")
+
+    if accepted:
+        lines.append(paint(f"{len(accepted)} ACCEPTED — failing, but waived or baselined", BOLD))
+        lines.append("")
+        for f in accepted:
+            why = (
+                f"waived until {f.waived_by.expires_at.isoformat()}: {f.waived_by.reason}"
+                if f.waived_by is not None
+                else "baselined"
+            )
+            lines.append(f"  {paint('ACPT', YELLOW)}  {label(f, f.rule.id)}")
+            lines.append(f"        {why}")
+        lines.append("")
+
+    if report.fixed:
+        lines.append(
+            paint(f"{len(report.fixed)} FIXED since the baseline — remove them with "
+                  "`sentinel baseline prune`", GREEN)
+        )
+        lines.append("")
+
+    if report.waiver_notes:
+        lines.append(paint("Waivers", BOLD))
+        for note in report.waiver_notes:
+            lines.append(f"  {note}")
+        lines.append("")
 
     indeterminate = report.indeterminate
     if indeterminate:

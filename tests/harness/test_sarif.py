@@ -59,8 +59,9 @@ def test_a_beyond_spec_rule_cites_nothing_and_says_why(conformant_endpoint: str)
     exactly the lie SENTINEL/ was introduced to make impossible.
     """
     doc = render(run_scan(conformant_endpoint))
-    beyond = [r for r in doc["runs"][0]["tool"]["driver"]["rules"]
-              if r["id"].startswith("SENTINEL/")]
+    beyond = [
+        r for r in doc["runs"][0]["tool"]["driver"]["rules"] if r["id"].startswith("SENTINEL/")
+    ]
     assert beyond, "the conformant scan produced no beyond-spec rules to check"
     for r in beyond:
         assert "helpUri" not in r, f"{r['id']} carries a helpUri with nothing behind it"

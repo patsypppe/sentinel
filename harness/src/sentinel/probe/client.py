@@ -103,8 +103,14 @@ class Probe:
         retries: int = DEFAULT_RETRIES,
         budgets: BudgetPolicy | None = None,
         safe: bool = False,
+        context: dict[str, Any] | None = None,
     ) -> None:
         self.endpoint = endpoint
+        #: Inputs a rule may need beyond the wire: a baseline snapshot for the
+        #: drift rule, supplied evidence for the gray-box rules. Carried on the
+        #: probe, like the budgets, so every input a rule reads is reachable from
+        #: its single argument and two scans in one process cannot share one.
+        self.context: dict[str, Any] = context if context is not None else {}
         #: Safe mode is for scanning servers you do not own. Every rule still
         #: runs, but a tools/call naming a tool the server advertises is only
         #: sent when that tool is annotated read-only; otherwise the call is
@@ -159,6 +165,8 @@ class Probe:
             client_cert=self._transport.client_cert,
             retries=self._transport.retries,
             safe=self.safe,
+            budgets=self.budgets,
+            context=self.context,
         )
 
     # -- request construction ---------------------------------------------

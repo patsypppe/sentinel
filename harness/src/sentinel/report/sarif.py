@@ -138,6 +138,9 @@ def render(report: ScanReport, *, anchor: str = DEFAULT_ANCHOR) -> dict[str, Any
                     ],
                 }
             ],
+            # What lets GitHub code scanning track a finding across runs instead of
+            # re-raising it as new on every scan.
+            "partialFingerprints": {"sentinel/v1": finding.fingerprint},
             "properties": {
                 "outcome": finding.outcome.value,
                 "verifiability": r.verifiability.value,
@@ -152,6 +155,32 @@ def render(report: ScanReport, *, anchor: str = DEFAULT_ANCHOR) -> dict[str, Any
         # SARIF says it must be absent for kind: pass.
         if finding.outcome in (Outcome.FAIL, Outcome.INDETERMINATE):
             result["level"] = LEVEL[(finding.outcome, r.severity)]
+        # A waived or baselined failure is accepted, not hidden: SARIF has a
+        # first-class `suppressions` vocabulary for exactly this, and GitHub shows
+        # a suppressed result as dismissed rather than dropping it.
+        if finding.waived_by is not None:
+            result["suppressions"] = [
+                {
+                    "kind": "external",
+                    "status": "accepted",
+                    "justification": (
+                        f"{finding.waived_by.reason} (waiver expires "
+                        f"{finding.waived_by.expires_at.isoformat()})"
+                    ),
+                }
+            ]
+        elif finding.baselined:
+            result["suppressions"] = [
+                {
+                    "kind": "external",
+                    "status": "accepted",
+                    "justification": "present in the baseline",
+                }
+            ]
+        if finding.waiver_expired is not None:
+            result["message"]["text"] += (
+                f" [waiver expired {finding.waiver_expired.expires_at.isoformat()}]"
+            )
 
         results.append(result)
 

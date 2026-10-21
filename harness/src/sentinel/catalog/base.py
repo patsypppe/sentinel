@@ -58,14 +58,20 @@ class RuleResult:
     detail: str = ""
     #: The request/response that decided it, for a report a reader can check.
     evidence: str = ""
+    #: A short, deliberately stable discriminator for rules that can fail in more
+    #: than one way ("header-missing" vs "header-mismatch"). It feeds the finding
+    #: fingerprint, so it must never contain a request id, a timestamp or a
+    #: handle: anything that changes between scans of an unchanged server would
+    #: make a baselined finding look new on every run.
+    key: str = ""
 
     @classmethod
     def passed(cls, detail: str = "", evidence: str = "") -> RuleResult:
         return cls(Outcome.PASS, detail, evidence)
 
     @classmethod
-    def failed(cls, detail: str, evidence: str = "") -> RuleResult:
-        return cls(Outcome.FAIL, detail, evidence)
+    def failed(cls, detail: str, evidence: str = "", key: str = "") -> RuleResult:
+        return cls(Outcome.FAIL, detail, evidence, key)
 
     @classmethod
     def not_applicable(cls, detail: str) -> RuleResult:
@@ -148,6 +154,12 @@ class BaseRule:
     #: INSTEAD of a citation -- a citation field pointing at nothing is how a
     #: catalog starts lying.
     rationale: str = ""
+    #: The rule-level half of a finding's fingerprint. "" is a declaration, not an
+    #: omission: it says the rule has a single failure mode.
+    evidence_key: str = ""
+    #: A rule that deliberately floods or otherwise disturbs the target runs
+    #: alone, after every concurrent rule has drained.
+    exclusive: bool = False
 
     @property
     def namespace(self) -> Namespace:
@@ -244,6 +256,8 @@ def rule(
     introduced_in: str = "0.1.0",
     deprecated_in: str | None = None,
     superseded_by: str | None = None,
+    evidence_key: str = "",
+    exclusive: bool = False,
 ) -> Callable[[Callable[[Probe], RuleResult]], BaseRule]:
     """Declare and register a rule."""
 
@@ -262,6 +276,8 @@ def rule(
                 introduced_in=introduced_in,
                 deprecated_in=deprecated_in,
                 superseded_by=superseded_by,
+                evidence_key=evidence_key,
+                exclusive=exclusive,
             )
         )
 

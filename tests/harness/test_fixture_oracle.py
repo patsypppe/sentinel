@@ -87,9 +87,7 @@ def test_recall_against_seeded_violations(nonconformant_endpoint: str) -> None:
     # measurement. pytest shows it on failure and under -s.
     print("recall by bucket:\n" + "\n".join(lines))
 
-    assert not missed_by_bucket, (
-        "seeded violations went undetected:\n" + "\n".join(lines)
-    )
+    assert not missed_by_bucket, "seeded violations went undetected:\n" + "\n".join(lines)
 
 
 def test_conformant_fixture_trips_zero(conformant_endpoint: str) -> None:
@@ -139,8 +137,7 @@ def test_seeded_list_matches_the_tagged_code() -> None:
     import re
 
     source = (
-        pathlib.Path(__file__).resolve().parents[2]
-        / "fixtures" / "server" / "nonconformant.py"
+        pathlib.Path(__file__).resolve().parents[2] / "fixtures" / "server" / "nonconformant.py"
     ).read_text()
 
     # Both namespaces, and an optional colon. A tag the pattern does not match

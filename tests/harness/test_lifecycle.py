@@ -63,8 +63,13 @@ def test_slug_is_the_last_segment() -> None:
 def test_all_excludes_deprecated_rules_by_default() -> None:
     reg = Registry()
     reg.register(_rule("MCP/2026-07-28/MUST/live"))
-    reg.register(_rule("MCP/2026-07-28/MUST/gone", deprecated_in="0.2.0",
-                       superseded_by="MCP/2026-07-28/MUST/live"))
+    reg.register(
+        _rule(
+            "MCP/2026-07-28/MUST/gone",
+            deprecated_in="0.2.0",
+            superseded_by="MCP/2026-07-28/MUST/live",
+        )
+    )
 
     assert [r.id for r in reg.all()] == ["MCP/2026-07-28/MUST/live"]
     assert len(reg.all(include_deprecated=True)) == 2
@@ -73,8 +78,13 @@ def test_all_excludes_deprecated_rules_by_default() -> None:
 def test_by_severity_honours_include_deprecated() -> None:
     reg = Registry()
     reg.register(_rule("MCP/2026-07-28/MUST/live"))
-    reg.register(_rule("MCP/2026-07-28/MUST/gone", deprecated_in="0.2.0",
-                       superseded_by="MCP/2026-07-28/MUST/live"))
+    reg.register(
+        _rule(
+            "MCP/2026-07-28/MUST/gone",
+            deprecated_in="0.2.0",
+            superseded_by="MCP/2026-07-28/MUST/live",
+        )
+    )
 
     assert len(reg.by_severity(Severity.MUST)) == 1
     assert len(reg.by_severity(Severity.MUST, include_deprecated=True)) == 2
@@ -82,8 +92,13 @@ def test_by_severity_honours_include_deprecated() -> None:
 
 def test_deprecated_rule_must_name_a_successor_that_exists() -> None:
     reg = Registry()
-    reg.register(_rule("MCP/2026-07-28/MUST/gone", deprecated_in="0.2.0",
-                       superseded_by="MCP/2026-07-28/SHOULD/nowhere"))
+    reg.register(
+        _rule(
+            "MCP/2026-07-28/MUST/gone",
+            deprecated_in="0.2.0",
+            superseded_by="MCP/2026-07-28/SHOULD/nowhere",
+        )
+    )
 
     problems = validate_registry(reg)
     assert any("superseded_by" in p.problem for p in problems)
@@ -109,8 +124,13 @@ def test_two_live_rules_may_not_share_a_slug() -> None:
 def test_a_deprecated_rule_and_its_successor_may_share_a_slug() -> None:
     """This is the whole point of the mechanism."""
     reg = Registry()
-    reg.register(_rule("MCP/2026-07-28/MUST/same-slug", deprecated_in="0.2.0",
-                       superseded_by="MCP/2026-07-28/SHOULD/same-slug"))
+    reg.register(
+        _rule(
+            "MCP/2026-07-28/MUST/same-slug",
+            deprecated_in="0.2.0",
+            superseded_by="MCP/2026-07-28/SHOULD/same-slug",
+        )
+    )
     reg.register(_rule("MCP/2026-07-28/SHOULD/same-slug", severity=Severity.SHOULD))
 
     assert validate_registry(reg) == []
@@ -124,9 +144,11 @@ def test_sentinel_namespace_requires_a_rationale_and_no_citation() -> None:
 
     reg2 = Registry()
     reg2.register(
-        _rule("SENTINEL/STYLE/a",
-              citation="https://modelcontextprotocol.io/specification/2026-07-28/basic",
-              rationale="x" * 25)
+        _rule(
+            "SENTINEL/STYLE/a",
+            citation="https://modelcontextprotocol.io/specification/2026-07-28/basic",
+            rationale="x" * 25,
+        )
     )
     assert any("citation" in p.problem for p in validate_registry(reg2))
 
@@ -200,8 +222,13 @@ def test_a_beyond_spec_failure_is_still_reported() -> None:
 def test_run_scan_excludes_deprecated_rules_unless_asked() -> None:
     reg = Registry()
     reg.register(_rule("MCP/2026-07-28/MUST/live"))
-    reg.register(_rule("MCP/2026-07-28/MUST/gone", deprecated_in="0.2.0",
-                       superseded_by="MCP/2026-07-28/MUST/live"))
+    reg.register(
+        _rule(
+            "MCP/2026-07-28/MUST/gone",
+            deprecated_in="0.2.0",
+            superseded_by="MCP/2026-07-28/MUST/live",
+        )
+    )
 
     # Nothing here touches the network: every rule's check ignores the probe.
     endpoint = "http://127.0.0.1:1/mcp"
@@ -215,8 +242,13 @@ def test_run_scan_excludes_deprecated_rules_unless_asked() -> None:
 def test_run_scan_still_honours_only_alongside_include_deprecated() -> None:
     reg = Registry()
     reg.register(_rule("MCP/2026-07-28/MUST/live"))
-    reg.register(_rule("MCP/2026-07-28/MUST/gone", deprecated_in="0.2.0",
-                       superseded_by="MCP/2026-07-28/MUST/live"))
+    reg.register(
+        _rule(
+            "MCP/2026-07-28/MUST/gone",
+            deprecated_in="0.2.0",
+            superseded_by="MCP/2026-07-28/MUST/live",
+        )
+    )
 
     report = run_scan(
         "http://127.0.0.1:1/mcp",
@@ -265,8 +297,9 @@ def test_the_json_report_carries_the_lifecycle_on_every_finding() -> None:
     )
     rendered = render_json(report)
 
-    # Additive only: the v2 schema bump is WP-24.
-    assert rendered["schemaVersion"] == 1
+    # v2 is additive over v1, and v1 stays emittable for one more minor release.
+    assert rendered["schemaVersion"] == 2
+    assert render_json(report, schema_version=1)["schemaVersion"] == 1
 
     deprecated, opinion = rendered["findings"]
     assert deprecated["namespace"] == "MCP"

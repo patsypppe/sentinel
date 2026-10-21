@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import contextlib
 import json
+import ssl
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -38,6 +40,34 @@ BACKOFF_BASE_S = 0.1
 #: Sent on every request, so the operator of a scanned server can see what is
 #: talking to it and where to read about it. Overridable, never omitted.
 DEFAULT_USER_AGENT = "sentinel-mcp-conformance (+https://github.com/patsypppe/sentinel)"
+
+
+_CONTEXTS: dict[tuple[str, str], ssl.SSLContext] = {}
+_CONTEXT_LOCK = threading.Lock()
+
+
+def _verify_argument(
+    verify: bool | str, client_cert: object
+) -> bool | str | ssl.SSLContext:
+    """What to hand httpx as `verify`.
+
+    Building a verifying client loads the whole CA bundle, about 40 ms. A scan
+    runs every rule on its own probe so no two rules share an HTTP client, which
+    would make that cost 55 or more times per scan. An `SSLContext` is safe to
+    share across threads, so one is built per distinct trust configuration and
+    reused. A client certificate is loaded into the context by httpx, so a probe
+    that has one builds its own rather than sharing a context with those that do
+    not.
+    """
+    if verify is False or client_cert is not None:
+        return verify
+    key = ("default", "") if verify is True else ("cafile", str(verify))
+    with _CONTEXT_LOCK:
+        context = _CONTEXTS.get(key)
+        if context is None:
+            context = httpx.create_ssl_context(verify=verify)
+            _CONTEXTS[key] = context
+        return context
 
 
 def sse_messages(body: bytes) -> list[Any]:
@@ -200,7 +230,7 @@ class Transport:
         self._client = httpx.Client(
             timeout=timeout,
             follow_redirects=False,
-            verify=verify,
+            verify=_verify_argument(verify, client_cert),
             # httpx 0.28 removed the plural `proxies=`; `proxy=` is the
             # surviving spelling and takes a single URL.
             proxy=proxy,

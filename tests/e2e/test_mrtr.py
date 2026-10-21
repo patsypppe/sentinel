@@ -54,9 +54,23 @@ def mint(principal: str, scopes: str, audience: str = THIS_SERVER) -> str:
     }
     go = shutil.which("/opt/homebrew/bin/go") or shutil.which("go") or "go"
     proc = subprocess.run(
-        [go, "run", "./broker/cmd/broker", "mint-token",
-         "--principal", principal, "--audience", audience, "--scopes", scopes],
-        cwd=REPO_ROOT, env=env, capture_output=True, text=True, check=True,
+        [
+            go,
+            "run",
+            "./broker/cmd/broker",
+            "mint-token",
+            "--principal",
+            principal,
+            "--audience",
+            audience,
+            "--scopes",
+            scopes,
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     return proc.stdout.strip()
 
@@ -80,12 +94,15 @@ def call(
         "jsonrpc": "2.0",
         "id": str(uuid.uuid4()),
         "method": method,
-        "params": {**(params or {}), "_meta": {
-            "io.modelcontextprotocol/protocolVersion": PROTOCOL,
-            # Required: Yes on every request. This client can neither sample,
-            # elicit nor serve roots, and {} says so honestly.
-            "io.modelcontextprotocol/clientCapabilities": {},
-        }},
+        "params": {
+            **(params or {}),
+            "_meta": {
+                "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                # Required: Yes on every request. This client can neither sample,
+                # elicit nor serve roots, and {} says so honestly.
+                "io.modelcontextprotocol/clientCapabilities": {},
+            },
+        },
     }
     headers = {
         "Content-Type": "application/json",
@@ -129,10 +146,13 @@ def broker_ready() -> None:
 
 
 def make_plan() -> str:
-    out = call("tools/call", {
-        "name": "ops.deployment_plan",
-        "arguments": {"service": "checkout", "version": "1.4.2", "replicas": 3},
-    })
+    out = call(
+        "tools/call",
+        {
+            "name": "ops.deployment_plan",
+            "arguments": {"service": "checkout", "version": "1.4.2", "replicas": 3},
+        },
+    )
     assert "error" not in out, out
     # structuredContent is raw JSON in the envelope, so it arrives already
     # parsed — it is not a JSON string that needs decoding again.
@@ -205,11 +225,17 @@ def test_mutated_retry_is_rejected() -> None:
     first = call("tools/call", {"name": "ops.deployment_apply", "arguments": {"plan": approved}})
     state = first["result"]["requestState"]
 
-    out = call("tools/call", {"name": "ops.deployment_apply", "arguments": {
-        "plan": other,
-        "requestState": state,
-        "inputResponses": {"confirm": True},
-    }})
+    out = call(
+        "tools/call",
+        {
+            "name": "ops.deployment_apply",
+            "arguments": {
+                "plan": other,
+                "requestState": state,
+                "inputResponses": {"confirm": True},
+            },
+        },
+    )
     assert "error" in out, "a retry naming a different plan must be refused"
     assert out["error"]["code"] == 1003, out["error"]
 
@@ -219,11 +245,17 @@ def test_tampered_request_state_is_rejected() -> None:
     first = call("tools/call", {"name": "ops.deployment_apply", "arguments": {"plan": handle}})
     state = first["result"]["requestState"]
 
-    out = call("tools/call", {"name": "ops.deployment_apply", "arguments": {
-        "plan": handle,
-        "requestState": state[:-2] + ("AA" if not state.endswith("AA") else "BB"),
-        "inputResponses": {"confirm": True},
-    }})
+    out = call(
+        "tools/call",
+        {
+            "name": "ops.deployment_apply",
+            "arguments": {
+                "plan": handle,
+                "requestState": state[:-2] + ("AA" if not state.endswith("AA") else "BB"),
+                "inputResponses": {"confirm": True},
+            },
+        },
+    )
     assert "error" in out, "a tampered requestState must be refused"
     assert out["error"]["code"] == 1004, out["error"]
 
@@ -236,11 +268,14 @@ def test_cross_principal_retry_is_rejected() -> None:
 
     out = call(
         "tools/call",
-        {"name": "ops.deployment_apply", "arguments": {
-            "plan": handle,
-            "requestState": state,
-            "inputResponses": {"confirm": True},
-        }},
+        {
+            "name": "ops.deployment_apply",
+            "arguments": {
+                "plan": handle,
+                "requestState": state,
+                "inputResponses": {"confirm": True},
+            },
+        },
         principal=ANALYST,
         scopes="ops:plan ops:apply",  # scopes are not the control being tested
     )
@@ -287,8 +322,7 @@ def test_token_for_another_audience_is_rejected() -> None:
     """
     out = call(
         "tools/call",
-        {"name": "ops.deployment_plan",
-         "arguments": {"service": "checkout", "version": "1.4.2"}},
+        {"name": "ops.deployment_plan", "arguments": {"service": "checkout", "version": "1.4.2"}},
         audience=OTHER_SERVER,
     )
     assert "error" in out, "a token issued for another service was accepted"

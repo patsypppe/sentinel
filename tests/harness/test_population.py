@@ -115,8 +115,12 @@ def test_one_host_is_never_scanned_concurrently() -> None:
         with lock:
             active[target.host] -= 1
         return Result(
-            server=target.server, version="1", url=target.url, host=target.host,
-            classification=CLASS_UNREACHABLE, needs_headers=False,
+            server=target.server,
+            version="1",
+            url=target.url,
+            host=target.host,
+            classification=CLASS_UNREACHABLE,
+            needs_headers=False,
         )
 
     targets = [
@@ -135,11 +139,14 @@ def test_one_host_is_never_scanned_concurrently() -> None:
 def _legacy_dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
     payload = parse(body) or {}
     if payload.get("method") == "initialize":
-        return 200, result(payload.get("id"), {
-            "protocolVersion": "2025-11-25",
-            "capabilities": {},
-            "serverInfo": {"name": "legacy", "version": "1"},
-        })
+        return 200, result(
+            payload.get("id"),
+            {
+                "protocolVersion": "2025-11-25",
+                "capabilities": {},
+                "serverInfo": {"name": "legacy", "version": "1"},
+            },
+        )
     return 400, error(payload.get("id"), -32600, "Bad Request: no valid session ID provided")
 
 
@@ -198,13 +205,21 @@ def test_only_current_servers_are_graded(stand_ins: dict[str, str]) -> None:
 def test_summary_names_no_server_and_its_percentages_add_up() -> None:
     def r(cls: str, url: str, fails: list[str] | None = None) -> Result:
         res = Result(
-            server=f"secret/{url}", version="1", url=f"https://{url}.example/mcp",
-            host=f"{url}.example", classification=cls, needs_headers=False,
+            server=f"secret/{url}",
+            version="1",
+            url=f"https://{url}.example/mcp",
+            host=f"{url}.example",
+            classification=cls,
+            needs_headers=False,
             response_framing="json" if cls != CLASS_UNREACHABLE else "",
         )
         if cls == CLASS_CURRENT:
-            res.must = {"pass": 1, "fail": len(fails or []), "not_applicable": 0,
-                        "indeterminate": 0}
+            res.must = {
+                "pass": 1,
+                "fail": len(fails or []),
+                "not_applicable": 0,
+                "indeterminate": 0,
+            }
             res.must_failures = fails or []
         return res
 
@@ -230,20 +245,37 @@ def test_registry_scan_command_end_to_end(
     stand_ins: dict[str, str], tmp_path: pathlib.Path
 ) -> None:
     listing = tmp_path / "listing.json"
-    listing.write_text(json.dumps({"servers": [
-        _entry(f"t/{name}", url) for name, url in stand_ins.items()
-    ]}))
+    listing.write_text(
+        json.dumps({"servers": [_entry(f"t/{name}", url) for name, url in stand_ins.items()]})
+    )
     out = tmp_path / "out"
     proc = subprocess.run(
-        [sys.executable, "-m", "sentinel.cli", "registry-scan",
-         "--listing", str(listing), "--out-dir", str(out), "--timeout", "2"],
-        capture_output=True, text=True, check=False, cwd=REPO_ROOT,
+        [
+            sys.executable,
+            "-m",
+            "sentinel.cli",
+            "registry-scan",
+            "--listing",
+            str(listing),
+            "--out-dir",
+            str(out),
+            "--timeout",
+            "2",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
     )
     assert proc.returncode == 0, proc.stderr
     summary = json.loads((out / "summary.json").read_text())
     assert summary["endpointsScanned"] == 4
     assert summary["classification"] == {
-        CLASS_CURRENT: 1, CLASS_LEGACY: 1, CLASS_AUTH: 1, CLASS_UNREACHABLE: 1, "other": 0
+        CLASS_CURRENT: 1,
+        CLASS_LEGACY: 1,
+        CLASS_AUTH: 1,
+        CLASS_UNREACHABLE: 1,
+        "other": 0,
     }
     lines = (out / "results.jsonl").read_text().splitlines()
     assert len(lines) == 4

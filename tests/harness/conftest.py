@@ -29,9 +29,12 @@ def _wait(endpoint: str, timeout: float = 10.0) -> None:
             # No Mcp-Name: the header table defines it for tools/call,
             # resources/read and prompts/get only, and a conformant server may
             # refuse one sent anywhere else.
-            httpx.post(endpoint, json={"jsonrpc": "2.0", "id": 1, "method": "server/discover"},
-                       headers={"Mcp-Method": "server/discover"},
-                       timeout=1.0)
+            httpx.post(
+                endpoint,
+                json={"jsonrpc": "2.0", "id": 1, "method": "server/discover"},
+                headers={"Mcp-Method": "server/discover"},
+                timeout=1.0,
+            )
             return
         except httpx.RequestError:
             time.sleep(0.05)
