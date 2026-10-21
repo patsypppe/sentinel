@@ -8,6 +8,7 @@ which is the state this revision removed.
 
 from __future__ import annotations
 
+from sentinel import SPEC_REVISION
 from sentinel.catalog.base import SPEC_BASE, RuleResult, Severity, Verifiability, rule
 from sentinel.probe.client import Probe
 from sentinel.probe.transport import RawResponse
@@ -15,8 +16,10 @@ from sentinel.probe.transport import RawResponse
 BASIC = f"{SPEC_BASE}/basic/index"
 
 
-def _rejected_as_invalid_params(response: RawResponse, what: str) -> RuleResult:
-    """The shared verdict: -32602 AND HTTP 400, both required."""
+def _rejected_as_invalid_params(
+    response: RawResponse, what: str, *, also_accept: tuple[int, ...] = ()
+) -> RuleResult:
+    """The shared verdict: -32602 (or a code in `also_accept`) AND HTTP 400."""
     if not response.reached_server:
         return RuleResult.indeterminate(
             f"the target was unreachable while testing {what}: {response.transport_error}"
@@ -29,8 +32,9 @@ def _rejected_as_invalid_params(response: RawResponse, what: str) -> RuleResult:
             evidence=f"HTTP {response.status}, no JSON-RPC error in the body",
         )
     problems: list[str] = []
-    if code != -32602:
-        problems.append(f"error code was {code}, not -32602")
+    if code != -32602 and code not in also_accept:
+        accepted = " or ".join(str(c) for c in (-32602, *also_accept))
+        problems.append(f"error code was {code}, not {accepted}")
     if response.status != 400:
         problems.append(f"HTTP status was {response.status}, not 400")
     if problems:
@@ -39,7 +43,7 @@ def _rejected_as_invalid_params(response: RawResponse, what: str) -> RuleResult:
             + "; ".join(problems),
             evidence=f"HTTP {response.status}, code {code}",
         )
-    return RuleResult.passed(f"a request omitting {what} was rejected with -32602 and HTTP 400")
+    return RuleResult.passed(f"a request omitting {what} was rejected with {code} and HTTP 400")
 
 
 @rule(
@@ -79,12 +83,21 @@ def missing_client_capabilities_rejected(probe: Probe) -> RuleResult:
     introduced_in="0.2.0",
 )
 def missing_protocol_version_rejected(probe: Probe) -> RuleResult:
-    # version=None omits the body field; the header is omitted with it, because
-    # sending a header with nothing in the body to agree with would provoke a
-    # HeaderMismatch instead and test the wrong rule.
+    # The body omits the field; the MCP-Protocol-Version header is still sent.
+    #
+    # 0.3.0 omitted the header too, and that request is a different one: the
+    # transport lets a dual-era server treat a request with no version header as
+    # a legacy client, so the official reference server answered it as legacy
+    # (correctly) and this rule failed it. With the header present the request
+    # is unambiguously modern and its body is missing a Required: Yes field.
+    #
+    # The header now names a version the body does not, so a server may also
+    # see a header/body mismatch: -32020 is accepted alongside -32602, HTTP 400
+    # required either way. Both are refusals the spec mandates for this request.
     return _rejected_as_invalid_params(
-        probe.tools_list(version=None, omit_protocol_version_header=True),
+        probe.tools_list(version=None, protocol_version_header=SPEC_REVISION),
         "io.modelcontextprotocol/protocolVersion",
+        also_accept=(-32020,),
     )
 
 

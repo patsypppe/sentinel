@@ -208,6 +208,44 @@ def mcp_name_not_required_where_undefined(probe: Probe) -> RuleResult:
 
 
 @rule(
+    id="MCP/2026-07-28/MUST/header-values-compared-without-surrounding-whitespace",
+    title="Whitespace around a header value is not part of the value",
+    severity=Severity.MUST,
+    citation=f"{SPEC_BASE}/basic/transports/streamable-http#server-validation",
+    verifiability=Verifiability.BLACK_BOX,
+    introduced_in="0.4.0",
+    remediation=(
+        "Trim leading and trailing spaces and tabs from Mcp-Method, Mcp-Name and "
+        "MCP-Protocol-Version before comparing them with the body. HTTP defines that "
+        "whitespace as outside the field value (RFC 9110 section 5.5), and proxies and "
+        "client libraries add it, so a server that compares the raw bytes rejects "
+        "matching requests with -32020 depending on which hops they took."
+    ),
+)
+def header_whitespace(probe: Probe) -> RuleResult:
+    # Mcp-Method on tools/list rather than Mcp-Name on tools/call: same
+    # comparison, and it invokes nothing, so the rule also runs in --safe mode.
+    padded = probe.send_verbatim_headers(probe.build("tools/list", mcp_method="  tools/list\t "))
+    if not padded.reached_server:
+        return RuleResult.indeterminate(f"the server was unreachable: {padded.transport_error}")
+    if padded.result() is not None:
+        return RuleResult.passed("tools/list was served with whitespace around Mcp-Method")
+
+    control = probe.tools_list()
+    if control.result() is None:
+        return RuleResult.indeterminate(
+            f"tools/list is refused even without the whitespace ({control.error_code()}), "
+            "so the refusal cannot be attributed to it"
+        )
+    return RuleResult.failed(
+        "tools/list with Mcp-Method '  tools/list<TAB> ' was refused "
+        f"({padded.error_code()}, HTTP {padded.status}) though the same request without "
+        "the surrounding whitespace is served; the value was compared with its padding",
+        evidence=str(padded.error())[:300],
+    )
+
+
+@rule(
     id="MCP/2026-07-28/MUST/header-body-mismatch-rejected",
     title="A header disagreeing with the body is rejected with -32020",
     severity=Severity.MUST,

@@ -56,7 +56,7 @@ BEHAVIOUR: dict[str, Any] = {
 #: retired code "SHOULD NOT", so a harness that failed it as a MUST would be
 #: demanding more than the specification does.
 SEEDED_VIOLATIONS: list[str] = [
-    "MCP/2026-07-28/MUST/discover-without-negotiated-version",
+    "MCP/2026-07-28/MUST/unsupported-version-error-shape",
     "MCP/2026-07-28/MUST/discover-reports-supported-versions",
     "MCP/2026-07-28/MUST/discover-reports-server-info",
     "MCP/2026-07-28/MUST/list-changed-advertised-truthfully",
@@ -252,11 +252,12 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
 
     if method == "server/discover":
         version = declared_version(payload)
-        # VIOLATES MCP/2026-07-28/MUST/discover-without-negotiated-version
+        # VIOLATES MCP/2026-07-28/MUST/unsupported-version-error-shape
         #
-        # The one method that must answer without a negotiated version refuses
-        # to, which makes this server undiscoverable to any client that has not
-        # already guessed the right version.
+        # Refuses an unsupported version with the right code but none of what
+        # makes it usable: HTTP 200, so a dual-era client reading the status
+        # line falls back to the legacy transport, and no `supported` list, so
+        # a client that does read the body still cannot tell what to retry with.
         if version is None or version != PROTOCOL:
             return 200, error(request_id, -32022, "declare a supported protocol version first")
 
@@ -379,6 +380,15 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
 
     # Methods this revision REMOVED, all still served.
     if method == "initialize":
+        # Served only to a request shaped like this revision's (it carries
+        # `_meta`), which is the defect: a modern client is handed a session.
+        # A request shaped like a real 2025-11-25 client's is refused, so this
+        # fixture is a modern-only server with leftovers, not a dual-era one --
+        # a dual-era server is allowed to keep GET and DELETE, and the 405 rule
+        # rightly does not apply to it.
+        init_params = payload.get("params")
+        if not isinstance(init_params, dict) or "_meta" not in init_params:
+            return 200, error(request_id, -32601, "initialize is not served to legacy clients")
         # VIOLATES MCP/2026-07-28/MUST/initialize-removed
         return 200, result(
             request_id,

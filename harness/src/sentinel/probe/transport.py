@@ -13,8 +13,11 @@ forged `requestState` — can, because nothing here will correct them.
 from __future__ import annotations
 
 import contextlib
+import http.client
 import json
+import ssl
 import time
+import urllib.parse
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -254,3 +257,120 @@ class Transport:
                 elapsed_s=time.perf_counter() - started,
             )
         raise AssertionError("unreachable: the loop returns on every path")
+
+    def send_verbatim_headers(self, request: Request) -> RawResponse:
+        """Send with header values exactly as given, padding included.
+
+        httpx refuses a header value with leading or trailing whitespace before
+        it reaches the wire, which is right for a client and useless for testing
+        whether a SERVER trims it. `http.client` checks only for line breaks, so
+        this path sends what it is handed. It does not go through a proxy or
+        present a client certificate; when the scan uses either, it says so
+        rather than sending the request a different way than every other one.
+        """
+        if self.proxy is not None or self.client_cert is not None:
+            return RawResponse(
+                status=0, headers={}, body=b"", elapsed_s=0.0,
+                transport_error="this check sends raw headers and cannot use --proxy or "
+                "--client-cert",
+            )
+        parts = urllib.parse.urlsplit(self.endpoint)
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": ACCEPT_VALUE,
+            "User-Agent": self.user_agent,
+            **request.headers,
+        }
+        if self.bearer_token and "Authorization" not in headers:
+            headers["Authorization"] = f"Bearer {self.bearer_token}"
+        conn: http.client.HTTPConnection
+        if parts.scheme == "https":
+            context = ssl.create_default_context()
+            if self.verify is False:
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+            elif isinstance(self.verify, str):
+                context.load_verify_locations(self.verify)
+            conn = http.client.HTTPSConnection(
+                parts.hostname or "", parts.port, timeout=self.timeout, context=context
+            )
+        else:
+            conn = http.client.HTTPConnection(
+                parts.hostname or "", parts.port, timeout=self.timeout
+            )
+        path = parts.path or "/"
+        if parts.query:
+            path += "?" + parts.query
+        started = time.perf_counter()
+        try:
+            conn.putrequest("POST", path, skip_accept_encoding=True)
+            body = request.body()
+            for name, value in headers.items():
+                conn.putheader(name, value)
+            conn.putheader("Content-Length", str(len(body)))
+            conn.endheaders(body)
+            resp = conn.getresponse()
+            return RawResponse(
+                status=resp.status,
+                headers={k.lower(): v for k, v in resp.getheaders()},
+                body=resp.read(),
+                elapsed_s=time.perf_counter() - started,
+            )
+        except (OSError, http.client.HTTPException) as exc:
+            return RawResponse(
+                status=0, headers={}, body=b"", elapsed_s=time.perf_counter() - started,
+                transport_error=f"{type(exc).__name__}: {exc}",
+            )
+        finally:
+            conn.close()
+
+    def send_until_first_message(self, request: Request) -> RawResponse:
+        """Send, and stop reading after the first complete message.
+
+        `subscriptions/listen` answers with an SSE stream that stays open for as
+        long as the client wants notifications. Reading it to the end would hang
+        until the timeout and report a working server as unreachable, so this
+        reads the stream only until its first event is complete, then closes it.
+        A bare JSON reply is read whole, as `send` would. Never retried: the
+        request reached the server or it did not, and either is the answer.
+        """
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": ACCEPT_VALUE,
+            "User-Agent": self.user_agent,
+            **request.headers,
+        }
+        if self.bearer_token and "Authorization" not in headers:
+            headers["Authorization"] = f"Bearer {self.bearer_token}"
+        started = time.perf_counter()
+        try:
+            with self._client.stream(
+                "POST", self.endpoint, content=request.body(), headers=headers
+            ) as resp:
+                response_headers = {k.lower(): v for k, v in resp.headers.items()}
+                if "text/event-stream" not in response_headers.get("content-type", ""):
+                    body = resp.read()
+                else:
+                    lines: list[str] = []
+                    has_data = False
+                    for line in resp.iter_lines():
+                        lines.append(line)
+                        if line.startswith("data:"):
+                            has_data = True
+                        elif line == "" and has_data:
+                            break
+                    body = ("\n".join(lines) + "\n\n").encode()
+                return RawResponse(
+                    status=resp.status_code,
+                    headers=response_headers,
+                    body=body,
+                    elapsed_s=time.perf_counter() - started,
+                )
+        except httpx.RequestError as exc:
+            return RawResponse(
+                status=0,
+                headers={},
+                body=b"",
+                elapsed_s=time.perf_counter() - started,
+                transport_error=f"{type(exc).__name__}: {exc}",
+            )

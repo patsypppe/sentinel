@@ -114,15 +114,20 @@ BREAKING_CHANGES: tuple[BreakingChange, ...] = (
         id="discover-required",
         title="server/discover is a new MUST",
         what_changed=(
-            "Every server must implement server/discover, and must answer it without "
-            "a negotiated protocol version, because there is no longer a negotiation."
+            "Every server must implement server/discover. It negotiates like any "
+            "request: an unsupported version is HTTP 400 and -32022 whose data lists "
+            "the supported versions, which is how a client learns what to retry with."
         ),
-        remediation=("Implement server/discover and answer it before any version is agreed."),
+        remediation=(
+            "Implement server/discover, and answer an unsupported version on it -- and "
+            "on every other method -- with HTTP 400, -32022, data.supported and "
+            "data.requested."
+        ),
         impact=Impact.BLOCKING,
         effort_hours=8,
         detected_by=(
             "MCP/2026-07-28/MUST/discover-implemented",
-            "MCP/2026-07-28/MUST/discover-without-negotiated-version",
+            "MCP/2026-07-28/MUST/unsupported-version-error-shape",
         ),
         doc_section="removed-outright",
     ),

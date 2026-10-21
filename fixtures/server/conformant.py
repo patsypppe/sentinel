@@ -13,6 +13,7 @@ false-positive count is how that gets noticed.
 from __future__ import annotations
 
 import sys
+import urllib.parse
 from typing import Any
 
 from .common import (
@@ -47,6 +48,32 @@ BEHAVIOUR: dict[str, Any] = {
 #: allowlist DECISION, and "this server hates the header" and "this server
 #: validates the header" would look identical from the wire.
 ALLOWED_ORIGINS = frozenset({"http://localhost:3000", "http://127.0.0.1:3000"})
+
+#: A browser page served from this machine is not a rebinding attacker: DNS
+#: rebinding works by making a REMOTE origin resolve to 127.0.0.1, so the Origin
+#: it presents names the attacker's host. An Origin naming a loopback host on any
+#: port is therefore allowed. 0.3.0 allowed port 3000 only, and the official
+#: conformance suite caught it refusing an Origin that named the fixture itself.
+LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def origin_allowed(origin: str) -> bool:
+    if origin in ALLOWED_ORIGINS:
+        return True
+    parts = urllib.parse.urlsplit(origin)
+    return parts.scheme in ("http", "https") and parts.hostname in LOOPBACK_HOSTS
+
+
+def header_value(handler: Any, name: str) -> str | None:
+    """A header's value without the optional whitespace HTTP puts around it.
+
+    RFC 9110 section 5.5: leading and trailing spaces and tabs are not part of
+    a field value. Comparing the raw bytes rejects matching requests depending
+    on which proxy added the padding -- the official suite caught this fixture
+    doing exactly that on Mcp-Name.
+    """
+    value = handler.headers.get(name)
+    return None if value is None else value.strip(" \t")
 
 #: Sorted by name, byte-wise, and built once. Both properties are what
 #: `tools-list-is-deterministic` and `tools-sorted-by-name` are about, and the
@@ -92,9 +119,6 @@ REMOVED = {
 #: Methods that carry a name in params, and which field carries it (§8.2).
 NAME_BEARING = {"tools/call": "name", "prompts/get": "name", "resources/read": "uri"}
 
-#: Methods that need no principal, and therefore no negotiated version beyond
-#: what negotiation itself requires.
-NO_VERSION_REQUIRED = {"server/discover"}
 
 #: The other `_meta` field this revision grades Required: Yes on every request.
 #: Spelled out here rather than imported from the harness, for the reason §9.5
@@ -154,7 +178,7 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
     #    the check is that a page in someone's browser never gets to reach the
     #    body-handling code at all.
     origin = handler.headers.get("Origin")
-    if origin is not None and origin not in ALLOWED_ORIGINS:
+    if origin is not None and not origin_allowed(origin):
         return 403, error(None, -32600, f"Origin {origin!r} is not allowed")
 
     payload = parse(body)
@@ -191,8 +215,8 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
     #    return HTTP status 400 Bad Request and MUST include a JSON-RPC error
     #    response" -- both, because the gateway whose routing decision was
     #    bypassed is exactly the component that reads only the status line.
-    header_method = handler.headers.get("Mcp-Method")
-    header_name = handler.headers.get("Mcp-Name")
+    header_method = header_value(handler, "Mcp-Method")
+    header_name = header_value(handler, "Mcp-Name")
     if header_method is None:
         return 400, error(request_id, -32020, "Mcp-Method is required on Streamable HTTP POST")
     if header_method != method:
@@ -234,11 +258,10 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
             request_id, -32602,
             f"_meta.{KEY_CLIENT_CAPABILITIES} is required on every request",
         )
-    # server/discover is exempt, and only from the version. Its whole purpose is
-    # to tell a client which versions exist, so demanding one in order to ask
-    # makes the server undiscoverable to any client that has not already
-    # guessed right. Nothing exempts it from declaring capabilities.
-    if method not in NO_VERSION_REQUIRED and KEY_PROTOCOL_VERSION not in meta:
+    # server/discover included. 0.3.0 exempted it on a reading of the release
+    # candidate; the final text negotiates it like any request, and a client
+    # that guesses wrong learns the supported versions from the -32022 below.
+    if KEY_PROTOCOL_VERSION not in meta:
         return 400, error(
             request_id, -32602,
             f"_meta.{KEY_PROTOCOL_VERSION} is required on every request; "
@@ -255,30 +278,30 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
     #    missing header that could only have restated it. Checking the header
     #    first would answer -32020 to a request whose real problem is -32602.
     #
-    #    server/discover is exempt from the header for the same reason it is
-    #    exempt from the field: a client that does not yet know which versions
-    #    exist cannot name one in order to ask.
-    header_version = handler.headers.get("MCP-Protocol-Version")
-    if method not in NO_VERSION_REQUIRED:
-        if header_version is None:
-            return 400, error(
-                request_id, -32020,
-                "the MCP-Protocol-Version header is required on every POST",
-            )
-        declared = meta.get(KEY_PROTOCOL_VERSION)
-        if header_version != declared:
-            return 400, error(
-                request_id, -32020,
-                f"MCP-Protocol-Version is {header_version!r} but the body declares "
-                f"{declared!r}",
-            )
+    header_version = header_value(handler, "MCP-Protocol-Version")
+    if header_version is None:
+        return 400, error(
+            request_id, -32020,
+            "the MCP-Protocol-Version header is required on every POST",
+        )
+    declared = meta.get(KEY_PROTOCOL_VERSION)
+    if header_version != declared:
+        return 400, error(
+            request_id, -32020,
+            f"MCP-Protocol-Version is {header_version!r} but the body declares "
+            f"{declared!r}",
+        )
 
     # 4. Negotiation, on every request — there is no handshake to fall back on.
     version = declared_version(payload)
-    if method not in NO_VERSION_REQUIRED and version is not None and version != PROTOCOL:
-        return 200, error(
+    #    HTTP 400, and the data names `supported` and echoes `requested`: the
+    #    UnsupportedProtocolVersionError schema, not the DiscoverResult's
+    #    `supportedVersions`. The 400 is what tells a dual-era client this is a
+    #    modern server to retry rather than a legacy one to fall back to.
+    if version is not None and version != PROTOCOL:
+        return 400, error(
             request_id, -32022, f"unsupported protocol version {version!r}",
-            {"supportedVersions": [PROTOCOL]},
+            {"supported": [PROTOCOL], "requested": version},
         )
     resolved = version if version == PROTOCOL else PROTOCOL
 

@@ -279,6 +279,16 @@ class Probe:
         """Build and send in one step."""
         return self._transport.send(self.build(method, params, **overrides))
 
+    def send_verbatim_headers(self, request: Request) -> RawResponse:
+        """Send a request whose header values must reach the server unaltered."""
+        return self._transport.send_verbatim_headers(request)
+
+    def call_first_message(
+        self, method: str, params: dict[str, Any] | None = None, **overrides: Any
+    ) -> RawResponse:
+        """Build and send, reading only the first message of a streamed reply."""
+        return self._transport.send_until_first_message(self.build(method, params, **overrides))
+
     def notify(
         self, method: str, params: dict[str, Any] | None = None, **overrides: Any
     ) -> RawResponse:

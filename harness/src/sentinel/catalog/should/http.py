@@ -15,12 +15,37 @@ import httpx
 
 from sentinel.catalog.base import SPEC_BASE, RuleResult, Severity, Verifiability, rule
 from sentinel.probe.client import Probe
+from sentinel.probe.transport import Request
 
 STREAMABLE = f"{SPEC_BASE}/basic/transports/streamable-http"
 
 #: The two methods the old transport used on this endpoint, and which this
 #: revision leaves with nothing to do.
 LEGACY_METHODS = ("GET", "DELETE")
+
+
+def _answers_legacy_initialize(probe: Probe) -> bool:
+    """Whether the endpoint also serves 2025-11-25 clients (a dual-era server).
+
+    Sent exactly as a legacy client sends it: no `_meta`, no Mcp-Method, the
+    old revision in MCP-Protocol-Version. A server that completes this handshake
+    has chosen to keep serving the previous transport, which the specification
+    allows ("MAY implement both behaviors").
+    """
+    response = probe.send(
+        Request(
+            method="initialize",
+            params={
+                "protocolVersion": "2025-11-25",
+                "capabilities": {},
+                "clientInfo": {"name": "sentinel-probe", "version": "0"},
+            },
+            request_id=1,
+            headers={"MCP-Protocol-Version": "2025-11-25"},
+        )
+    )
+    result = response.result()
+    return result is not None and "protocolVersion" in result
 
 
 @rule(
@@ -38,6 +63,17 @@ LEGACY_METHODS = ("GET", "DELETE")
     introduced_in="0.2.0",
 )
 def get_delete_405(probe: Probe) -> RuleResult:
+    # The 405 is what Backward Compatibility asks of "a server that supports
+    # only this revision". A dual-era server still serves the previous
+    # transport, where GET opened the SSE stream and DELETE ended the session,
+    # so for it those methods are not dead. 0.3.0 graded the official reference
+    # server -- which is dual-era -- as failing this; it is now not-applicable.
+    if _answers_legacy_initialize(probe):
+        return RuleResult.not_applicable(
+            "the server also completes a legacy 2025-11-25 initialize, so it is dual-era; "
+            "the 405 is asked only of a server that supports this revision alone"
+        )
+
     # Sent over the probe's OWN httpx client rather than a fresh one: these are
     # bare non-POST requests, and the transport builds only POSTs. Borrowing the
     # client keeps the proxy, the TLS verification and the client certificate

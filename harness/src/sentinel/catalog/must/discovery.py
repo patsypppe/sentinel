@@ -1,9 +1,10 @@
 """MUST rules for discovery and negotiation (`SN-CAP-01`).
 
 `server/discover` became mandatory in 2026-07-28, replacing the `initialize`
-handshake. It is also the one method that must answer without a negotiated
-version — a server that refuses it is undiscoverable, and a client has no way to
-learn why.
+handshake. It negotiates like every other request: the final text says a server
+MAY answer it with UnsupportedProtocolVersionError, and that error is itself how
+a client learns which versions exist. (0.1.0 through 0.3.0 read the release
+candidate's framing as an exemption; see `discover-without-negotiated-version`.)
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from sentinel.catalog.base import (
     rule,
 )
 from sentinel.probe.client import KEY_SERVER_INFO, Probe
+from sentinel.probe.transport import RawResponse
 
 CHANGELOG = f"{SPEC_BASE}/changelog"
 LIFECYCLE = f"{SPEC_BASE}/basic/versioning"
@@ -68,8 +70,16 @@ def discover_implemented(probe: Probe) -> RuleResult:
         "find out which versions exist BEFORE committing to one, so refusing it for an "
         "absent or unknown version makes the server undiscoverable."
     ),
+    deprecated_in="0.4.0",
+    superseded_by="MCP/2026-07-28/MUST/unsupported-version-error-shape",
 )
 def discover_without_version(probe: Probe) -> RuleResult:
+    # Wrong against the final 2026-07-28 text, which says server/discover MAY
+    # answer an unsupported version with UnsupportedProtocolVersionError, and
+    # whose Server Validation rejects a request missing the version header.
+    # Found by running the official conformance suite's reference server through
+    # Sentinel: it negotiates discover like any request -- correctly -- and this
+    # rule failed it. Superseded rather than edited, because ids are permanent.
     absent = probe.discover(version=None)
     if not absent.reached_server:
         return RuleResult.indeterminate(f"the server was unreachable: {absent.transport_error}")
@@ -186,9 +196,9 @@ def discover_reports_capabilities(probe: Probe) -> RuleResult:
     citation=f"{LIFECYCLE}#protocol-version-negotiation",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
-        "Return -32022 UnsupportedProtocolVersion, with supportedVersions in the error "
-        "data, when a request declares a version this server does not implement. Serving "
-        "the request anyway leaves the client believing a version was agreed."
+        "Return -32022 UnsupportedProtocolVersion, with the supported versions in the "
+        "error data, when a request declares a version this server does not implement. "
+        "Serving the request anyway leaves the client believing a version was agreed."
     ),
 )
 def unsupported_version_rejected(probe: Probe) -> RuleResult:
@@ -208,6 +218,81 @@ def unsupported_version_rejected(probe: Probe) -> RuleResult:
     return RuleResult.failed(
         f"an unsupported version returned {code} rather than -32022", evidence=str(resp.error())
     )
+
+
+#: Certainly not implemented by anyone; a later real revision cannot collide.
+_FUTURE_VERSION = "2099-01-01"
+
+
+@rule(
+    id="MCP/2026-07-28/MUST/unsupported-version-error-shape",
+    title="An unsupported version gets HTTP 400 and an error naming supported and requested",
+    severity=Severity.MUST,
+    citation=f"{LIFECYCLE}#protocol-version-negotiation",
+    verifiability=Verifiability.BLACK_BOX,
+    remediation=(
+        "Answer a request at a protocol version this server does not implement -- "
+        "server/discover included -- with HTTP 400 and -32022 whose data carries "
+        "`supported` (a non-empty array of the versions you implement) and `requested` "
+        "(the version the client asked for). The 400 is what tells a dual-era client "
+        "this is a modern server to retry rather than a legacy one to fall back to, and "
+        "`supported` is the only way it learns what to retry with."
+    ),
+    introduced_in="0.4.0",
+)
+def unsupported_version_error_shape(probe: Probe) -> RuleResult:
+    problems: list[str] = []
+    evidence: list[str] = []
+    attempts: list[tuple[str, RawResponse]] = [
+        ("server/discover", probe.discover(version=_FUTURE_VERSION)),
+        ("tools/list", probe.tools_list(version=_FUTURE_VERSION)),
+    ]
+    for label, resp in attempts:
+        if not resp.reached_server:
+            return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+        evidence.append(f"{label}: HTTP {resp.status}, {resp.error() or resp.result()}")
+        if resp.result() is not None:
+            problems.append(f"{label} was SERVED at {_FUTURE_VERSION}")
+            continue
+        error = resp.error() or {}
+        if error.get("code") != -32022:
+            problems.append(f"{label} returned code {error.get('code')}, not -32022")
+            continue
+        if resp.status != 400:
+            problems.append(f"{label} returned HTTP {resp.status}, not 400")
+        data = error.get("data")
+        supported = data.get("supported") if isinstance(data, dict) else None
+        if not (
+            isinstance(supported, list)
+            and supported
+            and all(isinstance(v, str) for v in supported)
+        ):
+            hint = ""
+            if isinstance(data, dict) and "supportedVersions" in data:
+                hint = " (it sent `supportedVersions`, the DiscoverResult field name)"
+            problems.append(f"{label}: error.data.supported is {supported!r}{hint}")
+        requested = data.get("requested") if isinstance(data, dict) else None
+        if requested != _FUTURE_VERSION:
+            problems.append(
+                f"{label}: error.data.requested is {requested!r}, not {_FUTURE_VERSION!r}"
+            )
+
+    if problems:
+        return RuleResult.failed("; ".join(problems), evidence=" | ".join(evidence)[:600])
+    return RuleResult.passed(
+        "server/discover and tools/list at an unknown version both returned HTTP 400, "
+        "-32022, data.supported and data.requested"
+    )
+
+
+#: Capability name in server/discover -> the filter field that subscribes to it.
+_LIST_CHANGED_FILTER = {
+    "tools": "toolsListChanged",
+    "prompts": "promptsListChanged",
+    "resources": "resourcesListChanged",
+}
+
+ACK_METHOD = "notifications/subscriptions/acknowledged"
 
 
 @rule(
@@ -239,14 +324,23 @@ def list_changed_is_truthful(probe: Probe) -> RuleResult:
     if not claims:
         return RuleResult.passed("listChanged is not advertised on any capability")
 
-    listen = probe.call("subscriptions/listen", {})
+    # A well-formed request: `notifications` names what to subscribe to. 0.3.0
+    # sent `{}`, which a server is right to refuse with -32602 -- the official
+    # reference server did, and this rule reported its working subscriptions as
+    # missing. The stream stays open, so only its first message is read.
+    notifications = {
+        _LIST_CHANGED_FILTER[name]: True for name in claims if name in _LIST_CHANGED_FILTER
+    }
+    listen = probe.call_first_message("subscriptions/listen", {"notifications": notifications})
     if not listen.reached_server:
         return RuleResult.indeterminate(f"the server was unreachable: {listen.transport_error}")
+
+    acknowledged = (listen.envelope() or {}).get("method") == ACK_METHOD
 
     # ANY error means the method is not there. Checking specifically for -32601
     # would miss a server that returns its own house error for everything it
     # does not implement, which is common and is exactly what the fixture does.
-    if listen.result() is None:
+    if not acknowledged and listen.result() is None:
         return RuleResult.failed(
             f"{claims} advertise listChanged: true, but subscriptions/listen does not "
             f"answer (error {listen.error_code()}). A client will wait for notifications "
@@ -269,6 +363,11 @@ def list_changed_is_truthful(probe: Probe) -> RuleResult:
             evidence=f"subscriptions/listen → {listen.result()}, control → {control.result()}",
         )
 
+    if acknowledged:
+        return RuleResult.passed(
+            f"{claims} advertise listChanged, and subscriptions/listen opened a stream "
+            f"whose first message is {ACK_METHOD}"
+        )
     return RuleResult.passed(
         f"{claims} advertise listChanged, and subscriptions/listen answers where an "
         "unknown method does not"
