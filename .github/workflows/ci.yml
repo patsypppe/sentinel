@@ -79,8 +79,21 @@ jobs:
   python:
     name: harness (python)
     runs-on: ubuntu-latest
+    env:
+      # The kit example and the fleet service are Go programs the Python suite builds
+      # and runs. Locally a missing toolchain skips those tests; here it must fail
+      # them, or "the build scans the example on every commit" would quietly stop
+      # being true.
+      SENTINEL_REQUIRE_GO: "1"
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: |
+            broker/go.sum
+            mcp/go.sum
+            fleet/go.sum
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true

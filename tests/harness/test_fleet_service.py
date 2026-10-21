@@ -29,8 +29,12 @@ GO = shutil.which("go") or "/usr/local/go/bin/go"
 INGEST = "ingest-token-for-tests"
 READ = "read-token-for-tests"
 
+# Locally a missing Go toolchain skips these tests. In CI, SENTINEL_REQUIRE_GO is set and
+# they run, and fail loudly if Go is missing, rather than letting the claim they back
+# quietly stop being checked.
 needs_go = pytest.mark.skipif(
-    not pathlib.Path(GO).exists(), reason="the Go toolchain is not installed"
+    not pathlib.Path(GO).exists() and not os.environ.get("SENTINEL_REQUIRE_GO"),
+    reason="the Go toolchain is not installed",
 )
 
 

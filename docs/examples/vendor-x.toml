@@ -1,0 +1,4 @@
+[[waivers]]
+rule       = "MCP/2026-07-28/MUST/invalid-origin-rejected"
+reason     = "Vendor owns this; ticket VND-118 open with them"
+expires_at = 2099-12-31

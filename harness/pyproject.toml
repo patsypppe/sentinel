@@ -4,7 +4,7 @@
 # installs the `sentinel` command, plus a second command matching the
 # distribution so `uvx sentinel-mcp-conformance scan ...` works with no --from.
 name = "sentinel-mcp-conformance"
-version = "0.3.0"
+version = "0.4.0"
 description = "Conformance harness for MCP 2026-07-28. Grades any MCP server against the normative requirements, reports which MUSTs it cannot verify black-box, and inventories deprecated-feature debt."
 readme = "README.md"
 requires-python = ">=3.12"
