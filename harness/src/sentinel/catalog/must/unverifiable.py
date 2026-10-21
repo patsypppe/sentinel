@@ -129,11 +129,15 @@ def mrtr_idempotent(_: Probe) -> RuleResult:
         "than convention, so the property does not depend on every future code path "
         "remembering it."
     ),
+    deprecated_in="0.3.0",
+    superseded_by="SENTINEL/SECURITY/invocations-are-audited",
 )
-def invocations_audited(_: Probe) -> RuleResult:
+def invocations_audited_deprecated(_: Probe) -> RuleResult:
+    # Filed as a spec MUST in 0.1.0, but the security page has no audit-logging
+    # section, so no spec MUST stands behind it. It moves to the beyond-spec
+    # namespace rather than being deleted, and its id is kept, because ids are
+    # permanent.
     return RuleResult.indeterminate(
-        "An audit log is not exposed over MCP, and a server that claimed to keep one would "
-        "be believed on its own word — which is the opposite of what an audit is for. "
-        "To settle it: read the log directly and verify its chain, e.g. with a "
-        "verification command the server ships."
+        "Deprecated in 0.3.0: audit logging is not a specification requirement. "
+        "See SENTINEL/SECURITY/invocations-are-audited."
     )
