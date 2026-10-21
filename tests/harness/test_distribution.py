@@ -136,15 +136,19 @@ def test_the_action_scans_a_fleet(conformant_endpoint: str, tmp_path: pathlib.Pa
 
 
 def cli_flags(command: str) -> set[str]:
-    out = subprocess.run(
-        [sys.executable, "-m", "sentinel.cli", *command.split(), "--help"],
-        capture_output=True,
-        text=True,
-        check=True,
-        cwd=ROOT,
-        env={**os.environ, "COLUMNS": "200", "NO_COLOR": "1"},
-    ).stdout
-    return set(re.findall(r"--[a-z][a-z0-9-]*", out))
+    """Every option the named command defines, read from the command itself.
+
+    Not parsed out of `--help`: that output is rendered by Rich, and what it looks like
+    depends on the terminal, the width and the environment, so a parse that passes on a
+    laptop can find nothing at all on a CI runner.
+    """
+    import typer.main
+
+    from sentinel.cli import app
+
+    group = typer.main.get_command(app)
+    scan = group.commands[command]  # type: ignore[attr-defined]
+    return {opt for param in scan.params for opt in (*param.opts, *param.secondary_opts)}
 
 
 def test_every_flag_the_action_passes_exists() -> None:
