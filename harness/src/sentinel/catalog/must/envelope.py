@@ -26,7 +26,7 @@ LIST_ENDPOINTS: list[tuple[str, Callable[[Probe], RawResponse]]] = [
     id="MCP/2026-07-28/MUST/result-type-present",
     title="Every result carries a non-empty resultType",
     severity=Severity.MUST,
-    citation=f"{BASIC}/index#result-envelope",
+    citation=f"{BASIC}/index#resulttype",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Set resultType on every result — 'complete', or 'input_required' when the call "
@@ -60,7 +60,7 @@ def result_type_present(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/server-info-echoed",
     title="Every result echoes serverInfo",
     severity=Severity.MUST,
-    citation=f"{BASIC}/index#result-envelope",
+    citation=f"{BASIC}/index#resulttype",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Echo io.modelcontextprotocol/serverInfo in each result's _meta. Clients key cache "
@@ -83,7 +83,7 @@ def server_info_echoed_deprecated(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/cacheable-results-carry-ttl",
     title="Every list and read result carries ttlMs",
     severity=Severity.MUST,
-    citation=f"{CHANGELOG}#cacheableresult-is-required",
+    citation=f"{CHANGELOG}#minor-changes",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Add ttlMs to every list and read result. CacheableResult became required in this "
@@ -117,7 +117,7 @@ def cacheable_ttl(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/cacheable-results-carry-scope",
     title="Every list and read result carries cacheScope",
     severity=Severity.MUST,
-    citation=f"{CHANGELOG}#cacheableresult-is-required",
+    citation=f"{CHANGELOG}#minor-changes",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Add cacheScope ('private' or 'public') to every list and read result. Choose it "
@@ -157,7 +157,7 @@ def cacheable_scope(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/tools-list-is-deterministic",
     title="tools/list is byte-stable across repeated calls",
     severity=Severity.MUST,
-    citation=f"{CHANGELOG}#deterministic-tool-ordering",
+    citation=f"{CHANGELOG}#minor-changes",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Build the tool manifest once, sort it by name byte-wise, and serve the "
@@ -180,7 +180,7 @@ def tools_list_deterministic_deprecated(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/tools-declare-input-schema",
     title="Every advertised tool declares an input schema",
     severity=Severity.MUST,
-    citation=f"{BASIC}/index#tools",
+    citation=f"{SPEC_BASE}/server/tools#listing-tools",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Give every tool an inputSchema. A model calling a tool with no schema has to "
@@ -215,7 +215,7 @@ def tools_declare_schema(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/tools-are-named",
     title="Every advertised tool has a name",
     severity=Severity.MUST,
-    citation=f"{BASIC}/index#tools",
+    citation=f"{SPEC_BASE}/server/tools#listing-tools",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Give every tool a non-empty name. It is the only handle a client has for calling "

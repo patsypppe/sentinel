@@ -319,7 +319,7 @@ and a scanner cannot mint a token signed by your issuer.
 
 ## Limits: what a scan cannot tell you
 
-Five MUST rules cannot be settled from the wire, and `sentinel` reports them as **`INDETERMINATE`**
+Four MUST rules, and one beyond-spec security rule, cannot be settled from the wire, and `sentinel` reports them as **`INDETERMINATE`**
 rather than as passes:
 
 | Rule | What would settle it |
@@ -328,7 +328,7 @@ rather than as passes:
 | `no-token-passthrough` | Capture your server's egress while it serves an authenticated call; confirm the inbound token appears in none of it. |
 | `handle-possession-is-not-authentication` | Mint a handle as one principal, present it as another; confirm the refusal. |
 | `mrtr-retries-are-idempotent` | Retry a completed flow and count the effect **at its source**, not in the reply. |
-| `invocations-are-audited` | Read the log directly and verify its chain. |
+| `SENTINEL/SECURITY/invocations-are-audited` (beyond-spec) | Read the log directly and verify its chain. |
 
 A clean scan is not a clean bill of health, and a tool that implied otherwise would be worse than
 no tool. These five are where you still have to look yourself.

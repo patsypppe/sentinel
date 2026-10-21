@@ -46,7 +46,7 @@ def _rejected_as_invalid_params(response: RawResponse, what: str) -> RuleResult:
     id="MCP/2026-07-28/MUST/missing-client-capabilities-rejected",
     title="A request without clientCapabilities is rejected with -32602 and HTTP 400",
     severity=Severity.MUST,
-    citation=f"{BASIC}#meta",
+    citation=f"{BASIC}#_meta",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Reject a request whose _meta omits io.modelcontextprotocol/clientCapabilities "
@@ -68,7 +68,7 @@ def missing_client_capabilities_rejected(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/missing-protocol-version-rejected",
     title="A request without a declared protocol version is rejected with -32602 and HTTP 400",
     severity=Severity.MUST,
-    citation=f"{BASIC}#meta",
+    citation=f"{BASIC}#_meta",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Reject a request whose _meta omits io.modelcontextprotocol/protocolVersion with "
@@ -92,7 +92,7 @@ def missing_protocol_version_rejected(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/missing-capability-error-shape",
     title="A -32021 error names the capabilities it needed",
     severity=Severity.MUST,
-    citation=f"{BASIC}#meta",
+    citation=f"{BASIC}#_meta",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "When returning -32021 MissingRequiredClientCapability, populate "

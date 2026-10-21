@@ -19,14 +19,14 @@ from sentinel.catalog.base import (
 from sentinel.probe.client import KEY_SERVER_INFO, Probe
 
 CHANGELOG = f"{SPEC_BASE}/changelog"
-LIFECYCLE = f"{SPEC_BASE}/basic/lifecycle"
+LIFECYCLE = f"{SPEC_BASE}/basic/versioning"
 
 
 @rule(
     id="MCP/2026-07-28/MUST/discover-implemented",
     title="server/discover is implemented",
     severity=Severity.MUST,
-    citation=f"{CHANGELOG}#server-discover-replaces-initialize",
+    citation=f"{CHANGELOG}#major-changes",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Implement server/discover. It replaced the initialize handshake in this revision "
@@ -61,7 +61,7 @@ def discover_implemented(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/discover-without-negotiated-version",
     title="server/discover answers without a negotiated protocol version",
     severity=Severity.MUST,
-    citation=f"{LIFECYCLE}#version-negotiation",
+    citation=f"{LIFECYCLE}#protocol-version-negotiation",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Exempt server/discover from version negotiation. Its purpose is to let a client "
@@ -99,7 +99,7 @@ def discover_without_version(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/discover-reports-supported-versions",
     title="server/discover reports supportedVersions",
     severity=Severity.MUST,
-    citation=f"{LIFECYCLE}#version-negotiation",
+    citation=f"{LIFECYCLE}#protocol-version-negotiation",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Include a non-empty supportedVersions array in the server/discover result. "
@@ -125,7 +125,7 @@ def discover_reports_versions(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/discover-reports-server-info",
     title="server/discover identifies the server",
     severity=Severity.MUST,
-    citation=f"{LIFECYCLE}#server-identity",
+    citation=f"{SPEC_BASE}/server/discover#response",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Report serverInfo with at least a name from server/discover. Clients key cache "
@@ -158,7 +158,7 @@ def discover_reports_server_info(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/discover-reports-capabilities",
     title="server/discover reports capabilities",
     severity=Severity.MUST,
-    citation=f"{LIFECYCLE}#capabilities",
+    citation=f"{SPEC_BASE}/server/discover#response",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Report a capabilities object from server/discover. A client cannot tell an "
@@ -183,7 +183,7 @@ def discover_reports_capabilities(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/unsupported-version-rejected",
     title="An unsupported protocol version is rejected with -32022",
     severity=Severity.MUST,
-    citation=f"{LIFECYCLE}#version-negotiation",
+    citation=f"{LIFECYCLE}#protocol-version-negotiation",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Return -32022 UnsupportedProtocolVersion, with supportedVersions in the error "
@@ -214,7 +214,7 @@ def unsupported_version_rejected(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/list-changed-advertised-truthfully",
     title="A declared listChanged capability is backed by subscriptions/listen",
     severity=Severity.MUST,
-    citation=f"{CHANGELOG}#subscriptions",
+    citation=f"{CHANGELOG}#major-changes",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Advertise listChanged: false unless subscriptions/listen is implemented. A client "
@@ -279,7 +279,7 @@ def list_changed_is_truthful(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/initialize-removed",
     title="The initialize handshake is gone",
     severity=Severity.MUST,
-    citation=f"{CHANGELOG}#server-discover-replaces-initialize",
+    citation=f"{CHANGELOG}#major-changes",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Remove the initialize method and answer method-not-found for it. This revision is "
@@ -315,7 +315,7 @@ def _removed_method_rule(method: str, slug: str, why: str, replacement: str) -> 
         id=f"MCP/2026-07-28/MUST/{slug}",
         title=f"{method} is removed",
         severity=Severity.MUST,
-        citation=f"{CHANGELOG}#removed-methods",
+        citation=f"{CHANGELOG}#major-changes",
         verifiability=Verifiability.BLACK_BOX,
         remediation=(
             f"Stop serving {method}; it was removed in 2026-07-28. {why} "

@@ -12,6 +12,6 @@ other's authority.
 
 from __future__ import annotations
 
-from sentinel.catalog.beyond import budget, style
+from sentinel.catalog.beyond import budget, security, style
 
-__all__ = ["budget", "style"]
+__all__ = ["budget", "security", "style"]
