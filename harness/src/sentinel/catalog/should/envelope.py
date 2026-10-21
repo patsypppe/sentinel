@@ -17,7 +17,7 @@ from sentinel.probe.client import Probe
     id="MCP/2026-07-28/SHOULD/server-info-echoed",
     title="Every result echoes serverInfo",
     severity=Severity.SHOULD,
-    citation=f"{SPEC_BASE}/basic/index#meta",
+    citation=f"{SPEC_BASE}/basic/index#_meta",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Echo io.modelcontextprotocol/serverInfo in each result's _meta. The spec marks it "
