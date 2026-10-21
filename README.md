@@ -73,7 +73,7 @@ $ sentinel deprecations --endpoint http://localhost:9000/mcp
 
 ## Limitations, stated plainly
 
-**Five MUST requirements cannot be verified black-box.** `sentinel` reports them as
+**Four MUST requirements, and one beyond-spec rule, cannot be verified black-box.** `sentinel` reports them as
 `INDETERMINATE` — never as passes — excludes them from the gate, and prints them on every scan:
 
 | Rule | Why a scan cannot settle it | What would |
@@ -82,12 +82,12 @@ $ sentinel deprecations --endpoint http://localhost:9000/mcp
 | `no-token-passthrough` | What a server sends to its own dependencies is invisible from the client side. | Capture the server's egress during an authenticated call. |
 | `handle-possession-is-not-authentication` | Needs **two** authenticated principals; a scan has one. | Mint a handle as one, present it as the other. |
 | `mrtr-retries-are-idempotent` | A duplicate retry that returns the right answer is indistinguishable from one that performed the effect twice *and* returned the right answer. | Count the effect at its source, not in the reply. |
-| `invocations-are-audited` | An audit log is not exposed over MCP; a server claiming to keep one would be believed on its own word. | Read the log and verify its chain. |
+| `SENTINEL/SECURITY/invocations-are-audited` *(beyond-spec: the security page has no audit-logging requirement)* | An audit log is not exposed over MCP; a server claiming to keep one would be believed on its own word. | Read the log and verify its chain. |
 
 **A clean scan is not a clean bill of health.** A harness that scored these as passes would be
 lying, and a tool that implied otherwise would be worse than no tool.
 
-The broker implements all five, and proves it with tests that *do* have the access a scan lacks —
+The broker implements all five properties, and proves it with tests that *do* have the access a scan lacks —
 `TestTokenForAnotherAudienceRejected`, `TestInboundTokenNeverForwarded`,
 `TestCrossPrincipalHandleRefused`, `TestDuplicateRetryIsIdempotent`, `TestChainDetectsTampering`.
 That is the point of shipping both: the scan says what it can see, and the server's own suite
