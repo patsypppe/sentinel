@@ -1,0 +1,28 @@
+{
+  "server": "official-reference",
+  "official": {
+    "checks": 196,
+    "statuses": {
+      "SUCCESS": 164,
+      "INFO": 1,
+      "FAILURE": 30,
+      "SKIPPED": 1
+    },
+    "failures": {
+      "unscored": 30
+    },
+    "coreFailures": []
+  },
+  "sentinel": {
+    "rules": 53,
+    "mustFailures": [
+      "MCP/2026-07-28/MUST/invalid-origin-rejected",
+      "MCP/2026-07-28/MUST/malformed-json-is-parse-error"
+    ],
+    "shouldFailures": [],
+    "beyondSpecFailures": [
+      "SENTINEL/STYLE/tools-sorted-by-name"
+    ],
+    "indeterminate": 5
+  }
+}

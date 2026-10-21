@@ -399,6 +399,8 @@ Every request carries `io.modelcontextprotocol/protocolVersion` in `_meta`. Ther
 
 `server/discover` is the exception: it **MUST** be answerable without a negotiated version, because its entire purpose is to let a client find out what versions exist before committing. Serving `-32022` from `server/discover` is a bug that makes your server undiscoverable, and it is an easy one to write.
 
+> **Erratum (Sentinel 0.4.0, October 2026).** The paragraph above follows the release candidate and is wrong against the final 2026-07-28 text, which says a server **MAY** answer `server/discover` with `UnsupportedProtocolVersionError` and requires `protocolVersion` on every request. `server/discover` negotiates like any other method; the error's `data.supported` list (not `supportedVersions`, which is the `DiscoverResult` field) is how a client that guessed wrong learns what to retry with, and the status is HTTP 400. Found by running the official MCP conformance suite against this repository's broker and fixture — see `docs/BENCHMARK.md`. The rule `MCP/2026-07-28/MUST/discover-without-negotiated-version` is deprecated in favour of `MCP/2026-07-28/MUST/unsupported-version-error-shape`.
+
 On stdio, `server/discover` doubles as a backward-compatibility probe: a `2025-11-25` server will not recognize the method, and the method-not-found error is itself the signal.
 
 **Test:** a matrix test over {absent, `2025-11-25`, `2026-07-28`, `2099-01-01`, malformed} × {`server/discover`, `tools/list`, `tools/call`} asserting the exact code for each of the fifteen cells.
@@ -953,7 +955,7 @@ Steps 1–2 and 6 are the ones that get remembered: the scanner that grades othe
 
 **2. Numbers decoded into `any` become `float64`.** Round-tripping a JSON integer through `any` can change its representation and break a hash. Use `json.RawMessage` or `json.Number`.
 
-**3. Rejecting `server/discover` on an unsupported version.** Makes your server undiscoverable. It is the one method that must answer without negotiation.
+**3. ~~Rejecting `server/discover` on an unsupported version.~~** Withdrawn — see the erratum in §8.1. The final text negotiates `server/discover` like any request.
 
 **4. Correlating MRTR retries by JSON-RPC id.** The retry is a new request with a new id. Correlate only through the sealed `requestState`.
 

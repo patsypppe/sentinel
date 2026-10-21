@@ -1,0 +1,25 @@
+{
+  "server": "sentinel-conformant",
+  "official": {
+    "checks": 178,
+    "statuses": {
+      "SUCCESS": 102,
+      "SKIPPED": 7,
+      "FAILURE": 65,
+      "WARNING": 3,
+      "INFO": 1
+    },
+    "failures": {
+      "fixture": 29,
+      "unscored": 36
+    },
+    "coreFailures": []
+  },
+  "sentinel": {
+    "rules": 53,
+    "mustFailures": [],
+    "shouldFailures": [],
+    "beyondSpecFailures": [],
+    "indeterminate": 5
+  }
+}

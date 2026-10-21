@@ -1,0 +1,67 @@
+{
+  "note": "Sentinel 0.3.0 and its fixture, before the corrections in 0.4.0. Same suite version, same reference server commit.",
+  "official_on_sentinel_conformant_fixture": {
+    "checks": 178,
+    "statuses": {
+      "SUCCESS": 95,
+      "SKIPPED": 7,
+      "FAILURE": 72,
+      "WARNING": 3,
+      "INFO": 1
+    },
+    "failures": {
+      "fixture": 29,
+      "core": 6,
+      "unscored": 37
+    },
+    "coreFailures": [
+      {
+        "scenario": "dns-rebinding-protection",
+        "check": "localhost-host-valid-accepted",
+        "message": "Expected HTTP 2xx for valid localhost Host/Origin headers, got 403"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-request-meta-invalid-missing-protocol-version",
+        "message": "Expected error code -32602, got undefined"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-http-server-meta-invalid-400",
+        "message": "Expected HTTP 400 Bad Request, got status code 200"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-server-unsupported-version-error",
+        "message": "Returned supported versions data layout does not correlate to active server metrics: undefined"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-http-server-unsupported-version-400",
+        "message": "Expected HTTP 400 Bad Request, got status code 200"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-http-server-header-mismatch-400",
+        "message": "Expected HTTP 400 and JSON-RPC error -32020, got status 200 with code undefined"
+      }
+    ]
+  },
+  "sentinel_0_3_0_on_official_reference": {
+    "rules": 52,
+    "mustFailures": [
+      "MCP/2026-07-28/MUST/discover-without-negotiated-version",
+      "MCP/2026-07-28/MUST/invalid-origin-rejected",
+      "MCP/2026-07-28/MUST/list-changed-advertised-truthfully",
+      "MCP/2026-07-28/MUST/malformed-json-is-parse-error",
+      "MCP/2026-07-28/MUST/missing-protocol-version-rejected"
+    ],
+    "shouldFailures": [
+      "MCP/2026-07-28/SHOULD/get-delete-405"
+    ],
+    "beyondSpecFailures": [
+      "SENTINEL/STYLE/tools-sorted-by-name"
+    ],
+    "indeterminate": 5
+  }
+}

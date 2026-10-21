@@ -1,0 +1,344 @@
+{
+  "server": "sentinel-nonconformant",
+  "official": {
+    "checks": 178,
+    "statuses": {
+      "FAILURE": 109,
+      "SKIPPED": 3,
+      "SUCCESS": 52,
+      "WARNING": 13,
+      "INFO": 1
+    },
+    "failures": {
+      "core": 55,
+      "unscored": 48,
+      "fixture": 6
+    },
+    "coreFailures": [
+      {
+        "scenario": "caching",
+        "check": "sep-2549-tools-list-caching-hints",
+        "message": "tools/list response missing ttlMs; tools/list response missing cacheScope"
+      },
+      {
+        "scenario": "caching",
+        "check": "sep-2549-prompts-list-caching-hints",
+        "message": "prompts/list response missing ttlMs; prompts/list response missing cacheScope"
+      },
+      {
+        "scenario": "caching",
+        "check": "sep-2549-resources-list-caching-hints",
+        "message": "resources/list response missing ttlMs; resources/list response missing cacheScope"
+      },
+      {
+        "scenario": "caching",
+        "check": "sep-2549-resources-templates-list-caching-hints",
+        "message": "resources/templates/list returned JSON-RPC error -32020: Mcp-Name is required on Streamable HTTP POST"
+      },
+      {
+        "scenario": "caching",
+        "check": "sep-2549-ttl-non-negative",
+        "message": "no endpoints returned ttlMs"
+      },
+      {
+        "scenario": "caching",
+        "check": "sep-2549-cache-scope-valid",
+        "message": "no endpoints returned cacheScope"
+      },
+      {
+        "scenario": "caching",
+        "check": "wire-schema-valid",
+        "message": "[implementation] response to 'tools/list' (spec 2026-07-28): ListToolsResult: must have required property 'cacheScope' (result of 'tools/list'); ListToolsResult: must have required property 'resultType' (result of 'tools/list'); ListToolsResult: must have required property 'ttlMs' (result of 'tools/list'); ListToolsResult/tools/1: must have required property 'inputSchema' (result of 'tools/list'); ListToolsResult/tools/2: must have required property 'name' (result of 'tools/list') \u2014 message: {\"jsonrpc\":\"2.0\",\"id\":22,\"result\":{\"tools\":[{\"name\":\"warehouse.query\",\"description\":\"Run a query.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"sql\":{\"type\":\"string\"}}}},{\"name\":\"warehouse.describe\",\"description\":\"Describe the schema.\"},{\"description\":\"A tool nobody can call, because it has no name.\",\"inputSchema\":{\"type\":\"object\"}},{\"name\":\"warehouse.session-148\",\"description\":\"Only advertised to the connection that opened it.\",\"inputSchema\":{\"type\":\"object\"}}]}}\n[implementation] response to 'prompts/list' (spec 2026-07-28): ListPromptsResult: must have required property 'cacheScope' (result of 'prompts/list'); ListPromptsResult: must have required property 'resultType' (result of 'prompts/list'); ListPromptsResult: must have required property 'ttlMs' (result of 'prompts/list') \u2014 message: {\"jsonrpc\":\"2.0\",\"id\":23,\"result\":{\"prompts\":[]}}\n[implementation] response to 'resources/list' (spec 2026-07-28): ListResourcesResult: must have required property 'cacheScope' (result of 'resources/list'); ListResourcesResult: must have required property 'resultType' (result of 'resources/list'); ListResourcesResult: must have required property 'ttlMs' (result of 'resources/list') \u2014 message: {\"jsonrpc\":\"2.0\",\"id\":24,\"result\":{\"resources\":[]}}"
+      },
+      {
+        "scenario": "completion-complete",
+        "check": "completion-complete",
+        "message": "Failed: unrecognised method 'completion/complete'"
+      },
+      {
+        "scenario": "dns-rebinding-protection",
+        "check": "localhost-host-rebinding-rejected",
+        "message": "Expected HTTP 4xx for invalid Host/Origin headers, got 200"
+      },
+      {
+        "scenario": "input-required-result-basic-elicitation",
+        "check": "sep-2322-elicitation-incomplete",
+        "message": "JSON-RPC error: unknown tool"
+      },
+      {
+        "scenario": "input-required-result-basic-list-roots",
+        "check": "sep-2322-list-roots-incomplete",
+        "message": "JSON-RPC error: unknown tool"
+      },
+      {
+        "scenario": "input-required-result-basic-sampling",
+        "check": "sep-2322-sampling-incomplete",
+        "message": "JSON-RPC error: unknown tool"
+      },
+      {
+        "scenario": "input-required-result-capability-check",
+        "check": "sep-2322-respect-client-capabilities",
+        "message": "JSON-RPC error: unknown tool"
+      },
+      {
+        "scenario": "input-required-result-multiple-input-requests",
+        "check": "sep-2322-multiple-inputs-incomplete",
+        "message": "JSON-RPC error: unknown tool"
+      },
+      {
+        "scenario": "input-required-result-non-tool-request",
+        "check": "sep-2322-non-tool-incomplete",
+        "message": "JSON-RPC error: unrecognised method 'prompts/get'"
+      },
+      {
+        "scenario": "input-required-result-request-state",
+        "check": "sep-2322-request-state-incomplete",
+        "message": "JSON-RPC error: unknown tool"
+      },
+      {
+        "scenario": "input-required-result-result-type",
+        "check": "sep-2322-result-type-included",
+        "message": "JSON-RPC error: unknown tool"
+      },
+      {
+        "scenario": "input-required-result-unsupported-methods",
+        "check": "wire-schema-valid",
+        "message": "[implementation] response to 'tools/list' (spec 2026-07-28): ListToolsResult: must have required property 'cacheScope' (result of 'tools/list'); ListToolsResult: must have required property 'resultType' (result of 'tools/list'); ListToolsResult: must have required property 'ttlMs' (result of 'tools/list'); ListToolsResult/tools/0: must have required property 'inputSchema' (result of 'tools/list'); ListToolsResult/tools/1: must have required property 'name' (result of 'tools/list') \u2014 message: {\"jsonrpc\":\"2.0\",\"id\":35,\"result\":{\"tools\":[{\"name\":\"warehouse.describe\",\"description\":\"Describe the schema.\"},{\"description\":\"A tool nobody can call, because it has no name.\",\"inputSchema\":{\"type\":\"object\"}},{\"name\":\"warehouse.query\",\"description\":\"Run a query.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"sql\":{\"type\":\"string\"}}}},{\"name\":\"warehouse.session-149\",\"description\":\"Only advertised to the connection that opened it.\",\"inputSchema\":{\"type\":\"object\"}}]}}\n[implementation] response to 'prompts/list' (spec 2026-07-28): ListPromptsResult: must have required property 'cacheScope' (result of 'prompts/list'); ListPromptsResult: must have required property 'resultType' (result of 'prompts/list'); ListPromptsResult: must have required property 'ttlMs' (result of 'prompts/list') \u2014 message: {\"jsonrpc\":\"2.0\",\"id\":36,\"result\":{\"prompts\":[]}}"
+      },
+      {
+        "scenario": "prompts-get-embedded-resource",
+        "check": "prompts-get-embedded-resource",
+        "message": "Failed: unrecognised method 'prompts/get'"
+      },
+      {
+        "scenario": "prompts-get-simple",
+        "check": "prompts-get-simple",
+        "message": "Failed: unrecognised method 'prompts/get'"
+      },
+      {
+        "scenario": "prompts-get-with-args",
+        "check": "prompts-get-with-args",
+        "message": "Failed: unrecognised method 'prompts/get'"
+      },
+      {
+        "scenario": "prompts-get-with-image",
+        "check": "prompts-get-with-image",
+        "message": "Failed: unrecognised method 'prompts/get'"
+      },
+      {
+        "scenario": "prompts-list",
+        "check": "wire-schema-valid",
+        "message": "[implementation] response to 'prompts/list' (spec 2026-07-28): ListPromptsResult: must have required property 'cacheScope' (result of 'prompts/list'); ListPromptsResult: must have required property 'resultType' (result of 'prompts/list'); ListPromptsResult: must have required property 'ttlMs' (result of 'prompts/list') \u2014 message: {\"jsonrpc\":\"2.0\",\"id\":17,\"result\":{\"prompts\":[]}}"
+      },
+      {
+        "scenario": "resources-list",
+        "check": "wire-schema-valid",
+        "message": "[implementation] response to 'resources/list' (spec 2026-07-28): ListResourcesResult: must have required property 'cacheScope' (result of 'resources/list'); ListResourcesResult: must have required property 'resultType' (result of 'resources/list'); ListResourcesResult: must have required property 'ttlMs' (result of 'resources/list') \u2014 message: {\"jsonrpc\":\"2.0\",\"id\":12,\"result\":{\"resources\":[]}}"
+      },
+      {
+        "scenario": "resources-read-binary",
+        "check": "resources-read-binary",
+        "message": "Failed: resource not found"
+      },
+      {
+        "scenario": "resources-read-text",
+        "check": "resources-read-text",
+        "message": "Failed: resource not found"
+      },
+      {
+        "scenario": "resources-templates-read",
+        "check": "resources-templates-read",
+        "message": "Failed: resource not found"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-request-meta-invalid-missing-meta",
+        "message": "Expected error code -32602, got -32022"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-http-server-meta-invalid-400",
+        "message": "Expected HTTP 400 Bad Request, got status code 200"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-request-meta-invalid-missing-protocol-version",
+        "message": "Expected error code -32602, got -32022"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-http-server-meta-invalid-400",
+        "message": "Expected HTTP 400 Bad Request, got status code 200"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-request-meta-invalid-missing-client-capabilities",
+        "message": "Expected error code -32602, got undefined"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-http-server-meta-invalid-400",
+        "message": "Expected HTTP 400 Bad Request, got status code 200"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-server-implements-discover",
+        "message": "Missing mandatory fields in discover response setup"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-server-declares-prompts-in-discover",
+        "message": "Server handles prompts but did not declare prompts capability in discover result"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-server-unsupported-version-error",
+        "message": "Returned supported versions data layout does not correlate to active server metrics: undefined"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-http-server-unsupported-version-400",
+        "message": "Expected HTTP 400 Bad Request, got status code 200"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-http-server-header-mismatch-400",
+        "message": "Expected HTTP 400 and JSON-RPC error -32020, got status 200 with code -32022"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-http-server-method-not-found-404-initialize",
+        "message": "Expected HTTP 404 and code -32601 for removed methods, got HTTP 200 and code undefined"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-http-server-method-not-found-404-ping",
+        "message": "Expected HTTP 404 and code -32601 for removed methods, got HTTP 200 and code undefined"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-http-server-method-not-found-404-logging-setlevel",
+        "message": "Expected HTTP 404 and code -32601 for removed methods, got HTTP 200 and code undefined"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-http-server-method-not-found-404-resources-subscribe",
+        "message": "Expected HTTP 404 and code -32601 for removed methods, got HTTP 200 and code undefined"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-http-server-method-not-found-404-resources-unsubscribe",
+        "message": "Expected HTTP 404 and code -32601 for removed methods, got HTTP 200 and code undefined"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-http-server-method-not-found-404",
+        "message": "Expected HTTP 404 and JSON-RPC error code -32601, got HTTP 200 and code -32050"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-server-sends-subscription-ack",
+        "message": "Expected first frame method to be 'notifications/subscriptions/acknowledged', got 'undefined'"
+      },
+      {
+        "scenario": "server-stateless",
+        "check": "sep-2575-server-tags-subscription-id",
+        "message": "subscriptions/listen stream carried no notification frames to inspect"
+      },
+      {
+        "scenario": "tools-call-audio",
+        "check": "tools-call-audio",
+        "message": "Failed: unknown tool"
+      },
+      {
+        "scenario": "tools-call-embedded-resource",
+        "check": "tools-call-embedded-resource",
+        "message": "Failed: unknown tool"
+      },
+      {
+        "scenario": "tools-call-error",
+        "check": "tools-call-error",
+        "message": "Failed: unknown tool"
+      },
+      {
+        "scenario": "tools-call-image",
+        "check": "tools-call-image",
+        "message": "Failed: unknown tool"
+      },
+      {
+        "scenario": "tools-call-mixed-content",
+        "check": "tools-call-mixed-content",
+        "message": "Failed: unknown tool"
+      },
+      {
+        "scenario": "tools-call-simple-text",
+        "check": "tools-call-simple-text",
+        "message": "Failed: unknown tool"
+      },
+      {
+        "scenario": "tools-call-with-progress",
+        "check": "tools-call-with-progress",
+        "message": "Failed: unknown tool"
+      },
+      {
+        "scenario": "tools-list",
+        "check": "tools-list",
+        "message": "Tool 1: missing inputSchema; Tool 2: missing name"
+      },
+      {
+        "scenario": "tools-list",
+        "check": "wire-schema-valid",
+        "message": "[implementation] response to 'tools/list' (spec 2026-07-28): ListToolsResult: must have required property 'cacheScope' (result of 'tools/list'); ListToolsResult: must have required property 'resultType' (result of 'tools/list'); ListToolsResult: must have required property 'ttlMs' (result of 'tools/list'); ListToolsResult/tools/1: must have required property 'inputSchema' (result of 'tools/list'); ListToolsResult/tools/2: must have required property 'name' (result of 'tools/list') \u2014 message: {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"tools\":[{\"name\":\"warehouse.query\",\"description\":\"Run a query.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"sql\":{\"type\":\"string\"}}}},{\"name\":\"warehouse.describe\",\"description\":\"Describe the schema.\"},{\"description\":\"A tool nobody can call, because it has no name.\",\"inputSchema\":{\"type\":\"object\"}},{\"name\":\"warehouse.session-142\",\"description\":\"Only advertised to the connection that opened it.\",\"inputSchema\":{\"type\":\"object\"}}]}}\n[implementation] response to 'tools/list' (spec 2026-07-28): ListToolsResult: must have required property 'cacheScope' (result of 'tools/list'); ListToolsResult: must have required property 'resultType' (result of 'tools/list'); ListToolsResult: must have required property 'ttlMs' (result of 'tools/list'); ListToolsResult/tools/0: must have required property 'inputSchema' (result of 'tools/list'); ListToolsResult/tools/1: must have required property 'name' (result of 'tools/list') \u2014 message: {\"jsonrpc\":\"2.0\",\"id\":3,\"result\":{\"tools\":[{\"name\":\"warehouse.describe\",\"description\":\"Describe the schema.\"},{\"description\":\"A tool nobody can call, because it has no name.\",\"inputSchema\":{\"type\":\"object\"}},{\"name\":\"warehouse.query\",\"description\":\"Run a query.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"sql\":{\"type\":\"string\"}}}},{\"name\":\"warehouse.session-143\",\"description\":\"Only advertised to the connection that opened it.\",\"inputSchema\":{\"type\":\"object\"}}]}}\n[implementation] response to 'tools/list' (spec 2026-07-28): ListToolsResult: must have required property 'cacheScope' (result of 'tools/list'); ListToolsResult: must have required property 'resultType' (result of 'tools/list'); ListToolsResult: must have required property 'ttlMs' (result of 'tools/list'); ListToolsResult/tools/0: must have required property 'name' (result of 'tools/list'); ListToolsResult/tools/2: must have required property 'inputSchema' (result of 'tools/list') \u2014 message: {\"jsonrpc\":\"2.0\",\"id\":4,\"result\":{\"tools\":[{\"description\":\"A tool nobody can call, because it has no name.\",\"inputSchema\":{\"type\":\"object\"}},{\"name\":\"warehouse.query\",\"description\":\"Run a query.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"sql\":{\"type\":\"string\"}}}},{\"name\":\"warehouse.describe\",\"description\":\"Describe the schema.\"},{\"name\":\"warehouse.session-144\",\"description\":\"Only advertised to the connection that opened it.\",\"inputSchema\":{\"type\":\"object\"}}]}}"
+      }
+    ]
+  },
+  "sentinel": {
+    "rules": 53,
+    "mustFailures": [
+      "MCP/2026-07-28/MUST/cacheable-results-carry-scope",
+      "MCP/2026-07-28/MUST/cacheable-results-carry-ttl",
+      "MCP/2026-07-28/MUST/discover-reports-server-info",
+      "MCP/2026-07-28/MUST/discover-reports-supported-versions",
+      "MCP/2026-07-28/MUST/header-body-mismatch-rejected",
+      "MCP/2026-07-28/MUST/initialize-removed",
+      "MCP/2026-07-28/MUST/invalid-origin-rejected",
+      "MCP/2026-07-28/MUST/list-changed-advertised-truthfully",
+      "MCP/2026-07-28/MUST/logging-set-level-removed",
+      "MCP/2026-07-28/MUST/malformed-json-is-parse-error",
+      "MCP/2026-07-28/MUST/mcp-method-header-required",
+      "MCP/2026-07-28/MUST/mcp-name-header-required",
+      "MCP/2026-07-28/MUST/mcp-name-not-required-where-undefined",
+      "MCP/2026-07-28/MUST/missing-client-capabilities-rejected",
+      "MCP/2026-07-28/MUST/missing-protocol-version-rejected",
+      "MCP/2026-07-28/MUST/no-errors-in-reserved-range",
+      "MCP/2026-07-28/MUST/notification-not-answered-with-a-result",
+      "MCP/2026-07-28/MUST/ping-removed",
+      "MCP/2026-07-28/MUST/protocol-version-header-body-mismatch-rejected",
+      "MCP/2026-07-28/MUST/protocol-version-header-required",
+      "MCP/2026-07-28/MUST/resource-not-found-is-invalid-params",
+      "MCP/2026-07-28/MUST/resources-subscribe-removed",
+      "MCP/2026-07-28/MUST/resources-unsubscribe-removed",
+      "MCP/2026-07-28/MUST/response-content-type-valid",
+      "MCP/2026-07-28/MUST/result-type-present",
+      "MCP/2026-07-28/MUST/roots-list-removed",
+      "MCP/2026-07-28/MUST/sampling-create-message-removed",
+      "MCP/2026-07-28/MUST/tools-are-named",
+      "MCP/2026-07-28/MUST/tools-declare-input-schema",
+      "MCP/2026-07-28/MUST/tools-list-connection-independent",
+      "MCP/2026-07-28/MUST/unknown-method-http-404",
+      "MCP/2026-07-28/MUST/unknown-method-is-method-not-found",
+      "MCP/2026-07-28/MUST/unsupported-version-error-shape",
+      "MCP/2026-07-28/MUST/unsupported-version-rejected"
+    ],
+    "shouldFailures": [
+      "MCP/2026-07-28/SHOULD/get-delete-405",
+      "MCP/2026-07-28/SHOULD/no-errors-in-legacy-range",
+      "MCP/2026-07-28/SHOULD/server-info-echoed",
+      "MCP/2026-07-28/SHOULD/tools-list-is-deterministic"
+    ],
+    "beyondSpecFailures": [
+      "SENTINEL/STYLE/tools-sorted-by-name"
+    ],
+    "indeterminate": 5
+  }
+}
