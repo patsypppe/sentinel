@@ -10,14 +10,43 @@ branding:
 
 inputs:
   endpoint:
-    description: The MCP endpoint to scan, e.g. http://localhost:3000/mcp.
-    required: true
+    description: The MCP endpoint to scan, e.g. http://localhost:3000/mcp. Optional with config or targets.
+    required: false
+    default: ''
+  version:
+    description: >-
+      The sentinel-mcp-conformance version to install from PyPI. Empty installs the
+      copy that ships with this action, so the action and the scanner always agree.
+    required: false
+    default: ''
   gate:
     description: >-
       Fail the job if any rule of this severity FAILs: must, should, or a
       beyond-spec category (security, style, ops). Empty to never fail.
     required: false
     default: must
+  config:
+    description: Path to a sentinel.toml. Default is ./sentinel.toml when present.
+    required: false
+    default: ''
+  baseline:
+    description: Gate only on findings absent from this baseline file (sentinel baseline create).
+    required: false
+    default: ''
+  snapshot:
+    description: A snapshot to compare against, enabling SENTINEL/SECURITY/manifest-drift.
+    required: false
+    default: ''
+  targets:
+    description: >-
+      A fleet file. When set, every target is scanned with its own credential and gate
+      and `endpoint` is ignored. Reports are written to sentinel-fleet/.
+    required: false
+    default: ''
+  no-exec:
+    description: "'true' to never run a command named in the [graybox] table."
+    required: false
+    default: 'false'
   token:
     description: Bearer token to present to the server, if it requires one.
     required: false
@@ -64,41 +93,66 @@ runs:
 
     - name: install sentinel
       shell: bash
-      run: python -m pip install --quiet "${{ github.action_path }}/harness"
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        if [ -n "$VERSION" ]; then
+          python -m pip install --quiet "sentinel-mcp-conformance==$VERSION"
+        else
+          python -m pip install --quiet "${{ github.action_path }}/harness"
+        fi
 
     - name: scan
       id: scan
       shell: bash
       env:
-        SENTINEL_ENDPOINT: ${{ inputs.endpoint }}
-        SENTINEL_GATE: ${{ inputs.gate }}
+        SENTINEL_ACTION_ENDPOINT: ${{ inputs.endpoint }}
+        SENTINEL_ACTION_GATE: ${{ inputs.gate }}
+        SENTINEL_ACTION_SAFE: ${{ inputs.safe }}
+        SENTINEL_ACTION_CONFIG: ${{ inputs.config }}
+        SENTINEL_ACTION_BASELINE: ${{ inputs.baseline }}
+        SENTINEL_ACTION_SNAPSHOT: ${{ inputs.snapshot }}
+        SENTINEL_ACTION_TARGETS: ${{ inputs.targets }}
+        SENTINEL_ACTION_NOEXEC: ${{ inputs.no-exec }}
+        SENTINEL_ACTION_SARIF: ${{ inputs.sarif-file }}
+        SENTINEL_ACTION_ANCHOR: ${{ inputs.sarif-anchor }}
         SENTINEL_TOKEN: ${{ inputs.token }}
-        SENTINEL_SAFE: ${{ inputs.safe }}
-        SENTINEL_SARIF: ${{ inputs.sarif-file }}
-        SENTINEL_ANCHOR: ${{ inputs.sarif-anchor }}
       run: |
-        args=(scan --endpoint "$SENTINEL_ENDPOINT" --format sarif --out "$SENTINEL_SARIF"
-              --sarif-anchor "$SENTINEL_ANCHOR" --no-color)
-        [ -n "$SENTINEL_GATE" ] && args+=(--gate "$SENTINEL_GATE")
-        [ -n "$SENTINEL_TOKEN" ] && args+=(--token "$SENTINEL_TOKEN")
-        [ "$SENTINEL_SAFE" = "true" ] && args+=(--safe)
+        summary="$RUNNER_TEMP/sentinel-summary.md"
+        args=(scan --no-color --sarif-anchor "$SENTINEL_ACTION_ANCHOR")
+        [ -n "$SENTINEL_ACTION_ENDPOINT" ] && args+=(--endpoint "$SENTINEL_ACTION_ENDPOINT")
+        [ -n "$SENTINEL_ACTION_GATE" ] && args+=(--gate "$SENTINEL_ACTION_GATE")
+        [ -n "$SENTINEL_ACTION_CONFIG" ] && args+=(--config "$SENTINEL_ACTION_CONFIG")
+        [ -n "$SENTINEL_ACTION_BASELINE" ] && args+=(--baseline "$SENTINEL_ACTION_BASELINE")
+        [ -n "$SENTINEL_ACTION_SNAPSHOT" ] && args+=(--snapshot "$SENTINEL_ACTION_SNAPSHOT")
+        [ "$SENTINEL_ACTION_SAFE" = "true" ] && args+=(--safe)
+        [ "$SENTINEL_ACTION_NOEXEC" = "true" ] && args+=(--no-exec)
+        if [ -n "$SENTINEL_ACTION_TARGETS" ]; then
+          args+=(--targets "$SENTINEL_ACTION_TARGETS" --format sarif)
+        else
+          args+=(--format markdown --out "$summary" --also "sarif=$SENTINEL_ACTION_SARIF")
+        fi
         set +e
         sentinel "${args[@]}"
         code=$?
         set -e
         echo "exit-code=$code" >> "$GITHUB_OUTPUT"
         {
-          echo "### Sentinel: MCP conformance"
-          echo
-          case "$code" in
-            0) echo "Gate **passed** for \`$SENTINEL_ENDPOINT\`." ;;
-            1) echo "Gate **failed** for \`$SENTINEL_ENDPOINT\`: at least one ${SENTINEL_GATE^^} rule failed." ;;
-            *) echo "The scanner **could not run** against \`$SENTINEL_ENDPOINT\` (exit $code)." ;;
-          esac
+          if [ -f "$summary" ]; then
+            cat "$summary"
+          elif [ -f sentinel-fleet/rollup.md ]; then
+            echo "### Sentinel: fleet"
+            echo
+            cat sentinel-fleet/rollup.md
+          else
+            echo "### Sentinel: MCP conformance"
+            echo
+            echo "The scanner **could not run** (exit $code). See the job log."
+          fi
         } >> "$GITHUB_STEP_SUMMARY"
 
     - name: upload to code scanning
-      if: ${{ always() && inputs.upload-sarif == 'true' && hashFiles(inputs.sarif-file) != '' }}
+      if: ${{ always() && inputs.upload-sarif == 'true' && inputs.targets == '' && hashFiles(inputs.sarif-file) != '' }}
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: ${{ inputs.sarif-file }}

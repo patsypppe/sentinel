@@ -211,6 +211,16 @@ def scan(
     target_name: Annotated[
         str | None, typer.Option(help="A stable name for this target, used in fingerprints.")
     ] = None,
+    also: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--also",
+            help=(
+                "Write another format from the same scan: FORMAT=PATH, repeatable "
+                "(for example --also sarif=out.sarif --also markdown=summary.md)."
+            ),
+        ),
+    ] = None,
     no_exec: Annotated[
         bool,
         typer.Option(
@@ -342,6 +352,25 @@ def scan(
         )
     except ValueError as exc:
         raise _fail(str(exc)) from exc
+
+    for spec in also or []:
+        extra_fmt, _, extra_path = spec.partition("=")
+        if extra_fmt not in FORMATS or not extra_path:
+            raise _fail(
+                f"--also {spec!r} must be FORMAT=PATH with FORMAT one of {', '.join(FORMATS)}"
+            )
+        try:
+            pathlib.Path(extra_path).write_text(
+                render_report(
+                    extra_fmt,
+                    report,
+                    sarif_anchor=sarif_anchor,
+                    schema_version=schema_version,
+                    gate_failed=code == EXIT_GATE_FAILED if severity is not None else None,
+                )
+            )
+        except OSError as exc:
+            raise _fail(f"cannot write {extra_path}: {exc}") from exc
 
     _emit(rendered, out, render_text(report, color=not no_color))
     raise typer.Exit(code)
