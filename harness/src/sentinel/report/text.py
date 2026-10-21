@@ -76,6 +76,14 @@ def render(report: ScanReport, *, color: bool = True) -> str:
                 DIM,
             )
         )
+        if report.safe and report.skipped_for_safety:
+            lines.append(
+                paint(
+                    f"  {len(report.skipped_for_safety)} of them were skipped by --safe, which "
+                    "never invokes a tool the server has not annotated read-only.",
+                    DIM,
+                )
+            )
         lines.append("")
         for f in indeterminate:
             lines.append(f"  {paint('????', YELLOW)}  {label(f, paint(f.rule.id, BOLD))}")

@@ -28,7 +28,7 @@ from sentinel.catalog.base import (
     Severity,
     Verifiability,
 )
-from sentinel.probe.client import Probe
+from sentinel.probe.client import SAFE_MODE_REFUSAL, Probe
 from sentinel.probe.transport import DEFAULT_RETRIES
 
 #: The scan passed its gate.
@@ -44,6 +44,9 @@ EXIT_HARNESS_ERROR = 2
 #: Beyond-spec categories a gate may select, lower-cased as the CLI accepts
 #: them. Derived from RULE_ID_PATTERN so the two cannot drift apart.
 BEYOND_SPEC_CATEGORIES = ("security", "style", "ops")
+
+#: How a rule left unsettled by safe mode is labelled in every report.
+SAFE_MODE_DETAIL = "skipped in safe mode"
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,6 +103,18 @@ class ScanReport:
     findings: list[Finding] = field(default_factory=list)
     started_at: float = 0.0
     elapsed_s: float = 0.0
+    #: True when the scan ran in safe mode (see `Probe.safe`). A report has to
+    #: say so: a rule left INDETERMINATE because the scanner chose not to call a
+    #: tool is a different statement from one the server prevented.
+    safe: bool = False
+
+    @property
+    def skipped_for_safety(self) -> list[Finding]:
+        return [
+            f
+            for f in self.findings
+            if f.outcome is Outcome.INDETERMINATE and SAFE_MODE_DETAIL in f.result.detail
+        ]
 
     def by_outcome(self, outcome: Outcome, severity: Severity | None = None) -> list[Finding]:
         return [
@@ -169,10 +184,13 @@ def run_scan(
     client_cert: str | tuple[str, str] | None = None,
     retries: int = DEFAULT_RETRIES,
     budgets: BudgetPolicy | None = None,
+    safe: bool = False,
 ) -> ScanReport:
     """Evaluate every rule against one endpoint."""
     reg = registry if registry is not None else REGISTRY
-    report = ScanReport(endpoint=endpoint, spec_revision=SPEC_REVISION, started_at=time.time())
+    report = ScanReport(
+        endpoint=endpoint, spec_revision=SPEC_REVISION, started_at=time.time(), safe=safe
+    )
 
     rules = reg.all(include_deprecated=include_deprecated)
     if only is not None:
@@ -188,6 +206,7 @@ def run_scan(
         client_cert=client_cert,
         retries=retries,
         budgets=budgets,
+        safe=safe,
     ) as probe:
         for r in rules:
             rule_started = time.perf_counter()
@@ -202,12 +221,27 @@ def run_scan(
                     f"the rule raised {type(exc).__name__}: {exc}. This is a defect in the "
                     "harness, not a finding about the server."
                 )
+            result = _relabel_safe_mode(result)
             report.findings.append(
                 Finding(rule=r, result=result, elapsed_s=time.perf_counter() - rule_started)
             )
 
     report.elapsed_s = time.perf_counter() - started
     return report
+
+
+def _relabel_safe_mode(result: RuleResult) -> RuleResult:
+    """Say "skipped in safe mode" where a rule said "unreachable".
+
+    Rules report a request that never reached the server as "the server was
+    unreachable: <reason>". When the reason is that safe mode declined to send
+    it, "unreachable" is false and would read as an outage, so the detail is
+    rewritten here, once, instead of in every rule.
+    """
+    if result.outcome is not Outcome.INDETERMINATE or SAFE_MODE_REFUSAL not in result.detail:
+        return result
+    reason = result.detail[result.detail.index(SAFE_MODE_REFUSAL) + len(SAFE_MODE_REFUSAL) :]
+    return RuleResult.indeterminate(f"{SAFE_MODE_DETAIL}: did not invoke{reason}")
 
 
 def unverifiable_rules(registry: Registry | None = None) -> list[BaseRule]:

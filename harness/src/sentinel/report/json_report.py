@@ -21,6 +21,10 @@ def render(report: ScanReport) -> dict[str, Any]:
         "endpoint": report.endpoint,
         "startedAt": report.started_at,
         "elapsedSeconds": round(report.elapsed_s, 3),
+        # Additive, so schemaVersion stays 1: a consumer that ignores these keys
+        # reads every other field exactly as before.
+        "safeMode": report.safe,
+        "skippedInSafeMode": len(report.skipped_for_safety),
         "summary": {
             "must": report.counts(Severity.MUST),
             "should": report.counts(Severity.SHOULD),

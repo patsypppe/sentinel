@@ -157,6 +157,17 @@ def scan(
             )
         ),
     ] = None,
+    safe: Annotated[
+        bool,
+        typer.Option(
+            "--safe",
+            help=(
+                "For servers you do not own: never invoke a tool the server has not "
+                "annotated readOnlyHint=true. Rules that need such a call report "
+                "INDETERMINATE ('skipped in safe mode') instead of a verdict."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Scan an MCP server and grade it against the rule catalog."""
     severity: Gate | None = None
@@ -221,6 +232,7 @@ def scan(
                 per_tool_tokens=max_tool_tokens,
                 schema_depth=max_schema_depth,
             ),
+            safe=safe,
         )
     except Exception as exc:
         typer.echo(f"sentinel: the scan could not run: {exc}", err=True)
@@ -251,6 +263,78 @@ def scan(
 
     raise typer.Exit(report.gate(severity))
 
+
+
+@app.command("registry-scan")
+def registry_scan(
+    out_dir: Annotated[
+        pathlib.Path, typer.Option(help="Directory for results.jsonl, summary.json, summary.md.")
+    ] = pathlib.Path("registry-scan"),
+    registry: Annotated[
+        str, typer.Option(help="Registry base URL.")
+    ] = "https://registry.modelcontextprotocol.io",
+    listing: Annotated[
+        pathlib.Path | None,
+        typer.Option(
+            help=(
+                "Read the listing from this JSON file (a GET /v0.1/servers page or a "
+                "list of entries) instead of the registry."
+            )
+        ),
+    ] = None,
+    concurrency: Annotated[
+        int,
+        typer.Option(help="Hosts scanned in parallel. Each host gets one connection at a time."),
+    ] = 8,
+    timeout: Annotated[float, typer.Option(help="Per-request timeout, seconds.")] = 10.0,
+    limit: Annotated[int | None, typer.Option(help="Scan at most this many endpoints.")] = None,
+) -> None:
+    """Scan every remote server in the MCP registry, in safe mode, and summarize."""
+    import datetime
+
+    from sentinel import population
+
+    try:
+        if listing is not None:
+            raw = json.loads(listing.read_text())
+            entries = raw.get("servers", []) if isinstance(raw, dict) else raw
+        else:
+            entries = list(population.fetch_listing(registry))
+    except Exception as exc:
+        typer.echo(f"sentinel: could not read the registry listing: {exc}", err=True)
+        raise typer.Exit(EXIT_HARNESS_ERROR) from exc
+
+    targets = population.targets_from_listing(entries)
+    listed = len({t.server for t in targets})
+    if limit is not None:
+        targets = targets[:limit]
+    typer.echo(
+        f"{len(entries)} registry entries; {listed} servers with a remote endpoint; "
+        f"scanning {len(targets)} endpoint(s) across {len({t.host for t in targets})} host(s)",
+        err=True,
+    )
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    jsonl = out_dir / "results.jsonl"
+    jsonl.write_text("")
+    done = 0
+
+    def record(result: population.Result) -> None:
+        nonlocal done
+        done += 1
+        with jsonl.open("a") as fh:
+            fh.write(population.to_jsonl([result]))
+        typer.echo(f"[{done}/{len(targets)}] {result.classification:<12} {result.url}", err=True)
+
+    results = population.scan_population(
+        targets, concurrency=concurrency, timeout=timeout, on_result=record
+    )
+    scanned_at = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+    summary = population.summarize(results, listed=listed, scanned_at=scanned_at)
+    (out_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+    (out_dir / "summary.md").write_text(population.render_markdown(summary))
+    typer.echo(population.render_markdown(summary))
+    raise typer.Exit(EXIT_OK)
 
 
 @app.command()
