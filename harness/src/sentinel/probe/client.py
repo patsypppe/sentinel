@@ -144,6 +144,28 @@ class Probe:
     def __exit__(self, *exc: object) -> None:
         self.close()
 
+    def with_token(self, token: str | None) -> Probe:
+        """A probe to the same endpoint presenting a different credential.
+
+        The gray-box rules need to be two principals, or a principal and an
+        attacker, against one server. Everything else -- trust, proxy, certificate,
+        timeout -- is copied, so the only difference between the two probes is who
+        they say they are. The caller owns the returned probe and must close it.
+        """
+        return Probe(
+            self.endpoint,
+            timeout=self._transport.timeout,
+            bearer_token=token,
+            protocol_version=self.protocol_version,
+            verify=self._transport.verify,
+            proxy=self._transport.proxy,
+            client_cert=self._transport.client_cert,
+            retries=self._transport.retries,
+            safe=self.safe,
+            budgets=self.budgets,
+            context=self.context,
+        )
+
     def new_connection(self) -> Probe:
         """A second probe to the same endpoint over a separate HTTP client.
 

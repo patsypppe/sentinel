@@ -50,6 +50,12 @@ class Handler(BaseHTTPRequestHandler):
     #: The transport allows either, so a fixture framed this way is exactly as
     #: conformant as one that is not -- which is what the harness is tested on.
     sse_framing: bool = False
+    #: Read-only endpoints a gray-box fixture exposes for the evidence commands
+    #: (`/_effects`, `/_audit`, `/_egress`): path -> text. They stand in for the
+    #: external sources a real operator would read: a database count, a log
+    #: verifier, a traffic capture. Never set on the conformant or non-conformant
+    #: fixtures.
+    introspect: Any = None
     server_version = "sentinel-fixture/0.1"
 
     def log_message(self, fmt: str, *args: Any) -> None:
@@ -89,6 +95,17 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
 
     def do_GET(self) -> None:
+        provider = type(self).introspect
+        if provider is not None and self.path.startswith("/_"):
+            text = provider(self.path)
+            if text is not None:
+                encoded = text.encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.send_header("Content-Length", str(len(encoded)))
+                self.end_headers()
+                self.wfile.write(encoded)
+                return
         self._legacy_method()
 
     def do_DELETE(self) -> None:

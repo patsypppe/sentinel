@@ -17,6 +17,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from sentinel.catalog.base import RuleResult, Severity, Verifiability, rule
+from sentinel.catalog.graybox_checks import audit_check
 from sentinel.probe.client import Probe
 
 
@@ -48,6 +49,8 @@ def invocations_audited(_: Probe) -> RuleResult:
         "verification command the server ships."
     )
 
+
+invocations_audited.graybox("audit_verify")(audit_check)
 
 # ---------------------------------------------------------------------------
 # tool-description-injection

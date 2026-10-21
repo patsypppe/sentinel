@@ -211,6 +211,16 @@ def scan(
     target_name: Annotated[
         str | None, typer.Option(help="A stable name for this target, used in fingerprints.")
     ] = None,
+    no_exec: Annotated[
+        bool,
+        typer.Option(
+            "--no-exec",
+            help=(
+                "Never run a command named in [graybox]. Token-shaped evidence still "
+                "works; command-shaped evidence is reported as incomplete."
+            ),
+        ),
+    ] = False,
     targets: Annotated[
         pathlib.Path | None,
         typer.Option(
@@ -314,6 +324,7 @@ def scan(
                 baseline=loaded_baseline,
                 snapshot=loaded_snapshot,
                 target_name=target_name,
+                allow_exec=not no_exec,
             )
         )
     except Exception as exc:

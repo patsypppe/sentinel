@@ -7,6 +7,8 @@ part of a fleet is graded by exactly the same code as one scanned by hand.
 from __future__ import annotations
 
 import datetime
+import os
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -15,6 +17,7 @@ from sentinel.budget import BudgetPolicy
 from sentinel.catalog.base import Severity
 from sentinel.config import Policy, today
 from sentinel.grade import BEYOND_SPEC_CATEGORIES, Gate, ScanReport, run_scan
+from sentinel.graybox import Evidence
 from sentinel.snapshot import Snapshot
 from sentinel.triage import apply_policy, effective_registry
 from sentinel.waivers import ConfigError
@@ -56,6 +59,10 @@ class ScanOptions:
     target_name: str | None = None
     today: datetime.date | None = None
     context: dict[str, Any] = field(default_factory=dict)
+    #: False disables every command-shaped gray-box evidence kind (`--no-exec`).
+    allow_exec: bool = True
+    #: The environment gray-box token variables are read from.
+    env: Mapping[str, str] | None = None
 
 
 def scan_target(options: ScanOptions) -> ScanReport:
@@ -66,6 +73,11 @@ def scan_target(options: ScanOptions) -> ScanReport:
         context["snapshot"] = options.snapshot
     if policy.graybox:
         context["graybox"] = policy.graybox
+        context["evidence"] = Evidence(
+            config=policy.graybox,
+            env=os.environ if options.env is None else options.env,
+            allow_exec=options.allow_exec,
+        )
     report = run_scan(
         options.endpoint,
         registry=effective_registry(policy),

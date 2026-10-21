@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any
 
 from sentinel.catalog.base import REGISTRY, Registry, Severity
+from sentinel.graybox import validate_graybox
 from sentinel.probe.transport import DEFAULT_RETRIES
 from sentinel.waivers import ConfigError, Waiver, parse_waiver
 
@@ -311,6 +312,7 @@ def load_policy(
         if not isinstance(gb, dict):
             raise ConfigError(f"{layer.path}: [graybox] must be a table")
         graybox.update(gb)
+    validate_graybox(graybox)
 
     policy.disabled = frozenset(disabled)
     policy.severity_overrides = overrides

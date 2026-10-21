@@ -18,7 +18,7 @@ import re
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from sentinel import SPEC_REVISION
 from sentinel.probe.client import Probe
@@ -64,6 +64,9 @@ class RuleResult:
     #: handle: anything that changes between scans of an unchanged server would
     #: make a baselined finding look new on every run.
     key: str = ""
+    #: What settled this verdict, when it was not the wire alone: the name of the
+    #: gray-box evidence kind. A reader can check the claim rather than trust it.
+    verified_by: str = ""
 
     @classmethod
     def passed(cls, detail: str = "", evidence: str = "") -> RuleResult:
@@ -160,6 +163,24 @@ class BaseRule:
     #: A rule that deliberately floods or otherwise disturbs the target runs
     #: alone, after every concurrent rule has drained.
     exclusive: bool = False
+    #: For an UNVERIFIABLE rule: the evidence kind that can settle it, and the
+    #: function that does. Set with `@rule_object.graybox("kind")`.
+    evidence_kind: str = ""
+    graybox_check: Callable[[Probe, Any], RuleResult] | None = None
+
+    def graybox(
+        self, kind: str
+    ) -> Callable[[Callable[[Probe, Any], RuleResult]], Callable[[Probe, Any], RuleResult]]:
+        """Attach the evidence-backed check for this rule."""
+
+        def attach(
+            check: Callable[[Probe, Any], RuleResult],
+        ) -> Callable[[Probe, Any], RuleResult]:
+            self.evidence_kind = kind
+            self.graybox_check = check
+            return check
+
+        return attach
 
     @property
     def namespace(self) -> Namespace:
@@ -189,6 +210,9 @@ class BaseRule:
 
     def evaluate(self, probe: Probe) -> RuleResult:
         if self.verifiability is Verifiability.UNVERIFIABLE:
+            supplied = self._evaluate_with_evidence(probe)
+            if supplied is not None:
+                return supplied
             # Enforced here rather than trusted to each rule. This is the
             # property §8.8 says a dishonest harness quietly breaks, so it is
             # not left to the discipline of whoever writes the next rule.
@@ -201,6 +225,31 @@ class BaseRule:
                 )
             return result
         return self.check(probe)
+
+    def _evaluate_with_evidence(self, probe: Probe) -> RuleResult | None:
+        """The one path along which an UNVERIFIABLE rule may return a verdict.
+
+        Only when the operator supplied the evidence this rule names. A rule with
+        none falls through to `check` and the coercion below, exactly as before, so
+        absence of evidence can never become a pass.
+        """
+        if self.graybox_check is None:
+            return None
+        evidence = probe.context.get("evidence")
+        status = getattr(evidence, "status", None)
+        if status is None:
+            return None
+        state, why = status(self.evidence_kind)
+        if state == "absent":
+            return None
+        if state == "incomplete":
+            return RuleResult.indeterminate(
+                f"{self.evidence_kind} evidence was started and not finished: {why}"
+            )
+        result = self.graybox_check(probe, evidence)
+        if result.outcome in (Outcome.PASS, Outcome.FAIL):
+            result.verified_by = self.evidence_kind
+        return result
 
 
 class Registry:

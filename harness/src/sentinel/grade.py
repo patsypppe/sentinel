@@ -121,7 +121,8 @@ class Finding:
 
     @property
     def verified_by(self) -> str:
-        return "black_box"
+        """`black_box`, or the gray-box evidence kind that settled the verdict."""
+        return self.result.verified_by or "black_box"
 
 
 @dataclass(slots=True)
