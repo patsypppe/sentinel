@@ -131,7 +131,7 @@ def manifest_cost(tools: list[Any]) -> tuple[int, list[ToolCost]]:
 
     Returns the whole-manifest count and a per-tool breakdown. The per-tool
     figure concatenates name, description and both schemas exactly as
-    `countTokens` does in broker/internal/registry/tokens.go, so a number from
+    `countTokens` does in mcp/registry/tokens.go, so a number from
     either side of the project is the same number.
     """
     per_tool: list[ToolCost] = []

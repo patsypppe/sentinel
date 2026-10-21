@@ -20,18 +20,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/patsypppe/sentinel/broker/internal/audit"
-	"github.com/patsypppe/sentinel/broker/internal/authz"
 	"github.com/patsypppe/sentinel/broker/internal/config"
-	"github.com/patsypppe/sentinel/broker/internal/envelope"
-	"github.com/patsypppe/sentinel/broker/internal/handles"
-	"github.com/patsypppe/sentinel/broker/internal/mrtr"
-	"github.com/patsypppe/sentinel/broker/internal/registry"
-	"github.com/patsypppe/sentinel/broker/internal/store"
 	"github.com/patsypppe/sentinel/broker/internal/tools/ops"
 	"github.com/patsypppe/sentinel/broker/internal/tools/warehouse"
-	"github.com/patsypppe/sentinel/broker/internal/transport"
 	"github.com/patsypppe/sentinel/broker/internal/version"
+	"github.com/patsypppe/sentinel/mcp/audit"
+	"github.com/patsypppe/sentinel/mcp/authz"
+	"github.com/patsypppe/sentinel/mcp/envelope"
+	"github.com/patsypppe/sentinel/mcp/handles"
+	"github.com/patsypppe/sentinel/mcp/mrtr"
+	"github.com/patsypppe/sentinel/mcp/registry"
+	"github.com/patsypppe/sentinel/mcp/server"
+	"github.com/patsypppe/sentinel/mcp/store"
+	"github.com/patsypppe/sentinel/mcp/transport"
 )
 
 func main() {
@@ -182,27 +183,16 @@ func buildEngine(cfg config.Config, st *store.Store, log *slog.Logger) (*mrtr.En
 	})
 }
 
-// buildMux registers every method this server implements. Removed methods are
-// deliberately absent from registration and answered by the dispatcher with a
-// method-not-found carrying the revision that removed them.
+// buildMux registers every method this server implements, through the kit's
+// default pipeline. The broker adds nothing to it.
 func buildMux(info envelope.Info, reg *registry.Registry, cfg config.Config) *transport.Mux {
-	toolsListPolicy := envelope.CachePolicy{
+	return server.DefaultMux(info, instructions, reg, envelope.CachePolicy{
 		TTLMs: cfg.ToolsListCacheTTLMs,
 		// private, because the visible tool set varies with the principal's
 		// scopes. public here would let a shared intermediary serve one
 		// tenant's tool list to another.
 		Scope: envelope.ScopePrivate,
-	}
-
-	mux := transport.NewMux()
-	mux.Handle(envelope.MethodDiscover, transport.DiscoverHandler(info, instructions))
-	mux.Handle(envelope.MethodToolsList, transport.ToolsListHandler(reg, toolsListPolicy))
-	mux.Handle(envelope.MethodToolsCall, transport.ToolsCallHandler(reg))
-	mux.Handle(envelope.MethodResourcesList, transport.ResourcesListHandler(toolsListPolicy))
-	mux.Handle(envelope.MethodResourceTemplatesList, transport.ResourceTemplatesListHandler(toolsListPolicy))
-	mux.Handle(envelope.MethodResourcesRead, transport.ResourcesReadHandler(toolsListPolicy))
-	mux.Handle(envelope.MethodPromptsList, transport.PromptsListHandler(toolsListPolicy))
-	return mux
+	})
 }
 
 // manifestReport is what `broker manifest` prints. scripts/measure.py consumes
@@ -344,7 +334,10 @@ func serve(out io.Writer) error {
 		opts = append(opts, transport.WithAuditSink(sink))
 	}
 
-	srv := transport.NewServer(buildMux(info, reg, cfg), cfg, info, log, opts...)
+	srv := transport.NewServer(buildMux(info, reg, cfg), transport.Settings{
+		AllowedOrigins:         cfg.AllowedOrigins,
+		AllowLegacyUnversioned: cfg.AllowLegacyUnversioned,
+	}, info, log, opts...)
 
 	httpSrv := &http.Server{
 		Addr:              cfg.Addr,

@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/patsypppe/sentinel/broker/internal/envelope"
-	"github.com/patsypppe/sentinel/broker/internal/mrtr"
-	"github.com/patsypppe/sentinel/broker/internal/registry"
+	"github.com/patsypppe/sentinel/mcp/envelope"
+	"github.com/patsypppe/sentinel/mcp/mrtr"
+	"github.com/patsypppe/sentinel/mcp/registry"
 )
 
 // Resolver resolves a principal-bound handle. Declared where it is used.

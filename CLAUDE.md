@@ -33,9 +33,9 @@ the non-conformant fixture server.
 
 | File | Sole authority for |
 |---|---|
-| `broker/internal/envelope/errors.go` | every error code |
-| `broker/internal/handles/resolve.go` | making a handle usable |
-| `broker/internal/authz/audience.go` | accepting a token |
+| `mcp/envelope/errors.go` | every error code |
+| `mcp/handles/resolve.go` | making a handle usable |
+| `mcp/authz/audience.go` | accepting a token |
 
 ## Hard constraints
 

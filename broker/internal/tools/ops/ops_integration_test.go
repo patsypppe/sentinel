@@ -12,10 +12,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/patsypppe/sentinel/broker/internal/handles"
-	"github.com/patsypppe/sentinel/broker/internal/mrtr"
-	"github.com/patsypppe/sentinel/broker/internal/registry"
-	"github.com/patsypppe/sentinel/broker/internal/store"
+	"github.com/patsypppe/sentinel/mcp/handles"
+	"github.com/patsypppe/sentinel/mcp/mrtr"
+	"github.com/patsypppe/sentinel/mcp/registry"
+	"github.com/patsypppe/sentinel/mcp/store"
 )
 
 // The §10 (WP-6) definition of done, end to end through the real tools:

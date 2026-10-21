@@ -11,7 +11,7 @@ authoritative in this repository:
 | PRD reference | Where it lives here |
 |---|---|
 | §3.2 / Appendix C — the MVP capability set | `docs/HANDOFF.md` §3.1 (the 15 `SN-CAP` rows) |
-| §6.2 — database schema | `broker/internal/store/migrations/` |
+| §6.2 — database schema | `mcp/store/migrations/` |
 | §7.4 — configuration keys | `broker/internal/config/config.go` |
 | Appendix C — demo script | `docs/HANDOFF.md` §13, `docs/demo/` |
 

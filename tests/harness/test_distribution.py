@@ -185,7 +185,7 @@ def test_the_dockerfile_runs_as_a_non_root_user_with_the_cli_as_entrypoint() -> 
     assert 'ENTRYPOINT ["sentinel"]' in text
     final = text.split("FROM python:3.12-slim")[-1]
     assert "pip install build" not in final, "the final stage must not carry the build tooling"
-    assert (ROOT / ".dockerignore").read_text().count("broker/") == 1
+    assert (ROOT / "Dockerfile.dockerignore").read_text().count("broker/") == 1
 
 
 def test_the_release_workflow_signs_and_ships_an_sbom_without_a_stored_key() -> None:

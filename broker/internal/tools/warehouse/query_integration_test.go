@@ -13,9 +13,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/patsypppe/sentinel/broker/internal/envelope"
-	"github.com/patsypppe/sentinel/broker/internal/registry"
-	"github.com/patsypppe/sentinel/broker/internal/store"
+	"github.com/patsypppe/sentinel/mcp/envelope"
+	"github.com/patsypppe/sentinel/mcp/registry"
+	"github.com/patsypppe/sentinel/mcp/store"
 )
 
 // These tests run against a real Postgres because the SQL guard's whole design

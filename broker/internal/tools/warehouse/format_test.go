@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/patsypppe/sentinel/broker/internal/registry"
+	"github.com/patsypppe/sentinel/mcp/registry"
 )
 
 func sampleRows(n int) Rows {

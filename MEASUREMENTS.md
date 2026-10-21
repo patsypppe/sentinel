@@ -25,7 +25,7 @@ Generated in 4.5s.
 
 **Result:** **2032** tokens across **4** tool(s)
 
-**Method:** `broker manifest`, tokenizer `sentinel/approx-v1` — a deterministic, dependency-free approximation defined in `broker/internal/registry/tokens.go`, not a model tokenizer. It is in-repo on purpose: this measurement must be reproducible by anyone who clones the repository, on a machine with no model API key, which is why this project has none.
+**Method:** `broker manifest`, tokenizer `sentinel/approx-v1` — a deterministic, dependency-free approximation defined in `mcp/registry/tokens.go`, not a model tokenizer. It is in-repo on purpose: this measurement must be reproducible by anyone who clones the repository, on a machine with no model API key, which is why this project has none.
 
 | Tool | Tokens |
 |---|---|

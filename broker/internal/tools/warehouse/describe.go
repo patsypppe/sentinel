@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/patsypppe/sentinel/broker/internal/envelope"
-	"github.com/patsypppe/sentinel/broker/internal/registry"
+	"github.com/patsypppe/sentinel/mcp/envelope"
+	"github.com/patsypppe/sentinel/mcp/registry"
 )
 
 // DescribeTool is warehouse.describe: the schema of the tables this principal

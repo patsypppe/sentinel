@@ -64,7 +64,7 @@ def measure_manifest_tokens(report: dict[str, object]) -> Measurement:
         name="Manifest token count",
         method=(
             f"`broker manifest`, tokenizer `{tokenizer}` — a deterministic, "
-            "dependency-free approximation defined in `broker/internal/registry/tokens.go`, "
+            "dependency-free approximation defined in `mcp/registry/tokens.go`, "
             "not a model tokenizer. It is in-repo on purpose: this measurement must be "
             "reproducible by anyone who clones the repository, on a machine with no model "
             "API key, which is why this project has none."

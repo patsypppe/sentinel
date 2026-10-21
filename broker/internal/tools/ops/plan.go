@@ -13,8 +13,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/patsypppe/sentinel/broker/internal/envelope"
-	"github.com/patsypppe/sentinel/broker/internal/registry"
+	"github.com/patsypppe/sentinel/mcp/envelope"
+	"github.com/patsypppe/sentinel/mcp/registry"
 )
 
 // Minter mints principal-bound state handles. Declared here, where it is used.

@@ -235,7 +235,7 @@ Do not add: a web framework, an ORM, a JSON-RPC library that hides the envelope 
 Every request carries protocol metadata in `_meta`; every result carries `resultType` and echoes `serverInfo`.
 
 ```go
-// broker/internal/envelope/meta.go
+// mcp/envelope/meta.go
 const (
     KeyProtocolVersion   = "io.modelcontextprotocol/protocolVersion"
     KeyClientCapabilities = "io.modelcontextprotocol/clientCapabilities"
@@ -289,7 +289,7 @@ Reserve `-32020` … `-32099` for the specification and never allocate inside it
 
 Broker is a new implementation written against `2026-07-28`, so both sentences apply to it: nothing it allocates may go in the retired sub-range, and its codes belong outside the JSON-RPC reserved range entirely.
 
-- The eight implementation-defined codes moved from `-32000` … `-32008` to `1000` … `1008`, defined in `broker/internal/envelope/errors.go` and nowhere else.
+- The eight implementation-defined codes moved from `-32000` … `-32008` to `1000` … `1008`, defined in `mcp/envelope/errors.go` and nowhere else.
 - The low ordinal is preserved so triage knowledge transfers: `-32007` became `1007`. `1002` is skipped, mirroring `-32002`, which was resource-not-found before this revision.
 - `envelope.LegacyCode` maps each new code back to the one it replaced, so a client mid-migration can still triage on the old number.
 - `MCP/2026-07-28/SHOULD/no-errors-in-legacy-range` grades this on any server, so the repository detects the mistake rather than only having stopped making it. It is a SHOULD because the specification grades *using* a retired code `SHOULD NOT`; the `MUST NOT` binds allocation, which no black-box scan can observe.
@@ -301,7 +301,7 @@ Broker is a new implementation written against `2026-07-28`, so both sentences a
 A tool cannot exist without declaring all six properties. Enforce it in the interface, not in a review checklist.
 
 ```go
-// broker/internal/registry/registry.go
+// mcp/registry/registry.go
 type Tool interface {
     Name() string                    // namespaced: "warehouse.query"
     InputSchema() json.RawMessage    // JSON Schema 2020-12
@@ -502,7 +502,7 @@ Rules that must hold, each as a named test:
 ### 8.6 Audience validation and the passthrough ban
 
 ```go
-// broker/internal/authz/audience.go — the only place a token is accepted
+// mcp/authz/audience.go — the only place a token is accepted
 func Validate(tok string, cfg Config) (Principal, error) {
     claims, err := verifySignature(tok, cfg.JWKS)
     if err != nil { return Principal{}, ErrUnauthenticated }
@@ -654,7 +654,7 @@ docker compose up -d postgres && docker compose ps
 
 **Acceptance.**
 ```bash
-go test ./broker/internal/envelope/... -run TestNegotiation -v
+go test ./mcp/envelope/... -run TestNegotiation -v
 curl -s localhost:8080/mcp -H 'Mcp-Method: server/discover' \
   -d @testdata/discover.json | jq '.result.resultType, .result.supportedVersions'
 ```
@@ -693,7 +693,7 @@ Tests: a missing header is rejected; a header disagreeing with the body returns 
 
 **Acceptance.**
 ```bash
-go test ./broker/internal/registry/... -v
+go test ./mcp/registry/... -v
 make measure    # writes manifest token counts into MEASUREMENTS.md
 ```
 
@@ -729,7 +729,7 @@ Tests: `concise` versus `detailed` token counts recorded per tool; a query touch
 
 **Acceptance.**
 ```bash
-go test ./broker/internal/handles/... -v
+go test ./mcp/handles/... -v
 ```
 
 Required tests: `TestHandleIsCSPRNG` (≥128 bits of entropy, no sequential structure); `TestCrossPrincipalHandleRefused`; `TestNonexistentAndUnauthorizedAreIndistinguishable` (identical error code and message for both — this is the enumeration-oracle defense); `TestExpiredHandleRefused`; `TestGCRemovesExpired`.
@@ -748,7 +748,7 @@ Required tests: `TestHandleIsCSPRNG` (≥128 bits of entropy, no sequential stru
 
 **Acceptance.**
 ```bash
-go test ./broker/internal/mrtr/... -v
+go test ./mcp/mrtr/... -v
 uv run pytest tests/e2e/test_mrtr.py -v
 ```
 
@@ -768,7 +768,7 @@ Every test in the §8.5 table, by name. `TestDuplicateRetryIsIdempotent` must as
 
 **Acceptance.**
 ```bash
-go test ./broker/internal/authz/... -v
+go test ./mcp/authz/... -v
 ```
 
 `TestTokenForAnotherAudienceRejected` and `TestInboundTokenNeverForwarded` are both required. The second captures all outbound requests during a served call and asserts the inbound token string appears in none.
@@ -785,7 +785,7 @@ go test ./broker/internal/authz/... -v
 
 **Acceptance.**
 ```bash
-go test ./broker/internal/audit/... -v
+go test ./mcp/audit/... -v
 broker audit verify --from 2026-09-01 --to 2026-09-30
 ```
 
