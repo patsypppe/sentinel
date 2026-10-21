@@ -113,7 +113,7 @@ def test_documented_boundaries(text: str, expected: int, why: str) -> None:
 
 def test_the_tokenizer_name_matches_the_broker() -> None:
     """Every number either side publishes must be attributable to one method."""
-    go_source = (
-        Path(__file__).parents[2] / "mcp" / "registry" / "tokens.go"
-    ).read_text(encoding="utf-8")
+    go_source = (Path(__file__).parents[2] / "mcp" / "registry" / "tokens.go").read_text(
+        encoding="utf-8"
+    )
     assert f'TokenizerName = "{TOKENIZER_NAME}"' in go_source

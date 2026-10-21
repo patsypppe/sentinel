@@ -81,6 +81,31 @@ def _tls(insecure: bool, ca_bundle: pathlib.Path | None) -> bool | str:
     return str(ca_bundle) if ca_bundle is not None else True
 
 
+def _publish_report(
+    base_url: str, report: object, severity: object, code: int, schema_version: int
+) -> None:
+    """Send one report to the service. A failure is a warning, never a verdict."""
+    from sentinel.publish import publish
+    from sentinel.report import render_report
+
+    if schema_version != 2:
+        typer.echo("sentinel: --publish needs the schema 2 JSON report; not published", err=True)
+        return
+    document = json.loads(
+        render_report(
+            "json",
+            report,  # type: ignore[arg-type]
+            gate=None if severity is None else str(severity),
+            gate_failed=code == EXIT_GATE_FAILED,
+        )
+    )
+    outcome = publish(base_url, document)
+    typer.echo(
+        f"sentinel: {outcome.detail}" if outcome.ok else f"sentinel: WARNING {outcome.detail}",
+        err=True,
+    )
+
+
 def _emit(rendered: str, out: pathlib.Path | None, summary: str | None) -> None:
     if out is not None:
         out.write_text(rendered)
@@ -221,6 +246,17 @@ def scan(
             ),
         ),
     ] = None,
+    publish_to: Annotated[
+        str | None,
+        typer.Option(
+            "--publish",
+            help=(
+                "Also send the report to a sentinel-server at this base URL. Never changes "
+                "the exit code: a publish failure is a warning. The bearer token is read "
+                "from SENTINEL_PUBLISH_TOKEN."
+            ),
+        ),
+    ] = None,
     no_exec: Annotated[
         bool,
         typer.Option(
@@ -310,6 +346,16 @@ def scan(
             ),
             extension,
         )
+        if publish_to is not None:
+            for result in results:
+                if result.report is not None:
+                    _publish_report(
+                        publish_to,
+                        result.report,
+                        parse_gate(result.gate if result.gate != "(none)" else None),
+                        result.exit_code,
+                        schema_version,
+                    )
         summary = fleet_mod.rollup(results)
         typer.echo(summary.to_text(), nl=False)
         typer.echo(f"wrote {len(written)} file(s) to {out_dir}")
@@ -372,6 +418,9 @@ def scan(
         except OSError as exc:
             raise _fail(f"cannot write {extra_path}: {exc}") from exc
 
+    if publish_to is not None:
+        _publish_report(publish_to, report, severity, code, schema_version)
+
     _emit(rendered, out, render_text(report, color=not no_color))
     raise typer.Exit(code)
 
@@ -383,7 +432,11 @@ app.add_typer(baseline_app, name="baseline")
 
 
 def _scan_for_baseline(
-    endpoint: str | None, config: pathlib.Path | None, token: str | None, timeout: float | None
+    endpoint: str | None,
+    config: pathlib.Path | None,
+    token: str | None,
+    timeout: float | None,
+    target_name: str | None = None,
 ) -> tuple[object, object]:
     from sentinel.config import load_policy
     from sentinel.runner import ScanOptions, scan_target
@@ -399,7 +452,12 @@ def _scan_for_baseline(
         # No waivers and no baseline: a baseline records what the server does,
         # not what a policy chose to forgive.
         report = scan_target(
-            ScanOptions(endpoint=policy.endpoint, policy=policy, token=token or policy.token())
+            ScanOptions(
+                endpoint=policy.endpoint,
+                policy=policy,
+                token=token or policy.token(),
+                target_name=target_name,
+            )
         )
     except Exception as exc:
         raise _fail(f"the scan could not run: {exc}") from exc
@@ -415,11 +473,21 @@ def baseline_create(
     config: Annotated[pathlib.Path | None, typer.Option(help="A sentinel.toml.")] = None,
     token: Annotated[str | None, typer.Option(help="Bearer token.")] = None,
     timeout: Annotated[float | None, typer.Option(help="Per-request timeout, seconds.")] = None,
+    target_name: Annotated[
+        str | None,
+        typer.Option(
+            help=(
+                "The target's name, if you scan it by name (a fleet target, or --target-name). "
+                "A finding's identity includes it, so a baseline only matches scans that use "
+                "the same name."
+            )
+        ),
+    ] = None,
 ) -> None:
     """Record every current failure, so the gate fires only on what is new."""
     from sentinel import baseline as baseline_mod
 
-    report, _ = _scan_for_baseline(endpoint, config, token, timeout)
+    report, _ = _scan_for_baseline(endpoint, config, token, timeout, target_name)
     created = baseline_mod.create(report)  # type: ignore[arg-type]
     baseline_mod.save(created, out)
     typer.echo(f"wrote {out}: {len(created.entries)} known failure(s) on {created.target}")
@@ -433,6 +501,9 @@ def baseline_prune(
     config: Annotated[pathlib.Path | None, typer.Option(help="A sentinel.toml.")] = None,
     token: Annotated[str | None, typer.Option(help="Bearer token.")] = None,
     timeout: Annotated[float | None, typer.Option(help="Per-request timeout, seconds.")] = None,
+    target_name: Annotated[
+        str | None, typer.Option(help="The target's name; must match the baseline's.")
+    ] = None,
 ) -> None:
     """Drop baseline entries that now pass, so the file only ever shrinks as you fix things."""
     from sentinel import baseline as baseline_mod
@@ -442,7 +513,7 @@ def baseline_prune(
         existing = baseline_mod.load(baseline)
     except ConfigError as exc:
         raise _fail(str(exc)) from exc
-    report, _ = _scan_for_baseline(endpoint, config, token, timeout)
+    report, _ = _scan_for_baseline(endpoint, config, token, timeout, target_name)
     pruned, dropped = baseline_mod.prune(existing, report)  # type: ignore[arg-type]
     baseline_mod.save(pruned, baseline)
     typer.echo(

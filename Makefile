@@ -7,7 +7,7 @@
 GO := $(shell command -v /opt/homebrew/bin/go 2>/dev/null || command -v go)
 UV := uv
 
-BROKER_PKGS := ./broker/... ./mcp/...
+BROKER_PKGS := ./broker/... ./mcp/... ./fleet/...
 
 .DEFAULT_GOAL := help
 

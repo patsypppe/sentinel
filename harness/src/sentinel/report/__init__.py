@@ -19,6 +19,7 @@ def render_report(
     sarif_anchor: str = "README.md",
     schema_version: int = 2,
     gate_failed: bool | None = None,
+    gate: str | None = None,
 ) -> str:
     """Render `report` in `fmt`. Raises ValueError for an unknown format."""
     if fmt == "text":
@@ -28,7 +29,9 @@ def render_report(
     if fmt == "json":
         from sentinel.report.json_report import render as render_json
 
-        return json.dumps(render_json(report, schema_version=schema_version), indent=2) + "\n"
+        verdict = None if gate is None else {"selected": gate, "failed": bool(gate_failed)}
+        rendered = render_json(report, schema_version=schema_version, gate=verdict)
+        return json.dumps(rendered, indent=2) + "\n"
     if fmt == "sarif":
         from sentinel.report.sarif import render as render_sarif
 

@@ -8,7 +8,9 @@ from sentinel.catalog.base import Outcome, Severity
 from sentinel.grade import ScanReport
 
 
-def render(report: ScanReport, *, schema_version: int = 2) -> dict[str, Any]:
+def render(
+    report: ScanReport, *, schema_version: int = 2, gate: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """A stable JSON shape. `schema_version=1` re-emits the original, for one more
     minor release, so a consumer pinned to it keeps working.
 
@@ -17,7 +19,10 @@ def render(report: ScanReport, *, schema_version: int = 2) -> dict[str, Any]:
     """
     if schema_version == 1:
         return _render_v1(report)
-    return _render_v2(report)
+    payload = _render_v2(report)
+    if gate is not None:
+        payload["gate"] = gate
+    return payload
 
 
 def _waiver(w: object) -> dict[str, Any] | None:

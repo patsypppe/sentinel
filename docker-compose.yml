@@ -78,6 +78,25 @@ services:
       retries: 30
     restart: unless-stopped
 
+  # The fleet service. Off by default (`docker compose --profile fleet up`), because
+  # nothing else in this topology needs it. Reads need a token, ingest needs another;
+  # both are development values and must not be reused anywhere real.
+  fleet:
+    profiles: ["fleet"]
+    build:
+      context: ./fleet
+    environment:
+      SENTINEL_SERVER_ADDR: "0.0.0.0:8088"
+      SENTINEL_SERVER_INGEST_TOKEN: fleet_ingest_dev_only
+      SENTINEL_SERVER_READ_TOKEN: fleet_read_dev_only
+      SENTINEL_SERVER_DATABASE_URL: postgres://fleet_app:fleet_app_dev_only@postgres:5432/fleet?sslmode=disable
+      SENTINEL_SERVER_MIGRATE_DATABASE_URL: postgres://sentinel:sentinel_dev_only@postgres:5432/fleet?sslmode=disable
+    ports:
+      - "127.0.0.1:8088:8088"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   envoy:
     image: envoyproxy/envoy:v1.31-latest
     # Routes and authorizes on `Mcp-Method` / `Mcp-Name` alone. There is no
