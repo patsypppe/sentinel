@@ -1,0 +1,111 @@
+name: Sentinel MCP conformance
+description: >-
+  Grade an MCP server against the 2026-07-28 specification. Fails the job on any
+  MUST violation, reports what cannot be verified from the wire, and uploads the
+  findings to GitHub code scanning.
+author: patsypppe
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  endpoint:
+    description: The MCP endpoint to scan, e.g. http://localhost:3000/mcp.
+    required: true
+  gate:
+    description: >-
+      Fail the job if any rule of this severity FAILs: must, should, or a
+      beyond-spec category (security, style, ops). Empty to never fail.
+    required: false
+    default: must
+  token:
+    description: Bearer token to present to the server, if it requires one.
+    required: false
+    default: ''
+  safe:
+    description: >-
+      'true' to never invoke a tool the server has not annotated read-only.
+      Use it for servers you do not own.
+    required: false
+    default: 'false'
+  sarif-file:
+    description: Where to write the SARIF report.
+    required: false
+    default: sentinel.sarif
+  sarif-anchor:
+    description: >-
+      Repository file the code-scanning annotations attach to. A conformance
+      finding is about a service, not a file, but GitHub needs a path.
+    required: false
+    default: README.md
+  upload-sarif:
+    description: "'true' to upload the report to GitHub code scanning (needs security-events: write)."
+    required: false
+    default: 'true'
+  python-version:
+    description: Python used to run the scanner.
+    required: false
+    default: '3.12'
+
+outputs:
+  exit-code:
+    description: 0 = gate passed, 1 = gate failed, 2 = the scanner could not run.
+    value: ${{ steps.scan.outputs.exit-code }}
+  sarif-file:
+    description: Path of the SARIF report.
+    value: ${{ inputs.sarif-file }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: install sentinel
+      shell: bash
+      run: python -m pip install --quiet "${{ github.action_path }}/harness"
+
+    - name: scan
+      id: scan
+      shell: bash
+      env:
+        SENTINEL_ENDPOINT: ${{ inputs.endpoint }}
+        SENTINEL_GATE: ${{ inputs.gate }}
+        SENTINEL_TOKEN: ${{ inputs.token }}
+        SENTINEL_SAFE: ${{ inputs.safe }}
+        SENTINEL_SARIF: ${{ inputs.sarif-file }}
+        SENTINEL_ANCHOR: ${{ inputs.sarif-anchor }}
+      run: |
+        args=(scan --endpoint "$SENTINEL_ENDPOINT" --format sarif --out "$SENTINEL_SARIF"
+              --sarif-anchor "$SENTINEL_ANCHOR" --no-color)
+        [ -n "$SENTINEL_GATE" ] && args+=(--gate "$SENTINEL_GATE")
+        [ -n "$SENTINEL_TOKEN" ] && args+=(--token "$SENTINEL_TOKEN")
+        [ "$SENTINEL_SAFE" = "true" ] && args+=(--safe)
+        set +e
+        sentinel "${args[@]}"
+        code=$?
+        set -e
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        {
+          echo "### Sentinel: MCP conformance"
+          echo
+          case "$code" in
+            0) echo "Gate **passed** for \`$SENTINEL_ENDPOINT\`." ;;
+            1) echo "Gate **failed** for \`$SENTINEL_ENDPOINT\`: at least one ${SENTINEL_GATE^^} rule failed." ;;
+            *) echo "The scanner **could not run** against \`$SENTINEL_ENDPOINT\` (exit $code)." ;;
+          esac
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: upload to code scanning
+      if: ${{ always() && inputs.upload-sarif == 'true' && hashFiles(inputs.sarif-file) != '' }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.sarif-file }}
+        category: sentinel-mcp-conformance
+
+    - name: apply the gate
+      shell: bash
+      env:
+        CODE: ${{ steps.scan.outputs.exit-code }}
+      run: exit "$CODE"
