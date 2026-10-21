@@ -1,6 +1,7 @@
 package envelope
 
 import (
+	"encoding/json"
 	"testing"
 )
 
@@ -19,10 +20,12 @@ func testConfig() NegotiationConfig {
 // docs/HANDOFF.md §8.1: {absent, 2025-11-25, 2026-07-28, 2099-01-01, malformed}
 // × {server/discover, tools/list, tools/call}.
 //
-// The row that matters most is server/discover: it MUST be answerable without a
-// negotiated version, because its entire purpose is to let a client find out
-// what versions exist before committing to one. Serving -32022 from it makes the
-// server undiscoverable.
+// server/discover negotiates exactly like tools/list in the final 2026-07-28
+// text, with one difference that falls out of the rules rather than being
+// special-cased: it did not exist in 2025-11-25, so an UNVERSIONED discover
+// cannot be served under the legacy fallback and is -32022. (Earlier versions
+// exempted discover from negotiation entirely; the official conformance suite
+// showed the exemption was wrong.)
 func TestNegotiationMatrix(t *testing.T) {
 	const (
 		absent    = ""
@@ -38,13 +41,12 @@ func TestNegotiationMatrix(t *testing.T) {
 	}
 
 	cells := []cell{
-		// server/discover — answerable at every version state, including
-		// none at all and ones this server has never heard of.
-		{absent, MethodDiscover, 0, false},
-		{RevisionLegacy, MethodDiscover, 0, false},
+		// server/discover — negotiated like any request.
+		{absent, MethodDiscover, CodeUnsupportedProtocolVersion, false},
+		{RevisionLegacy, MethodDiscover, 0, true},
 		{RevisionCurrent, MethodDiscover, 0, false},
-		{future, MethodDiscover, 0, false},
-		{malformed, MethodDiscover, 0, false},
+		{future, MethodDiscover, CodeUnsupportedProtocolVersion, false},
+		{malformed, MethodDiscover, CodeUnsupportedProtocolVersion, false},
 
 		// tools/list — ordinary negotiation.
 		{absent, "tools/list", 0, true},
@@ -113,17 +115,42 @@ func TestNegotiationUnsupportedListsSupportedVersions(t *testing.T) {
 	if !ok {
 		t.Fatalf("error data = %T, want UnsupportedVersionData", rpcErr.Data)
 	}
-	if len(data.SupportedVersions) == 0 {
-		t.Fatal("supportedVersions must be listed so the client can retry correctly")
+	if len(data.Supported) == 0 {
+		t.Fatal("supported must be listed so the client can retry correctly")
 	}
 	found := false
-	for _, v := range data.SupportedVersions {
+	for _, v := range data.Supported {
 		if v == RevisionCurrent {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("supportedVersions %v omits the revision this server implements", data.SupportedVersions)
+		t.Fatalf("supported %v omits the revision this server implements", data.Supported)
+	}
+	if data.Requested != "2099-01-01" {
+		t.Fatalf("requested = %q, want the version the client asked for", data.Requested)
+	}
+}
+
+// TestUnsupportedVersionDataUsesTheErrorSchemaNames: the -32022 data object is
+// the UnsupportedProtocolVersionError schema -- `supported` and `requested`,
+// both required -- not the DiscoverResult's `supportedVersions`.
+func TestUnsupportedVersionDataUsesTheErrorSchemaNames(t *testing.T) {
+	raw, err := json.Marshal(UnsupportedVersionData{Supported: []string{RevisionCurrent}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &keys); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"supported", "requested"} {
+		if _, ok := keys[want]; !ok {
+			t.Fatalf("error data %s lacks %q", raw, want)
+		}
+	}
+	if _, ok := keys["supportedVersions"]; ok {
+		t.Fatalf("error data %s uses the DiscoverResult field name", raw)
 	}
 }
 
@@ -141,27 +168,27 @@ func TestNegotiationLegacyDisabled(t *testing.T) {
 		t.Fatalf("code = %d, want %d", rpcErr.Code, CodeUnsupportedProtocolVersion)
 	}
 
-	// server/discover stays exempt even here. A server whose legacy support is
-	// off must still be discoverable, or a client can never learn why it was
-	// refused.
-	if _, err := Negotiate(RequestMeta{ProtocolVersion: ""}, MethodDiscover, cfg); err != nil {
-		t.Fatalf("server/discover must answer without a negotiated version, got %d", err.Code)
+	// server/discover too: it negotiates like any request.
+	if _, err := Negotiate(RequestMeta{ProtocolVersion: ""}, MethodDiscover, cfg); err == nil {
+		t.Fatal("an unversioned server/discover was served with legacy support off")
 	}
 }
 
-// TestDiscoverAnswerableWithoutNegotiatedVersion is called out by name in the
-// handoff (WP-1 required tests). It overlaps the matrix deliberately: this is
-// the property most likely to regress, and it deserves a test whose failure
-// message says exactly what broke.
-func TestDiscoverAnswerableWithoutNegotiatedVersion(t *testing.T) {
-	for _, version := range []string{"", "2099-01-01", "garbage", RevisionLegacy} {
-		out, rpcErr := Negotiate(RequestMeta{ProtocolVersion: version}, MethodDiscover, testConfig())
-		if rpcErr != nil {
-			t.Fatalf("server/discover refused version %q with code %d — the server is now undiscoverable",
-				version, rpcErr.Code)
+// TestDiscoverRejectsAnUnsupportedVersionWithTheSupportedList replaces the old
+// TestDiscoverAnswerableWithoutNegotiatedVersion. The final text lets a server
+// answer server/discover with UnsupportedProtocolVersionError, and the
+// `supported` list in that error is how a client that guessed wrong learns what
+// to retry with -- so discovery still works, through the error.
+func TestDiscoverRejectsAnUnsupportedVersionWithTheSupportedList(t *testing.T) {
+	for _, version := range []string{"2099-01-01", "garbage"} {
+		_, rpcErr := Negotiate(RequestMeta{ProtocolVersion: version}, MethodDiscover, testConfig())
+		if rpcErr == nil || rpcErr.Code != CodeUnsupportedProtocolVersion {
+			t.Fatalf("server/discover at %q: want -32022, got %v", version, rpcErr)
 		}
-		if out.Version == "" {
-			t.Fatalf("server/discover at version %q resolved no version", version)
+		data, ok := rpcErr.Data.(UnsupportedVersionData)
+		if !ok || len(data.Supported) == 0 || data.Requested != version {
+			t.Fatalf("server/discover at %q: error data %+v must list supported and echo requested",
+				version, rpcErr.Data)
 		}
 	}
 }
@@ -190,8 +217,7 @@ func TestLegacyFallbackIsRecorded(t *testing.T) {
 // stateless revision does not, so it cannot be served under 2025-11-25.
 func TestMethodNewInCurrentRevisionRefusedUnderLegacy(t *testing.T) {
 	// tools/call and tools/list exist in both revisions; a stateless-only
-	// method does not. server/discover is the canonical example, but it is
-	// exempt from negotiation, so the check uses the explicit set instead.
+	// method such as server/discover does not.
 	if ExistsInLegacyRevision(MethodDiscover) {
 		t.Fatal("server/discover is new in 2026-07-28 and must not be considered a legacy method")
 	}

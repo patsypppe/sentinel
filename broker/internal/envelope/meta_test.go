@@ -68,8 +68,7 @@ func TestClientCapabilitiesHaveNoLegacyEscapeHatch(t *testing.T) {
 			t.Fatalf("clientCapabilities was optional with AllowLegacy=%v", cfg.AllowLegacy)
 		}
 	}
-	// Including on discovery: the exemption there is from naming a VERSION, not
-	// from saying what the client can do.
+	// Including on discovery.
 	if err := RequireMetaFields(RequestMeta{}, MethodDiscover, fallbackOn()); err == nil {
 		t.Fatal("server/discover accepted a request that declared no clientCapabilities")
 	}
@@ -110,12 +109,17 @@ func TestProtocolVersionIsRequiredThroughTheLegacySwitch(t *testing.T) {
 	}
 }
 
-// TestDiscoverAnswersWithoutAVersionEvenWithTheFallbackOff. Its entire purpose
-// is to let a client find out which versions exist BEFORE it can name one.
-// Refusing it for not naming one makes the server undiscoverable.
-func TestDiscoverAnswersWithoutAVersionEvenWithTheFallbackOff(t *testing.T) {
-	if err := RequireMetaFields(declared(`{}`), MethodDiscover, fallbackOff()); err != nil {
-		t.Fatalf("server/discover was refused for not declaring a version: %d %s",
-			err.Code, err.Message)
+// TestDiscoverDeclaresAVersionLikeAnyRequest. protocolVersion is Required: Yes
+// on every request, server/discover included: with the fallback off, an
+// unversioned discover is the malformed request the spec describes, -32602.
+// (Replaces TestDiscoverAnswersWithoutAVersionEvenWithTheFallbackOff, which
+// encoded an exemption the final text does not have.)
+func TestDiscoverDeclaresAVersionLikeAnyRequest(t *testing.T) {
+	err := RequireMetaFields(declared(`{}`), MethodDiscover, fallbackOff())
+	if err == nil {
+		t.Fatal("an unversioned server/discover was accepted with the fallback off")
+	}
+	if err.Code != CodeInvalidParams {
+		t.Fatalf("code = %d, want %d", err.Code, CodeInvalidParams)
 	}
 }

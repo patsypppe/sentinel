@@ -159,10 +159,8 @@ func (m RequestMeta) HasClientCapabilities() bool {
 //     absence is checked THROUGH that switch rather than around it: with the
 //     fallback on, an unversioned request keeps working and is recorded as a
 //     deprecation; with it off, absence is exactly the malformed request the
-//     specification describes. server/discover is exempt either way — its whole
-//     purpose is to let a client find out which versions exist BEFORE it can
-//     name one, so refusing it for not naming one makes the server
-//     undiscoverable.
+//     specification describes. server/discover included: it negotiates like
+//     any request in the final text.
 //   - clientCapabilities has none. Nothing in the specification makes it
 //     optional for an older client, and it is what tells the server what the
 //     client can be asked to do. A server that guesses returns an input request
@@ -173,7 +171,7 @@ func RequireMetaFields(meta RequestMeta, method string, cfg NegotiationConfig) *
 			"it is what tells this server what the client can be asked to do; declare {} if the "+
 				"client supports nothing beyond the base protocol")
 	}
-	if meta.ProtocolVersion == "" && !cfg.AllowLegacy && method != MethodDiscover {
+	if meta.ProtocolVersion == "" && !cfg.AllowLegacy {
 		return ErrMissingRequiredMetaField(KeyProtocolVersion,
 			"the handshake is gone, so every request declares its own version, and this server "+
 				"does not serve clients that pre-date the field")

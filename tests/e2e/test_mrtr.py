@@ -306,17 +306,19 @@ def test_discovery_needs_no_token() -> None:
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "server/discover",
-                # clientCapabilities is Required: Yes on every request, this one
-                # included. The protocol version is not: server/discover is how
-                # a client learns which versions the server speaks, so it cannot
-                # be required to declare one first -- and with none in the body
-                # there is nothing for a version header to agree with.
-                "params": {"_meta": {"io.modelcontextprotocol/clientCapabilities": {}}},
+                # Both Required: Yes fields, as on every request. server/discover
+                # negotiates like any other method in the final 2026-07-28 text;
+                # what this test is about is the absent Authorization header.
+                "params": {"_meta": {
+                    "io.modelcontextprotocol/clientCapabilities": {},
+                    "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                }},
             }
         ),
         headers={
             "Content-Type": "application/json",
             "Mcp-Method": "server/discover",
+            "MCP-Protocol-Version": "2026-07-28",
         },
         timeout=10.0,
     )

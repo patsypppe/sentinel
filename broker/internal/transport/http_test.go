@@ -136,13 +136,12 @@ func postFull(
 	return resp.StatusCode, resp.Header, out
 }
 
-func TestDiscoverOverHTTPWithoutAVersion(t *testing.T) {
+func TestDiscoverOverHTTP(t *testing.T) {
 	srv := testServer(t)
-	resp := post(t, srv, `{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{`+capsMeta+`}}`)
+	resp := post(t, srv, `{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{`+versionMeta+`}}`)
 
 	if resp.Error != nil {
-		t.Fatalf("server/discover refused an unversioned request (%d %s) — the server is undiscoverable",
-			resp.Error.Code, resp.Error.Message)
+		t.Fatalf("server/discover was refused (%d %s)", resp.Error.Code, resp.Error.Message)
 	}
 	var res envelope.DiscoverResult
 	if err := json.Unmarshal(resp.Result, &res); err != nil {
@@ -162,12 +161,46 @@ func TestDiscoverOverHTTPWithoutAVersion(t *testing.T) {
 	}
 }
 
+// TestDiscoverAtAnUnsupportedVersionNamesTheSupportedOnes. server/discover
+// negotiates like any request in the final 2026-07-28 text: an unknown version
+// is HTTP 400 and -32022, and the error data's `supported` list is how the
+// client learns what to retry with. (This replaces the 0.3.0 expectation that
+// discover answers at any version, which the official conformance suite showed
+// to be wrong.)
+func TestDiscoverAtAnUnsupportedVersionNamesTheSupportedOnes(t *testing.T) {
+	srv := testServer(t)
+	body := `{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":` +
+		`{"io.modelcontextprotocol/clientCapabilities":{},` +
+		`"io.modelcontextprotocol/protocolVersion":"2099-01-01"}}}`
+	status, _, resp := postFull(t, srv, body, conformantHeaders(t, body))
+	if resp.Error == nil || resp.Error.Code != envelope.CodeUnsupportedProtocolVersion {
+		t.Fatalf("want %d, got %+v", envelope.CodeUnsupportedProtocolVersion, resp.Error)
+	}
+	if status != http.StatusBadRequest {
+		t.Fatalf("HTTP %d, want 400", status)
+	}
+	var data struct {
+		Supported []string `json:"supported"`
+		Requested string   `json:"requested"`
+	}
+	raw, err := json.Marshal(resp.Error.Data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &data); err != nil {
+		t.Fatal(err)
+	}
+	if len(data.Supported) == 0 || data.Requested != "2099-01-01" {
+		t.Fatalf("error data %s must list supported and echo requested", raw)
+	}
+}
+
 // TestAdvertisedCapabilitiesAreTrue. §14 gotcha 10: advertising listChanged
 // without subscriptions/listen makes the broker fail its own harness in front of
 // an audience.
 func TestAdvertisedCapabilitiesAreTrue(t *testing.T) {
 	srv := testServer(t)
-	resp := post(t, srv, `{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{`+capsMeta+`}}`)
+	resp := post(t, srv, `{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{`+versionMeta+`}}`)
 
 	var res envelope.DiscoverResult
 	if err := json.Unmarshal(resp.Result, &res); err != nil {
@@ -268,7 +301,7 @@ func TestWrongJSONRPCVersionIsRejected(t *testing.T) {
 func TestResponsePreservesRequestID(t *testing.T) {
 	srv := testServer(t)
 
-	ok := post(t, srv, `{"jsonrpc":"2.0","id":"abc-123","method":"server/discover","params":{`+capsMeta+`}}`)
+	ok := post(t, srv, `{"jsonrpc":"2.0","id":"abc-123","method":"server/discover","params":{`+versionMeta+`}}`)
 	if string(ok.ID) != `"abc-123"` {
 		t.Fatalf("success path id = %s, want \"abc-123\"", ok.ID)
 	}
@@ -674,11 +707,12 @@ func TestApplicationErrorsStayHTTP200(t *testing.T) {
 // incoming connections to prevent DNS rebinding attacks. If the Origin header
 // is present and invalid, servers MUST respond with HTTP 403 Forbidden."
 func TestOriginIsValidated(t *testing.T) {
-	body := `{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{` + capsMeta + `}}`
+	body := `{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{` + versionMeta + `}}`
 	headers := func(origin string) map[string]string {
 		h := map[string]string{
-			"Content-Type":  "application/json",
-			HeaderMcpMethod: envelope.MethodDiscover,
+			"Content-Type":        "application/json",
+			HeaderMcpMethod:       envelope.MethodDiscover,
+			HeaderProtocolVersion: "2026-07-28",
 		}
 		if origin != "" {
 			h["Origin"] = origin
@@ -832,10 +866,11 @@ func TestNotificationIsNotAnsweredWithAResult(t *testing.T) {
 func TestANullIDIsNotANotification(t *testing.T) {
 	srv := testServer(t)
 
-	body := `{"jsonrpc":"2.0","id":null,"method":"server/discover","params":{` + capsMeta + `}}`
+	body := `{"jsonrpc":"2.0","id":null,"method":"server/discover","params":{` + versionMeta + `}}`
 	status, _, raw := rawRequest(t, srv, http.MethodPost, "/mcp", body, map[string]string{
-		"Content-Type":  "application/json",
-		HeaderMcpMethod: envelope.MethodDiscover,
+		"Content-Type":        "application/json",
+		HeaderMcpMethod:       envelope.MethodDiscover,
+		HeaderProtocolVersion: "2026-07-28",
 	})
 
 	if status != http.StatusOK {
@@ -990,11 +1025,12 @@ func TestUnversionedRequestIsRefusedWithTheFallbackOff(t *testing.T) {
 		t.Fatalf("HTTP %d, want 400", status)
 	}
 
-	// And discovery still answers, because a client cannot name a version
-	// before it has been told which versions exist.
+	// server/discover too: protocolVersion is Required: Yes on every request
+	// in the final text, and discovery is no exception.
 	discover := `{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{` + capsMeta + `}}`
-	if r := post(t, srv, discover); r.Error != nil {
-		t.Fatalf("server/discover was refused for not naming a version (%d %s) — "+
-			"the server is undiscoverable", r.Error.Code, r.Error.Message)
+	status, _, r := postFull(t, srv, discover, conformantHeaders(t, discover))
+	if r.Error == nil || r.Error.Code != envelope.CodeInvalidParams || status != http.StatusBadRequest {
+		t.Fatalf("an unversioned server/discover with the fallback off: want %d and HTTP 400, "+
+			"got HTTP %d %+v", envelope.CodeInvalidParams, status, r.Error)
 	}
 }

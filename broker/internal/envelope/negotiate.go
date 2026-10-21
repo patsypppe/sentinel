@@ -39,10 +39,13 @@ type Outcome struct {
 const DeprecationEventUnversionedRequest = "deprecated.feature_used/unversioned_request"
 
 // UnsupportedVersionData rides on a -32022 so a client that guessed wrong knows
-// what to guess next.
+// what to guess next. The field names are the UnsupportedProtocolVersionError
+// schema's -- `supported` and `requested`, both required -- and NOT the
+// DiscoverResult's `supportedVersions`. Using the latter here was a defect the
+// official conformance suite caught in this repository's fixture.
 type UnsupportedVersionData struct {
-	SupportedVersions []string `json:"supportedVersions"`
-	Requested         string   `json:"requested,omitempty"`
+	Supported []string `json:"supported"`
+	Requested string   `json:"requested"`
 }
 
 // legacyMethods is the method surface of the 2025-11-25 revision — what
@@ -84,25 +87,14 @@ func ExistsInLegacyRevision(method string) bool { return legacyMethods[method] }
 
 // Negotiate resolves the revision a request will be served under.
 //
-// server/discover is the exception and it matters: it MUST be answerable
-// without a negotiated version, because its whole purpose is to let a client
-// find out what versions exist before committing to one. Serving -32022 from it
-// makes the server undiscoverable — an easy bug and a fatal one.
+// server/discover negotiates like every other request. The final 2026-07-28
+// text says a server MAY answer it with UnsupportedProtocolVersionError, and
+// that error's `supported` list is itself how a client that guessed wrong
+// learns what to retry with. Earlier versions of this broker exempted it, on a
+// reading of the release candidate; the official conformance suite's
+// header-mismatch and unsupported-version checks on discover are what showed
+// the exemption was wrong.
 func Negotiate(meta RequestMeta, method string, cfg NegotiationConfig) (Outcome, *RPCError) {
-	native := RevisionCurrent
-	if len(cfg.Supported) > 0 {
-		native = cfg.Supported[0]
-	}
-
-	if method == MethodDiscover {
-		// Answer at whatever version the client named if we speak it, and at
-		// our own otherwise. Never refuse.
-		if meta.ProtocolVersion != "" && slices.Contains(cfg.Supported, meta.ProtocolVersion) {
-			return Outcome{Version: meta.ProtocolVersion}, nil
-		}
-		return Outcome{Version: native}, nil
-	}
-
 	if meta.ProtocolVersion == "" {
 		if !cfg.AllowLegacy {
 			return Outcome{}, unsupported(cfg, "")
@@ -139,7 +131,7 @@ func Negotiate(meta RequestMeta, method string, cfg NegotiationConfig) (Outcome,
 
 	// Everything else — a future revision, a typo, a malformed string — is the
 	// same failure. There is nothing to gain from distinguishing them, and the
-	// supportedVersions list tells the client what to do next either way.
+	// `supported` list tells the client what to do next either way.
 	return Outcome{}, unsupported(cfg, meta.ProtocolVersion)
 }
 
@@ -153,8 +145,8 @@ func unsupported(cfg NegotiationConfig, requested string) *RPCError {
 		msg = fmt.Sprintf("unsupported protocol version %q", requested)
 	}
 	return New(CodeUnsupportedProtocolVersion, msg, UnsupportedVersionData{
-		SupportedVersions: supported,
-		Requested:         requested,
+		Supported: supported,
+		Requested: requested,
 	})
 }
 
