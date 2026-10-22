@@ -82,6 +82,4 @@ def no_errors_in_legacy_range(probe: Probe) -> RuleResult:
             f"-32000…-32019 sub-range: {offenders}",
             evidence="; ".join(offenders),
         )
-    return RuleResult.passed(
-        f"none of {observed} provoked errors used the retired sub-range"
-    )
+    return RuleResult.passed(f"none of {observed} provoked errors used the retired sub-range")

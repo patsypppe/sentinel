@@ -1,6 +1,6 @@
 """The Python half of the cross-language tokenizer contract.
 
-`sentinel.tokens` is a port of `broker/internal/registry/tokens.go`. Two
+`sentinel.tokens` is a port of `mcp/registry/tokens.go`. Two
 implementations of one method is exactly the situation where a published number
 drifts silently, so both sides are held to one committed corpus:
 `tests/harness/data/tokenizer_corpus.jsonl` carries the text and the count Go
@@ -113,7 +113,7 @@ def test_documented_boundaries(text: str, expected: int, why: str) -> None:
 
 def test_the_tokenizer_name_matches_the_broker() -> None:
     """Every number either side publishes must be attributable to one method."""
-    go_source = (
-        Path(__file__).parents[2] / "broker" / "internal" / "registry" / "tokens.go"
-    ).read_text(encoding="utf-8")
+    go_source = (Path(__file__).parents[2] / "mcp" / "registry" / "tokens.go").read_text(
+        encoding="utf-8"
+    )
     assert f'TokenizerName = "{TOKENIZER_NAME}"' in go_source

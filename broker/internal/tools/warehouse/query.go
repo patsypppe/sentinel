@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/patsypppe/sentinel/broker/internal/envelope"
-	"github.com/patsypppe/sentinel/broker/internal/registry"
+	"github.com/patsypppe/sentinel/mcp/envelope"
+	"github.com/patsypppe/sentinel/mcp/registry"
 )
 
 // Minter mints a server-minted, principal-bound state handle.

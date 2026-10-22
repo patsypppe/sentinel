@@ -1,0 +1,51 @@
+# GitLab CI template for the Sentinel MCP conformance scan.
+#
+#   include:
+#     - remote: https://raw.githubusercontent.com/patsypppe/sentinel/main/ci/gitlab/sentinel.gitlab-ci.yml
+#
+#   sentinel:
+#     extends: .sentinel-scan
+#     variables:
+#       SENTINEL_ENDPOINT: https://mcp.internal.example/mcp
+#       SENTINEL_TOKEN: $MCP_TOKEN            # a masked CI/CD variable, never a literal
+#
+# The job fails (exit 1) on a MUST violation and errors (exit 2) when the scanner
+# itself could not run, and publishes a JUnit report, which GitLab shows in the
+# merge request. INDETERMINATE and not-applicable rules render as skipped, never as
+# passes. Pin the image by digest in production.
+
+.sentinel-scan:
+  image:
+    name: ghcr.io/patsypppe/sentinel:latest
+    entrypoint: [""]
+  variables:
+    SENTINEL_GATE: must
+  script:
+    - >-
+      sentinel scan --no-color --gate "$SENTINEL_GATE"
+      --format junit --out sentinel-junit.xml
+      --also markdown=sentinel-report.md
+      --also sarif=sentinel.sarif
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths:
+      - sentinel-report.md
+      - sentinel.sarif
+    reports:
+      junit: sentinel-junit.xml
+
+# For a fleet of servers: one report per target plus a rollup.
+.sentinel-fleet:
+  image:
+    name: ghcr.io/patsypppe/sentinel:latest
+    entrypoint: [""]
+  variables:
+    SENTINEL_FLEET: sentinel-fleet.yaml
+  script:
+    - sentinel scan --no-color --targets "$SENTINEL_FLEET" --format junit --out-dir sentinel-fleet
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths:
+      - sentinel-fleet/

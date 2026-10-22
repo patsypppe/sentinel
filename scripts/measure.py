@@ -64,7 +64,7 @@ def measure_manifest_tokens(report: dict[str, object]) -> Measurement:
         name="Manifest token count",
         method=(
             f"`broker manifest`, tokenizer `{tokenizer}` — a deterministic, "
-            "dependency-free approximation defined in `broker/internal/registry/tokens.go`, "
+            "dependency-free approximation defined in `mcp/registry/tokens.go`, "
             "not a model tokenizer. It is in-repo on purpose: this measurement must be "
             "reproducible by anyone who clones the repository, on a machine with no model "
             "API key, which is why this project has none."
@@ -108,9 +108,7 @@ def measure_determinism(report: dict[str, object]) -> Measurement:
             "the map iteration that determinism usually dies in."
         ),
         value=(
-            "**1** distinct hash"
-            if ok
-            else f"**{len(digests | fresh)}** distinct hashes — FAILING"
+            "**1** distinct hash" if ok else f"**{len(digests | fresh)}** distinct hashes — FAILING"
         ),
         detail=f"`{expected}`",
     )
@@ -124,9 +122,11 @@ def measure_scan_walltime(oracle: OracleRun) -> Measurement:
     return Measurement(
         name="Scan wall-clock",
         method=(
-            f"p50 and p95 over {len(ordered)} full scans of the conformant fixture, "
-            "in-process and loopback. A remote target adds its own latency per rule; "
-            "this is the harness's own cost, which is the part it controls."
+            f"p50 and p95 over {len(ordered)} full scans of the conformant fixture, run as "
+            "its own process on loopback, after one warm-up scan. Rules run concurrently, "
+            "each on its own connection. A remote target adds its own latency to the "
+            "slowest rule rather than to the sum of all of them; this is the harness's "
+            "own cost, which is the part it controls."
         ),
         value=f"p50 **{p50 * 1000:.0f} ms**, p95 **{p95 * 1000:.0f} ms**",
     )
@@ -144,6 +144,43 @@ class OracleRun:
     false_positives: list[str]
     indeterminate: list[str]
     timings: list[float]
+
+
+def _out_of_process_timings(rounds: int, port: int) -> list[float]:
+    """Scan time against the conformant fixture running as its own process."""
+    import time as _time
+
+    import httpx
+
+    from sentinel.grade import run_scan
+
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "server.conformant", str(port)],
+        cwd=REPO / "fixtures",
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    endpoint = f"http://127.0.0.1:{port}/mcp"
+    try:
+        deadline = _time.time() + 15
+        while _time.time() < deadline:
+            try:
+                httpx.post(
+                    endpoint,
+                    json={"jsonrpc": "2.0", "id": 1, "method": "server/discover"},
+                    headers={"Mcp-Method": "server/discover"},
+                    timeout=1.0,
+                )
+                break
+            except httpx.RequestError:
+                _time.sleep(0.05)
+        else:
+            raise RuntimeError("the conformant fixture never became ready")
+        run_scan(endpoint)  # one warm-up, so the first connection's cost is not a sample
+        return [run_scan(endpoint).elapsed_s for _ in range(rounds)]
+    finally:
+        proc.terminate()
+        proc.wait(timeout=10)
 
 
 def run_oracle(rounds: int = 12) -> OracleRun:
@@ -194,8 +231,11 @@ def run_oracle(rounds: int = 12) -> OracleRun:
 
         # Wall-clock is measured against the CONFORMANT fixture: a scan of a
         # correct server is the case that runs in CI on every commit, so it is
-        # the number a reader is deciding about.
-        timings = [run_scan(f"http://127.0.0.1:{good_port}/mcp").elapsed_s for _ in range(rounds)]
+        # the number a reader is deciding about. It is timed against a server in
+        # its OWN process: a rule runs in a thread pool now, and a fixture
+        # sharing the scanner's interpreter would be measuring the two fighting
+        # over one GIL rather than the cost of a scan.
+        timings = _out_of_process_timings(rounds, free_port())
     finally:
         for server in (bad, good):
             server.shutdown()
@@ -293,10 +333,17 @@ def measure_response_format() -> Measurement:
     )
 
     try:
-        proc = _run([
-            GO, "test", "./broker/internal/tools/warehouse/...",
-            "-run", "TestConciseIsSmallerThanDetailed", "-v", "-count=1",
-        ])
+        proc = _run(
+            [
+                GO,
+                "test",
+                "./broker/internal/tools/warehouse/...",
+                "-run",
+                "TestConciseIsSmallerThanDetailed",
+                "-v",
+                "-count=1",
+            ]
+        )
     except subprocess.CalledProcessError as exc:
         m.pending = "the response-format test did not pass, so its numbers are not reportable."
         m.detail = (exc.stderr or exc.stdout).strip()[:400]
@@ -307,18 +354,20 @@ def measure_response_format() -> Measurement:
         idx = line.find(MEASURE_MARKER)
         if idx < 0:
             continue
-        fields = dict(
-            part.split("=", 1) for part in line[idx + len(MEASURE_MARKER):].split()
-        )
+        fields = dict(part.split("=", 1) for part in line[idx + len(MEASURE_MARKER) :].split())
         rows, concise, detailed = (
-            int(fields["rows"]), int(fields["concise"]), int(fields["detailed"])
+            int(fields["rows"]),
+            int(fields["concise"]),
+            int(fields["detailed"]),
         )
         saving = 100 * (detailed - concise) / detailed
         best = max(best, saving)
-        m.rows.append((
-            f"{rows} rows",
-            f"concise **{concise}**, detailed **{detailed}** — {saving:.1f}% saved",
-        ))
+        m.rows.append(
+            (
+                f"{rows} rows",
+                f"concise **{concise}**, detailed **{detailed}** — {saving:.1f}% saved",
+            )
+        )
 
     if not m.rows:
         m.pending = "no MEASURE markers were emitted; the test's log contract has changed."

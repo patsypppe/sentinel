@@ -5,10 +5,17 @@
 # that raises broker/go.mod above 1.23 — it just fails. CI sets GOTOOLCHAIN=local
 # everywhere for the same reason, so the failure arrives in the fast job instead.
 FROM golang:1.23-alpine AS build
+# Built from the repository root: the broker imports the server kit in ../mcp, and
+# its go.mod replaces that module with the sibling directory.
 WORKDIR /src
-COPY go.mod go.sum* ./
+COPY mcp/go.mod mcp/go.sum ./mcp/
+COPY broker/go.mod broker/go.sum ./broker/
+WORKDIR /src/broker
 RUN go mod download
-COPY . .
+WORKDIR /src
+COPY mcp ./mcp
+COPY broker ./broker
+WORKDIR /src/broker
 ARG VERSION=0.1.0-dev
 RUN CGO_ENABLED=0 go build -trimpath \
       -ldflags "-s -w -X github.com/patsypppe/sentinel/broker/internal/version.Version=${VERSION}" \

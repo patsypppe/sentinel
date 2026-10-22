@@ -1,0 +1,32 @@
+# Hooks for teams that scan a locally-running MCP server before they push.
+#
+#   repos:
+#     - repo: https://github.com/patsypppe/sentinel
+#       rev: v0.4.0
+#       hooks:
+#         - id: sentinel-scan
+#
+# Point it at a server with a sentinel.toml in your repository (scan.endpoint) or
+# the SENTINEL_ENDPOINT environment variable. It runs on pre-push by default: a
+# scan makes a few hundred requests and is not something to run on every commit.
+
+# Runs the published image. Needs Docker, nothing else, and cannot drift from the
+# version pinned by `rev`.
+- id: sentinel-scan
+  name: sentinel MCP conformance scan
+  description: Grade a locally-running MCP server against MCP 2026-07-28 and fail on a MUST violation.
+  entry: ghcr.io/patsypppe/sentinel:latest scan --gate must --no-color
+  language: docker_image
+  pass_filenames: false
+  always_run: true
+  stages: [pre-push, manual]
+
+# For machines that already have `sentinel` installed (pip, pipx or uvx).
+- id: sentinel-scan-local
+  name: sentinel MCP conformance scan (installed)
+  description: Same scan, using the sentinel command already on PATH.
+  entry: sentinel scan --gate must --no-color
+  language: system
+  pass_filenames: false
+  always_run: true
+  stages: [pre-push, manual]

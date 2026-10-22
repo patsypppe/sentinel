@@ -19,6 +19,12 @@ is actionable rather than a shrug.
 from __future__ import annotations
 
 from sentinel.catalog.base import SPEC_BASE, RuleResult, Severity, Verifiability, rule
+from sentinel.catalog.graybox_checks import (
+    audience_check,
+    egress_check,
+    handle_check,
+    idempotency_check,
+)
 from sentinel.probe.client import Probe
 
 SECURITY = f"{SPEC_BASE}/basic/security_best_practices"
@@ -141,3 +147,11 @@ def invocations_audited_deprecated(_: Probe) -> RuleResult:
         "Deprecated in 0.3.0: audit logging is not a specification requirement. "
         "See SENTINEL/SECURITY/invocations-are-audited."
     )
+
+
+# Gray-box evidence. Each rule above still returns INDETERMINATE by itself; these
+# attach the check that runs only when the operator supplied the evidence.
+token_audience_validated.graybox("wrong_audience_token")(audience_check)
+no_token_passthrough.graybox("egress_capture")(egress_check)
+handle_possession_not_auth.graybox("second_principal")(handle_check)
+mrtr_idempotent.graybox("effect_counter")(idempotency_check)

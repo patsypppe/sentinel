@@ -68,8 +68,13 @@ def test_no_gate_never_fails(nonconformant_endpoint: str) -> None:
 def test_indeterminate_does_not_fail_the_gate(conformant_endpoint: str) -> None:
     """The conformant fixture reports five INDETERMINATE MUSTs and still exits 0."""
     result = sentinel(
-        "scan", "--endpoint", conformant_endpoint, "--gate", "must",
-        "--format", "json",
+        "scan",
+        "--endpoint",
+        conformant_endpoint,
+        "--gate",
+        "must",
+        "--format",
+        "json",
     )
     assert result.returncode == EXIT_OK
     report = json.loads(result.stdout)
@@ -107,8 +112,16 @@ def test_an_unreachable_target_does_not_fail_the_gate() -> None:
     non-conformant — the correct answer is that nothing could be determined.
     """
     result = sentinel(
-        "scan", "--endpoint", "http://127.0.0.1:1/mcp", "--gate", "must",
-        "--timeout", "1", "--no-color", "--retries", "0",
+        "scan",
+        "--endpoint",
+        "http://127.0.0.1:1/mcp",
+        "--gate",
+        "must",
+        "--timeout",
+        "1",
+        "--no-color",
+        "--retries",
+        "0",
     )
     assert result.returncode != EXIT_GATE_FAILED, (
         "an unreachable server was reported as failing conformance"
@@ -133,8 +146,14 @@ def test_out_writes_the_file_and_still_summarises(
     """
     target = tmp_path / "scan.json"
     result = sentinel(
-        "scan", "--endpoint", conformant_endpoint, "--format", "json",
-        "--out", str(target), "--no-color",
+        "scan",
+        "--endpoint",
+        conformant_endpoint,
+        "--format",
+        "json",
+        "--out",
+        str(target),
+        "--no-color",
     )
     assert result.returncode == EXIT_OK
     assert target.exists()

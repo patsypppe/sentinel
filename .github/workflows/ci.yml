@@ -29,26 +29,29 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23'
-          cache-dependency-path: broker/go.sum
+          cache-dependency-path: |
+            broker/go.sum
+            mcp/go.sum
+            fleet/go.sum
       # A cross-compile, because a missing go.sum entry can be
       # platform-specific: chacha20poly1305 imports x/sys/cpu on amd64 and not
       # on arm64, so `go mod tidy` on an Apple Silicon machine recorded a go.sum
       # that built locally and failed inside the linux/amd64 Docker build. This
       # catches it in the fast job, in about a second.
       - name: cross-compile for the deployment target
-        run: GOOS=linux GOARCH=amd64 go build ./broker/...
+        run: GOOS=linux GOARCH=amd64 go build ./broker/... ./mcp/... ./fleet/...
 
       - name: go vet
-        run: go vet ./broker/...
+        run: go vet ./broker/... ./mcp/... ./fleet/...
       - name: go test
-        run: go test -race -count=1 ./broker/...
+        run: go test -race -count=1 ./broker/... ./mcp/... ./fleet/...
       # v7+ is required: golangci-lint v2 uses a config schema that v6 of the
       # action refuses to parse ("golangci-lint v2 is not supported by
       # golangci-lint-action v6").
       - uses: golangci/golangci-lint-action@v7
         with:
           version: v2.13.1
-          args: ./broker/... --timeout=5m
+          args: ./broker/... ./mcp/... ./fleet/... --timeout=5m
 
   integration:
     name: broker (postgres)
@@ -58,14 +61,17 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23'
-          cache-dependency-path: broker/go.sum
+          cache-dependency-path: |
+            broker/go.sum
+            mcp/go.sum
+            fleet/go.sum
       - name: postgres up
         run: docker compose up -d --wait postgres
       # The SQL guard's design is to use Postgres's own planner, so a guard
       # tested against a mocked planner would be testing the mock — which is
       # exactly the gap the design exists to close.
       - name: integration tests
-        run: go test -race -tags=integration -count=1 ./broker/...
+        run: go test -race -tags=integration -count=1 ./broker/... ./mcp/... ./fleet/...
       - name: postgres logs on failure
         if: failure()
         run: docker compose logs --no-color postgres
@@ -73,8 +79,21 @@ jobs:
   python:
     name: harness (python)
     runs-on: ubuntu-latest
+    env:
+      # The kit example and the fleet service are Go programs the Python suite builds
+      # and runs. Locally a missing toolchain skips those tests; here it must fail
+      # them, or "the build scans the example on every commit" would quietly stop
+      # being true.
+      SENTINEL_REQUIRE_GO: "1"
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: |
+            broker/go.sum
+            mcp/go.sum
+            fleet/go.sum
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -84,7 +103,10 @@ jobs:
       - name: mypy
         run: uv run mypy
       - name: pytest (unit)
-        run: uv run pytest tests -m unit -q
+        run: uv run pytest tests -m unit -q --junitxml=pytest-report.xml
+      - name: failing tests, as annotations
+        if: failure()
+        run: python3 scripts/ci_annotate.py pytest-report.xml
 
   e2e:
     name: end-to-end

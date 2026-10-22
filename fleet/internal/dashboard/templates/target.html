@@ -1,0 +1,21 @@
+{{template "head" (dict "Title" .Name)}}
+<h1>{{.Name}} <span class="pill {{.Status}}">{{.Status}}</span></h1>
+<p class="muted">{{.Key}} · posture over {{.Window}}</p>
+<h2>Failing findings per scanned day</h2>
+{{.Chart}}
+{{if .Open}}<h2>Open findings</h2>
+<table><tr><th>Rule</th><th>Severity</th><th>State</th><th class="num">Open</th></tr>
+{{range .Open}}<tr><td><code>{{.RuleID}}</code></td><td>{{.Severity}}</td>
+<td>{{if .Accepted}}accepted{{else}}<span class="flag">failing</span>{{end}}</td>
+<td class="num">{{.AgeDays}} day(s) · since {{date .FirstSeen}}</td></tr>{{end}}</table>{{end}}
+{{if .Remediation}}<h2>Time to remediation</h2>
+<table><tr><th>Rule</th><th class="num">Fixed</th><th class="num">Mean days</th><th class="num">Reopened</th></tr>
+{{range .Remediation}}<tr><td><code>{{.RuleID}}</code></td><td class="num">{{.Fixed}}</td>
+<td class="num">{{printf "%.1f" .MeanDays}}</td><td class="num">{{.Reopened}}</td></tr>{{end}}</table>
+<p class="muted">A fix is observed when the next scan runs, so these are upper bounds by up to one scan interval.</p>{{end}}
+<h2>Manifest drift</h2>
+{{if .Drift}}<table><tr><th>When</th><th>Before</th><th>After</th></tr>
+{{range .Drift}}<tr><td>{{stamp .At}}</td><td><code>{{short .Before}}</code></td><td><code>{{short .After}}</code></td></tr>{{end}}</table>
+<p class="muted">Run <code>sentinel diff</code> against a snapshot to see what changed and how severe it is.</p>
+{{else}}<p class="muted">The tool manifest has not changed in the scans on record.</p>{{end}}
+{{template "foot"}}

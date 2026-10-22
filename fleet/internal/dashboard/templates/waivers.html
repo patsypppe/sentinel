@@ -1,0 +1,10 @@
+{{template "head" (dict "Title" "Waivers")}}
+<h1>Waivers expiring within {{.Within}}</h1>
+<p class="muted">A waiver about to lapse over a finding that is still failing is a gate that is about to go red.</p>
+{{if .Waivers}}<table>
+<tr><th>Target</th><th>Rule</th><th>Reason</th><th>Expires</th><th>Still failing</th></tr>
+{{range .Waivers}}<tr><td>{{.Target}}</td><td><code>{{.Rule}}</code></td><td>{{.Reason}}{{if .ApprovedBy}}<br><span class="muted">{{.ApprovedBy}}</span>{{end}}</td>
+<td>{{date .ExpiresAt}}<br>{{if .Expired}}<span class="flag">lapsed</span>{{else}}{{.DaysLeft}} day(s){{end}}</td>
+<td>{{if .StillFailing}}<span class="flag">yes</span>{{else}}no{{end}}</td></tr>{{end}}
+</table>{{else}}<p>No waiver expires in this window.</p>{{end}}
+{{template "foot"}}

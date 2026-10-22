@@ -103,8 +103,14 @@ class Probe:
         retries: int = DEFAULT_RETRIES,
         budgets: BudgetPolicy | None = None,
         safe: bool = False,
+        context: dict[str, Any] | None = None,
     ) -> None:
         self.endpoint = endpoint
+        #: Inputs a rule may need beyond the wire: a baseline snapshot for the
+        #: drift rule, supplied evidence for the gray-box rules. Carried on the
+        #: probe, like the budgets, so every input a rule reads is reachable from
+        #: its single argument and two scans in one process cannot share one.
+        self.context: dict[str, Any] = context if context is not None else {}
         #: Safe mode is for scanning servers you do not own. Every rule still
         #: runs, but a tools/call naming a tool the server advertises is only
         #: sent when that tool is annotated read-only; otherwise the call is
@@ -138,6 +144,28 @@ class Probe:
     def __exit__(self, *exc: object) -> None:
         self.close()
 
+    def with_token(self, token: str | None) -> Probe:
+        """A probe to the same endpoint presenting a different credential.
+
+        The gray-box rules need to be two principals, or a principal and an
+        attacker, against one server. Everything else -- trust, proxy, certificate,
+        timeout -- is copied, so the only difference between the two probes is who
+        they say they are. The caller owns the returned probe and must close it.
+        """
+        return Probe(
+            self.endpoint,
+            timeout=self._transport.timeout,
+            bearer_token=token,
+            protocol_version=self.protocol_version,
+            verify=self._transport.verify,
+            proxy=self._transport.proxy,
+            client_cert=self._transport.client_cert,
+            retries=self._transport.retries,
+            safe=self.safe,
+            budgets=self.budgets,
+            context=self.context,
+        )
+
     def new_connection(self) -> Probe:
         """A second probe to the same endpoint over a separate HTTP client.
 
@@ -159,6 +187,8 @@ class Probe:
             client_cert=self._transport.client_cert,
             retries=self._transport.retries,
             safe=self.safe,
+            budgets=self.budgets,
+            context=self.context,
         )
 
     # -- request construction ---------------------------------------------
@@ -240,9 +270,7 @@ class Probe:
         if not omit_mcp_method:
             built[HEADER_MCP_METHOD] = mcp_method if mcp_method is not None else method
         if not omit_mcp_name:
-            resolved_name = (
-                mcp_name if mcp_name is not None else self.expected_name(method, params)
-            )
+            resolved_name = mcp_name if mcp_name is not None else self.expected_name(method, params)
             # Omitted ENTIRELY, not sent empty: a method the header table does
             # not name has no body field for the header to match, and an empty
             # header value is still a claim that one exists.
@@ -299,7 +327,12 @@ class Probe:
         return self.call("tools/list", **overrides)
 
     def tools_call(
-        self, name: str, arguments: dict[str, Any] | None = None, **overrides: Any
+        self,
+        name: str,
+        arguments: dict[str, Any] | None = None,
+        *,
+        extra_params: dict[str, Any] | None = None,
+        **overrides: Any,
     ) -> RawResponse:
         if self.safe and not self._safe_to_invoke(name):
             return RawResponse(
@@ -314,7 +347,9 @@ class Probe:
                 ),
             )
         return self.call(
-            "tools/call", {"name": name, "arguments": arguments or {}}, **overrides
+            "tools/call",
+            {"name": name, "arguments": arguments or {}, **(extra_params or {})},
+            **overrides,
         )
 
     def _safe_to_invoke(self, name: str) -> bool:

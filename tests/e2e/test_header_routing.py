@@ -131,13 +131,22 @@ def _wait_for(url: str, timeout: float = 60.0) -> None:
     last: httpx.RequestError | None = None
     while time.time() < deadline:
         try:
-            httpx.post(url, json={"jsonrpc": "2.0", "id": 1, "method": "server/discover",
-             "params": {"_meta": {
-                 "io.modelcontextprotocol/protocolVersion": PROTOCOL,
-                 "io.modelcontextprotocol/clientCapabilities": {},
-             }}},
-                       headers={"MCP-Protocol-Version": PROTOCOL, "Mcp-Method": "server/discover"},
-                       timeout=3.0)
+            httpx.post(
+                url,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "server/discover",
+                    "params": {
+                        "_meta": {
+                            "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                            "io.modelcontextprotocol/clientCapabilities": {},
+                        }
+                    },
+                },
+                headers={"MCP-Protocol-Version": PROTOCOL, "Mcp-Method": "server/discover"},
+                timeout=3.0,
+            )
             return
         except httpx.RequestError as exc:
             # Connection refused / DNS / timeout all mean the same thing here:
@@ -156,11 +165,19 @@ def gateway() -> None:
 def test_trusted_listener_routes_on_the_method_header(gateway: None) -> None:
     resp = httpx.post(
         TRUSTED,
-        content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "server/discover",
-             "params": {"_meta": {
-                 "io.modelcontextprotocol/protocolVersion": PROTOCOL,
-                 "io.modelcontextprotocol/clientCapabilities": {},
-             }}}),
+        content=json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "server/discover",
+                "params": {
+                    "_meta": {
+                        "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                        "io.modelcontextprotocol/clientCapabilities": {},
+                    }
+                },
+            }
+        ),
         headers={
             "Content-Type": "application/json",
             "MCP-Protocol-Version": PROTOCOL,
@@ -183,11 +200,19 @@ def test_gateway_refuses_a_request_it_cannot_route(gateway: None) -> None:
     It refuses instead, which is the behaviour the contract is for."""
     resp = httpx.post(
         TRUSTED,
-        content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "server/discover",
-             "params": {"_meta": {
-                 "io.modelcontextprotocol/protocolVersion": PROTOCOL,
-                 "io.modelcontextprotocol/clientCapabilities": {},
-             }}}),
+        content=json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "server/discover",
+                "params": {
+                    "_meta": {
+                        "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                        "io.modelcontextprotocol/clientCapabilities": {},
+                    }
+                },
+            }
+        ),
         headers={"Content-Type": "application/json", "MCP-Protocol-Version": PROTOCOL},
         timeout=10.0,
     )
@@ -280,14 +305,19 @@ def test_a_list_call_with_no_mcp_name_is_routed_and_served(gateway: None) -> Non
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/list",
-                "params": {"_meta": {
-                    "io.modelcontextprotocol/protocolVersion": PROTOCOL,
-                    "io.modelcontextprotocol/clientCapabilities": {},
-                }},
+                "params": {
+                    "_meta": {
+                        "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                        "io.modelcontextprotocol/clientCapabilities": {},
+                    }
+                },
             }
         ),
-        headers={"Content-Type": "application/json",
-                 "MCP-Protocol-Version": PROTOCOL, "Mcp-Method": "tools/list"},
+        headers={
+            "Content-Type": "application/json",
+            "MCP-Protocol-Version": PROTOCOL,
+            "Mcp-Method": "tools/list",
+        },
         timeout=10.0,
     )
     assert resp.headers.get("X-Sentinel-Route") == "untrusted-allow", (
@@ -313,10 +343,12 @@ def test_an_mcp_name_where_the_header_table_defines_none_is_rejected(gateway: No
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/list",
-                "params": {"_meta": {
-                    "io.modelcontextprotocol/protocolVersion": PROTOCOL,
-                    "io.modelcontextprotocol/clientCapabilities": {},
-                }},
+                "params": {
+                    "_meta": {
+                        "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+                        "io.modelcontextprotocol/clientCapabilities": {},
+                    }
+                },
             }
         ),
         headers={

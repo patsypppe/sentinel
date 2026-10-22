@@ -1,6 +1,6 @@
 """The sentinel/approx-v1 tokenizer, ported from the broker.
 
-This is a byte-for-byte port of `broker/internal/registry/tokens.go`. It exists
+This is a byte-for-byte port of `mcp/registry/tokens.go`. It exists
 so the harness can price a *foreign* server's tool manifest without a Go
 toolchain: the broker can only tokenize the manifest it was compiled with, and
 the harness ships two dependencies on purpose (httpx, typer), so shelling out to
@@ -57,7 +57,7 @@ _GO_SPACE = frozenset("\t\n\v\f\r \x85\xa0")
 def estimate_tokens(text: str) -> int:
     """Count tokens in `text` under TOKENIZER_NAME.
 
-    Mirrors `estimate()` in broker/internal/registry/tokens.go: whitespace ends
+    Mirrors `estimate()` in mcp/registry/tokens.go: whitespace ends
     a run, letters/digits/underscore extend it, and anything else is its own
     token, which is how JSON's braces, quotes and colons actually price out.
     """

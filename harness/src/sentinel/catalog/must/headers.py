@@ -106,8 +106,7 @@ def mcp_name_required(probe: Probe) -> RuleResult:
     name = _named_tool(probe)
     if name is None:
         return RuleResult.indeterminate(
-            "this server advertises no named tool, so there is no tools/call to omit "
-            "Mcp-Name from"
+            "this server advertises no named tool, so there is no tools/call to omit Mcp-Name from"
         )
 
     resp = probe.tools_call(name, {}, omit_mcp_name=True)
@@ -223,9 +222,7 @@ def mcp_name_not_required_where_undefined(probe: Probe) -> RuleResult:
 def header_mismatch_rejected(probe: Probe) -> RuleResult:
     # The header claims tools/list; the body calls tools/call. This is the exact
     # shape of a request trying to slip past a header-based policy.
-    resp = probe.tools_call(
-        "any.tool", {}, mcp_method="tools/list", mcp_name="tools/list"
-    )
+    resp = probe.tools_call("any.tool", {}, mcp_method="tools/list", mcp_name="tools/list")
     if not resp.reached_server:
         return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
 

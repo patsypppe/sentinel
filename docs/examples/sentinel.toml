@@ -1,0 +1,57 @@
+# A complete sentinel.toml. Every key shown here is real, and a test loads this file,
+# so it cannot drift from what the scanner accepts.
+#
+# `extends` must come first: in TOML a bare key belongs to the table above it.
+# extends = "../shared/sentinel-policy.toml"   # a path to another sentinel.toml
+
+[scan]
+endpoint    = "https://broker.internal.example/mcp"
+gate        = "must"          # must | should | security | style | ops
+timeout     = 10.0            # seconds, per request
+concurrency = 8               # rules evaluated in parallel
+retries     = 2               # only for requests that never reached the server
+safe        = false           # true: never invoke a tool not annotated readOnlyHint
+token_env   = "BROKER_TOKEN"  # the NAME of the variable holding the bearer token
+
+[rules]
+include_deprecated = false
+# Switching a rule off is allowed because it is visible: the report lists every
+# disabled rule. A rule id that does not exist is an error, not a silent no-op.
+disable = ["MCP/2026-07-28/SHOULD/get-delete-405"]
+
+# A severity override may only make a rule stricter. Promoting a SHOULD to a MUST is a
+# policy a company may hold; demoting a MUST to get a green gate is rejected.
+[rules.severity]
+"MCP/2026-07-28/SHOULD/tool-names-well-formed" = "must"
+
+# A waiver is a recorded, expiring decision to live with a finding. `expires_at` is
+# required and a malformed one is an error; an expired waiver stops applying and the
+# finding fails again, labelled.
+[[waivers]]
+rule        = "MCP/2026-07-28/MUST/invalid-origin-rejected"
+endpoint    = "https://legacy.internal.example/mcp"   # optional; omit to apply to every target
+reason      = "Behind an ingress that strips Origin; tracked in PLAT-4412"
+expires_at  = 2099-11-30
+approved_by = "security@example.com"
+
+# Evidence that lets the five unverifiable MUSTs return a real verdict. Tokens are
+# named, never written here. Commands are argv lists: a string is rejected, because a
+# string could only be run through a shell.
+[graybox]
+wrong_audience_token_env   = "SENTINEL_WRONG_AUD"
+second_principal_token_env = "SENTINEL_PRINCIPAL_B"
+egress_token_env           = "SENTINEL_PRINCIPAL_A"
+egress_tool                = "data.proxy-call"
+egress_capture             = ["cat", "/var/log/broker-egress.log"]
+effect_counter             = ["psql", "-tAc", "select count(*) from deployment_attempts"]
+audit_verify               = ["broker", "audit", "verify", "--from", "2026-10-01", "--to", "2026-10-31"]
+audit_tool                 = "audit.touch"
+
+[graybox.handle]
+mint_tool    = "warehouse.query"
+handle_field = "structuredContent.handle"
+use_tool     = "warehouse.query_result"
+use_argument = "handle"
+
+[graybox.mrtr]
+tool = "ops.deployment_apply"

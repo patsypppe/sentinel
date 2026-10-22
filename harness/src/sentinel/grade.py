@@ -14,7 +14,10 @@ than returned as bare integers from wherever they are decided.
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from sentinel import SPEC_REVISION
 from sentinel.budget import BudgetPolicy
@@ -28,8 +31,12 @@ from sentinel.catalog.base import (
     Severity,
     Verifiability,
 )
+from sentinel.fingerprint import fingerprint, target_identity
 from sentinel.probe.client import SAFE_MODE_REFUSAL, Probe
 from sentinel.probe.transport import DEFAULT_RETRIES
+
+if TYPE_CHECKING:
+    from sentinel.waivers import Waiver
 
 #: The scan passed its gate.
 EXIT_OK = 0
@@ -90,10 +97,32 @@ class Finding:
     rule: BaseRule
     result: RuleResult
     elapsed_s: float
+    #: Stable identity of this finding on this target; see `sentinel.fingerprint`.
+    fingerprint: str = ""
+    #: The unexpired waiver covering a FAIL, if any. Waived findings stay in the
+    #: report and never count toward the gate.
+    waived_by: Waiver | None = None
+    #: A waiver that matched but has expired. The finding re-fails, labelled.
+    waiver_expired: Waiver | None = None
+    #: Present in the baseline: known, accepted, not gating.
+    baselined: bool = False
+    #: True when this rule did not exist at baseline time, so a failure is new by
+    #: construction and the report says why.
+    rule_is_new: bool = False
 
     @property
     def outcome(self) -> Outcome:
         return self.result.outcome
+
+    @property
+    def suppressed(self) -> bool:
+        """A FAIL that is accounted for and therefore does not gate."""
+        return self.outcome is Outcome.FAIL and (self.waived_by is not None or self.baselined)
+
+    @property
+    def verified_by(self) -> str:
+        """`black_box`, or the gray-box evidence kind that settled the verdict."""
+        return self.result.verified_by or "black_box"
 
 
 @dataclass(slots=True)
@@ -107,6 +136,20 @@ class ScanReport:
     #: say so: a rule left INDETERMINATE because the scanner chose not to call a
     #: tool is a different statement from one the server prevented.
     safe: bool = False
+    #: The configured fleet-target name, when this scan is one target of several.
+    target_name: str | None = None
+    #: Fingerprints in the baseline that no longer fail (set by the baseline).
+    fixed: list[str] = field(default_factory=list)
+    #: The resolved policy as a report block (see `Policy.describe`).
+    policy: dict[str, object] = field(default_factory=dict)
+    #: Waivers that matched nothing, or are expiring: housekeeping a reader needs.
+    waiver_notes: list[str] = field(default_factory=list)
+    #: Canonical SHA-256 of the target's tool manifest at scan time.
+    manifest_hash: str | None = None
+
+    @property
+    def target(self) -> str:
+        return target_identity(self.endpoint, self.target_name)
 
     @property
     def skipped_for_safety(self) -> list[Finding]:
@@ -123,6 +166,9 @@ class ScanReport:
             if f.outcome is outcome and (severity is None or f.rule.severity is severity)
         ]
 
+    def by_outcome_fail(self) -> list[Finding]:
+        return self.by_outcome(Outcome.FAIL)
+
     @property
     def must_failures(self) -> list[Finding]:
         return self.by_outcome(Outcome.FAIL, Severity.MUST)
@@ -132,9 +178,7 @@ class ScanReport:
         return self.by_outcome(Outcome.INDETERMINATE)
 
     def counts(self, severity: Severity | None = None) -> dict[str, int]:
-        return {
-            outcome.value: len(self.by_outcome(outcome, severity)) for outcome in Outcome
-        }
+        return {outcome.value: len(self.by_outcome(outcome, severity)) for outcome in Outcome}
 
     def gate(self, gate: Gate | Severity | None) -> int:
         """The exit code for `gate`.
@@ -167,6 +211,9 @@ class ScanReport:
             for f in self.by_outcome(Outcome.FAIL, gate.severity)
             if f.rule.namespace is gate.namespace
             and (not gate.category or f.rule.category == gate.category)
+            # A waived or baselined failure is accounted for. It is still in the
+            # report, in its own bucket, but it does not turn the build red.
+            and not f.suppressed
         ]
         return EXIT_GATE_FAILED if failed else EXIT_OK
 
@@ -185,49 +232,109 @@ def run_scan(
     retries: int = DEFAULT_RETRIES,
     budgets: BudgetPolicy | None = None,
     safe: bool = False,
+    concurrency: int = 8,
+    target_name: str | None = None,
+    skip: frozenset[str] = frozenset(),
+    probe_factory: Callable[[], Probe] | None = None,
+    context: dict[str, object] | None = None,
 ) -> ScanReport:
-    """Evaluate every rule against one endpoint."""
+    """Evaluate every rule against one endpoint.
+
+    Rules are independent by construction -- each builds its own requests and
+    asserts on its own responses -- so they run in a thread pool, and **each rule
+    gets its own `Probe`**, which is what guarantees no two rules share an HTTP
+    client. A rule that deliberately disturbs the target declares `exclusive` and
+    runs alone, after the pool drains.
+
+    The report is deterministic regardless of completion order: findings are
+    ordered by rule id before anyone sees them, so two scans of the same server
+    produce the same report.
+    """
     reg = registry if registry is not None else REGISTRY
     report = ScanReport(
-        endpoint=endpoint, spec_revision=SPEC_REVISION, started_at=time.time(), safe=safe
+        endpoint=endpoint,
+        spec_revision=SPEC_REVISION,
+        started_at=time.time(),
+        safe=safe,
+        target_name=target_name,
     )
 
     rules = reg.all(include_deprecated=include_deprecated)
     if only is not None:
         rules = [r for r in rules if r.id in only]
+    rules = [r for r in rules if r.id not in skip]
+    identity = report.target
+
+    def make_probe() -> Probe:
+        if probe_factory is not None:
+            return probe_factory()
+        return Probe(
+            endpoint,
+            timeout=timeout,
+            bearer_token=bearer_token,
+            verify=verify,
+            proxy=proxy,
+            client_cert=client_cert,
+            retries=retries,
+            budgets=budgets,
+            safe=safe,
+            context=context,
+        )
+
+    def run_one(r: BaseRule) -> Finding:
+        rule_started = time.perf_counter()
+        try:
+            with make_probe() as probe:
+                result = r.evaluate(probe)
+        except Exception as exc:
+            # A rule that raises is a HARNESS defect, and saying so is more
+            # useful than reporting it as a failure of the target. It lands in
+            # the INDETERMINATE bucket, where it does not fail a gate and is
+            # impossible to overlook.
+            result = RuleResult.indeterminate(
+                f"the rule raised {type(exc).__name__}: {exc}. This is a defect in the "
+                "harness, not a finding about the server."
+            )
+        result = _relabel_safe_mode(result)
+        return Finding(
+            rule=r,
+            result=result,
+            elapsed_s=time.perf_counter() - rule_started,
+            fingerprint=fingerprint(r.id, identity, r.evidence_key, result.key),
+        )
 
     started = time.perf_counter()
-    with Probe(
-        endpoint,
-        timeout=timeout,
-        bearer_token=bearer_token,
-        verify=verify,
-        proxy=proxy,
-        client_cert=client_cert,
-        retries=retries,
-        budgets=budgets,
-        safe=safe,
-    ) as probe:
-        for r in rules:
-            rule_started = time.perf_counter()
-            try:
-                result = r.evaluate(probe)
-            except Exception as exc:
-                # A rule that raises is a HARNESS defect, and saying so is more
-                # useful than reporting it as a failure of the target. It lands
-                # in the INDETERMINATE bucket, where it does not fail a gate and
-                # is impossible to overlook.
-                result = RuleResult.indeterminate(
-                    f"the rule raised {type(exc).__name__}: {exc}. This is a defect in the "
-                    "harness, not a finding about the server."
-                )
-            result = _relabel_safe_mode(result)
-            report.findings.append(
-                Finding(rule=r, result=result, elapsed_s=time.perf_counter() - rule_started)
-            )
-
+    shared = [r for r in rules if not r.exclusive]
+    alone = [r for r in rules if r.exclusive]
+    findings: list[Finding] = []
+    if shared:
+        with ThreadPoolExecutor(max_workers=max(1, concurrency)) as pool:
+            findings.extend(pool.map(run_one, shared))
+    findings.extend(run_one(r) for r in alone)
+    findings.sort(key=lambda f: f.rule.id)
+    report.findings = findings
     report.elapsed_s = time.perf_counter() - started
+    report.manifest_hash = _manifest_hash(make_probe)
     return report
+
+
+def _manifest_hash(make_probe: Callable[[], Probe]) -> str | None:
+    """The canonical hash of the target's tool manifest, or None if unreadable.
+
+    Best effort and never a finding: a target whose manifest cannot be read has
+    already failed the rules that say so, and a missing hash must not turn a
+    finished scan into an error.
+    """
+    from sentinel.snapshot import canonical_hash, fetch_tools
+
+    try:
+        with make_probe() as probe:
+            tools, _ = fetch_tools(probe)
+    except Exception:
+        return None
+    if tools is None:
+        return None
+    return canonical_hash([tools[name] for name in sorted(tools)])
 
 
 def _relabel_safe_mode(result: RuleResult) -> RuleResult:

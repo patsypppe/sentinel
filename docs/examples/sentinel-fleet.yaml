@@ -1,0 +1,15 @@
+# A fleet: named, separately credentialed targets, each judged by its own gate.
+# A test loads this file.
+concurrency: 5
+targets:
+  - name: broker-prod
+    endpoint: https://broker.example.com/mcp
+    token_env: BROKER_PROD_TOKEN      # the NAME of an environment variable
+    gate: must
+  - name: vendor-x                    # a third party you do not control
+    endpoint: https://vendor-x.example/mcp
+    token_env: VENDOR_X_TOKEN
+    gate: should
+    safe: true                        # never invoke their tools
+    timeout: 20
+    waivers_from: vendor-x.toml       # this target's own [[waivers]]

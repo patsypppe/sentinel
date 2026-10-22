@@ -1,0 +1,26 @@
+{{template "head" (dict "Title" "Fleet")}}
+<h1>Fleet</h1>
+<p class="muted">{{.Summary.Targets}} target(s) · generated {{stamp .Generated}}</p>
+<div class="stats">
+<div class="stat"><b>{{.Summary.Passing}}</b>passing</div>
+<div class="stat"><b>{{.Summary.Failing}}</b>failing its gate</div>
+<div class="stat"><b>{{.Summary.Stale}}</b>stale</div>
+<div class="stat"><b>{{.Summary.Ungated}}</b>report only</div>
+<div class="stat"><b>{{.Summary.TotalFailing}}</b>findings failing</div>
+<div class="stat"><b>{{.Summary.TotalAccepted}}</b>accepted</div>
+</div>
+{{if .Rows}}
+<table>
+<tr><th>Target</th><th>Status</th><th>Gate</th><th class="num">Failing</th><th class="num">Accepted</th><th class="num">Indeterminate</th><th>Last scan</th></tr>
+{{range .Rows}}<tr>
+<td><a href="/targets/{{.Key | urlquery}}">{{.Name}}</a><br><span class="muted">{{.Endpoint}}</span></td>
+<td><span class="pill {{.Status}}">{{.Status}}</span></td>
+<td>{{if .Gate}}{{.Gate}}{{else}}<span class="muted">none</span>{{end}}</td>
+<td class="num">{{.Failing}}</td><td class="num">{{.Accepted}}</td><td class="num">{{.Indeterminate}}</td>
+<td>{{.Age}} ago</td></tr>{{end}}
+</table>
+{{else}}<p>No scans have been published yet. Run <code>sentinel scan --publish URL</code>.</p>{{end}}
+{{if .MostFailing}}<h2>Rules failing on the most targets</h2>
+<table><tr><th>Rule</th><th class="num">Targets</th></tr>
+{{range .MostFailing}}<tr><td><code>{{.RuleID}}</code></td><td class="num">{{.Targets}}</td></tr>{{end}}</table>{{end}}
+{{template "foot"}}
