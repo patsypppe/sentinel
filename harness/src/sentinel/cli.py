@@ -699,7 +699,7 @@ def migrate(
         str | None, typer.Option(help="Bearer token to present to the target.")
     ] = None,
 ) -> None:
-    """Size the migration to 2026-07-28 for a server built against an older revision.
+    """Size the migration to the current spec for a server built against an older revision.
 
     Always exits 0 unless the harness itself broke. A migration report describes
     work, and work is not a verdict: a team should be able to run this against a

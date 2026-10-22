@@ -5,7 +5,7 @@
 # distribution so `uvx sentinel-mcp-conformance scan ...` works with no --from.
 name = "sentinel-mcp-conformance"
 version = "0.4.0"
-description = "Conformance harness for MCP 2026-07-28. Grades any MCP server against the normative requirements, reports which MUSTs it cannot verify black-box, and inventories deprecated-feature debt."
+description = "Conformance checker for MCP servers. Grades any MCP server against the normative requirements, reports which MUSTs it cannot verify black-box, and inventories deprecated-feature debt."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }

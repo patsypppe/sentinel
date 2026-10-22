@@ -1,6 +1,6 @@
 # Sentinel — MCP conformance
 
-A conformance harness for **MCP `2026-07-28`**, published as `sentinel-mcp-conformance`.
+A conformance checker for **MCP servers**, published as `sentinel-mcp-conformance`.
 
 Scans any MCP server, grades it against the normative requirements with a spec citation per rule,
 reports which MUSTs it **cannot** verify black-box rather than scoring them as passes, and

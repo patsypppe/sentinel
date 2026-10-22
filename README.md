@@ -1,6 +1,6 @@
 # Sentinel
 
-**Check whether an MCP server follows the 2026-07-28 specification — and a reference server that does.**
+**Check whether an MCP server follows the current MCP specification — and a reference server that does.**
 
 [![ci](https://github.com/patsypppe/sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/patsypppe/sentinel/actions/workflows/ci.yml)
 [![conformance](https://github.com/patsypppe/sentinel/actions/workflows/conformance.yml/badge.svg)](https://github.com/patsypppe/sentinel/actions/workflows/conformance.yml)
@@ -14,7 +14,7 @@ INDETERMINATE design. The data comes from the scans in [`site/data/`](site/data/
 ## What this is
 
 [MCP](https://modelcontextprotocol.io) (Model Context Protocol) is how AI applications talk to tools.
-Its newest specification revision is dated **2026-07-28**. It changes how servers work: no
+Its newest specification revision changes how servers work: no
 `initialize` handshake and no sessions, so every request carries its own protocol version and
 the server keeps no per-connection state; servers can no longer send requests to the client, and
 instead ask for more input by returning an `input_required` result that the client answers by
@@ -44,8 +44,8 @@ detection, deprecation tracking, CI reports) and is stricter in places, so run b
 | | |
 |---|---|
 | **`harness/`** | **`sentinel`**, a conformance harness that scans *any* MCP server, grades it against the normative requirements with a spec citation per rule, and inventories its deprecated-feature debt. Waivers, baselines, drift detection, fleets, six report formats. |
-| **`mcp/`** | The Go **server kit**: the packages that make a server native to `2026-07-28`, importable, with `server.New` and a one-tool example that the build scans on every commit. |
-| **`broker/`** | A Go MCP server built **natively** on `2026-07-28` with that kit — stateless, handle-based, MRTR-only, audited. The reference application. |
+| **`mcp/`** | The Go **server kit**: the packages that make a server native to the current spec, importable, with `server.New` and a one-tool example that the build scans on every commit. |
+| **`broker/`** | A Go MCP server built **natively** on the current spec with that kit — stateless, handle-based, MRTR-only, audited. The reference application. |
 | **`fleet/`** | **`sentinel-server`**: ingests scan reports, keeps their history, and answers what one scan cannot — how long a finding has been open, what drifted, which waivers are about to lapse. |
 
 They are coupled deliberately: the harness's credibility comes from grading a server that is not
@@ -139,7 +139,7 @@ without it, absence of evidence is never a pass:
 **A clean scan is not a clean bill of health.** A harness that scored these as passes would be
 lying, and a tool that implied otherwise would be worse than no tool.
 
-**Every `MCP/` rule cites a heading that exists.** Citations were checked against the 2026-07-28
+**Every `MCP/` rule cites a heading that exists.** Citations were checked against the current
 specification source, and a test fails if a rule points at a page or anchor that is not on its
 allowlist.
 
@@ -259,7 +259,7 @@ call reports `INDETERMINATE (skipped in safe mode)` — never a pass, never a fa
 sentinel registry-scan --out-dir scan     # every remote server in the official MCP registry
 ```
 
-Classifies each endpoint (speaks `2026-07-28`, legacy `2025-11-25` only, needs credentials,
+Classifies each endpoint (speaks the current spec, legacy `2025-11-25` only, needs credentials,
 unreachable), grades the ones on the current revision in safe mode with one connection per host
 and no retries, and writes an aggregate summary that names no server. Per-server results stay
 local, so a finding can reach its maintainer first. The `registry-scan` workflow runs it on
@@ -298,7 +298,7 @@ to; a scan of a third-party server has no such file and should use `--format jso
 
 ## Documentation
 
-- **[`docs/MIGRATION.md`](docs/MIGRATION.md)** — what changed in `2026-07-28` and what it costs
+- **[`docs/MIGRATION.md`](docs/MIGRATION.md)** — what changed in the current spec and what it costs
   you, with the mistakes worth avoiding and a migration order that works.
 - **[`docs/USING.md`](docs/USING.md)** — baselines, waivers, severity overrides, drift, gray-box evidence, output formats, wiring into CI.
 - **[`docs/FLEET.md`](docs/FLEET.md)** — scanning many servers, and `sentinel-server`: ingest, history, the dashboard, the API.
