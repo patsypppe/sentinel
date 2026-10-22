@@ -61,6 +61,8 @@ class ScanOptions:
     context: dict[str, Any] = field(default_factory=dict)
     #: False disables every command-shaped gray-box evidence kind (`--no-exec`).
     allow_exec: bool = True
+    #: When set, the opt-in rate-limit rule sends a burst of this many calls.
+    rate_limit_probe: int | None = None
     #: The environment gray-box token variables are read from.
     env: Mapping[str, str] | None = None
 
@@ -69,6 +71,8 @@ def scan_target(options: ScanOptions) -> ScanReport:
     """Scan one endpoint under a policy and return the triaged report."""
     policy = options.policy
     context: dict[str, Any] = dict(options.context)
+    if options.rate_limit_probe:
+        context["rate_limit_probe"] = options.rate_limit_probe
     if options.snapshot is not None:
         context["snapshot"] = options.snapshot
     if policy.graybox:

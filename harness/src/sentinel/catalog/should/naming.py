@@ -32,7 +32,7 @@ def _names(probe: Probe) -> tuple[list[str] | None, str]:
     id="MCP/2026-07-28/SHOULD/tool-names-well-formed",
     title="Tool names are 1-128 characters of letters, digits, underscore, hyphen and dot",
     severity=Severity.SHOULD,
-    citation=TOOLS,
+    citation=f"{TOOLS}#tool-names",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Rename tools to 1-128 characters drawn from A-Z, a-z, 0-9, underscore, hyphen "
@@ -61,7 +61,7 @@ def tool_names_well_formed(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/SHOULD/tool-names-unique-within-server",
     title="No two tools on one server share a name",
     severity=Severity.SHOULD,
-    citation=TOOLS,
+    citation=f"{TOOLS}#tool-names",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Give every tool a distinct name. A client addresses a tool by name alone, so a "

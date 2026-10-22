@@ -36,7 +36,7 @@ capability agreement, `tampered-requeststate-rejected`, `input-required-carries-
 `tool-description-injection`, `wildcard-scopes`, `manifest-drift`, `tls-posture` and
 `SENTINEL/OPS/latency-budget`. A third fixture, `partial`, exercises every `NOT_APPLICABLE` branch.
 
-Eleven of the new `MCP/` rules cite a page, not a heading anchor; see `docs/CITATIONS.md`.
+Every `MCP/` rule cites a heading anchor, checked against the specification source. Three security rules had cited a page that does not exist (`basic/security_best_practices`; the page lives at `docs/2026-07-28/tutorials/security/`) and now point at the real one.
 
 ### Added: distribution
 
@@ -72,8 +72,6 @@ SBOM on each release.
 
 - `handles`, `mrtr` and the Postgres audit sink still carry their pgx code in the same packages;
   splitting them behind storage interfaces into `mcp/postgres` is the next step.
-- Citations for eleven rules are page-level (see above).
-- The OTLP exporter is not wired into the broker.
 - No release has been cut; PyPI trusted publishing and the GHCR image still need a first release.
 
 ## 0.3.0

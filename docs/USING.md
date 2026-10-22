@@ -129,6 +129,14 @@ minimal environment, and a command given as a single string is rejected at load 
 scanned server returns ever reaches a command line. `--no-exec` disables every command-shaped kind
 and keeps the token-shaped ones.
 
+## Probing for rate limiting
+
+`MCP/2026-07-28/MUST/tool-invocations-rate-limited` needs traffic, so it is off unless you opt in:
+`sentinel scan URL --probe-rate-limit N` sends up to N rapid `tools/call` requests (capped at
+2000) to the first callable tool. A 429, or a refusal that says so, is a PASS. A server that
+serves them all is INDETERMINATE, never a FAIL, because the limit may sit above N or be keyed to
+something the probe does not present. Do not point it at a server you do not own.
+
 ## Output formats
 
 `--format text | json | sarif | markdown | junit | html`, and `--also FORMAT=PATH` writes more

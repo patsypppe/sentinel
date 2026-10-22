@@ -40,6 +40,9 @@ type Server struct {
 	// legacyErrorCodes attaches data.legacyCode in writeError. Scheduled for
 	// removal with the transition release.
 	legacyErrorCodes bool
+
+	// onSpan receives one Span per dispatched request, when set.
+	onSpan func(Span)
 }
 
 type Option func(*Server)
@@ -338,6 +341,7 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 
 	// 8. Dispatch.
 	result, rpcErr := handler(ctx, req.Params)
+	s.recordSpan(req.Method, req.Params, meta.Traceparent, rpcErr, started)
 
 	// 9. The audit row, BEFORE the response is written (§8.7), and covering
 	//    failures as well as successes — a refused call is exactly the kind an

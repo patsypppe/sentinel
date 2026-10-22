@@ -120,6 +120,8 @@ RULE_ID_PATTERN = re.compile(
 )
 
 SPEC_BASE = f"https://modelcontextprotocol.io/specification/{SPEC_REVISION}"
+#: The revision's tutorials live outside the specification tree (security best practices).
+DOCS_BASE = f"https://modelcontextprotocol.io/docs/{SPEC_REVISION}"
 
 #: Fixture profiles a rule may be exercised against.
 FIXTURE_NONCONFORMANT = "nonconformant"
@@ -360,7 +362,7 @@ def validate_registry(registry: Registry | None = None) -> list[ValidationProble
                 )
             if not r.citation:
                 problems.append(ValidationProblem(r.id, "has no spec citation"))
-            elif not r.citation.startswith(SPEC_BASE):
+            elif not r.citation.startswith((SPEC_BASE, DOCS_BASE)):
                 problems.append(
                     ValidationProblem(
                         r.id, f"citation does not point into {SPEC_BASE}: {r.citation}"

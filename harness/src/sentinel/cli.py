@@ -246,6 +246,19 @@ def scan(
             ),
         ),
     ] = None,
+    probe_rate_limit: Annotated[
+        int | None,
+        typer.Option(
+            "--probe-rate-limit",
+            min=1,
+            help=(
+                "Send a burst of this many calls to one tool to see whether the server "
+                "throttles. Off by default: flooding a server you were asked to grade is "
+                "opt-in. It can pass the rule but never fail it, because the specification "
+                "names no threshold."
+            ),
+        ),
+    ] = None,
     publish_to: Annotated[
         str | None,
         typer.Option(
@@ -381,6 +394,7 @@ def scan(
                 snapshot=loaded_snapshot,
                 target_name=target_name,
                 allow_exec=not no_exec,
+                rate_limit_probe=probe_rate_limit,
             )
         )
     except Exception as exc:

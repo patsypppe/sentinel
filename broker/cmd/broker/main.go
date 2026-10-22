@@ -29,6 +29,7 @@ import (
 	"github.com/patsypppe/sentinel/mcp/envelope"
 	"github.com/patsypppe/sentinel/mcp/handles"
 	"github.com/patsypppe/sentinel/mcp/mrtr"
+	"github.com/patsypppe/sentinel/mcp/otlp"
 	"github.com/patsypppe/sentinel/mcp/registry"
 	"github.com/patsypppe/sentinel/mcp/server"
 	"github.com/patsypppe/sentinel/mcp/store"
@@ -332,6 +333,20 @@ func serve(out io.Writer) error {
 	// instead of skipping the write.
 	if sink != nil {
 		opts = append(opts, transport.WithAuditSink(sink))
+	}
+
+	// Tracing. BROKER_OTEL_ENDPOINT used to be read and consumed by nothing. A bad value
+	// is a startup error, not a silent no-op: a trace pipeline that was never connected
+	// looks exactly like one with nothing to report.
+	if cfg.OTELEndpoint != "" {
+		exporter, err := otlp.New(cfg.OTELEndpoint, version.Name, log)
+		if err != nil {
+			return fmt.Errorf("BROKER_OTEL_ENDPOINT: %w", err)
+		}
+		exporter.Start(ctx)
+		defer exporter.Wait() // after ctx is cancelled, drains what is queued
+		opts = append(opts, transport.WithSpanRecorder(exporter.Record))
+		log.Info("exporting traces", "endpoint", cfg.OTELEndpoint)
 	}
 
 	srv := transport.NewServer(buildMux(info, reg, cfg), transport.Settings{

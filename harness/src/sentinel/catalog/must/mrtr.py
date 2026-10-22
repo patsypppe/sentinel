@@ -97,7 +97,7 @@ def _rejected(response: RawResponse) -> bool:
     id="MCP/2026-07-28/MUST/tampered-requeststate-rejected",
     title="A requestState altered by one character is rejected, not honoured",
     severity=Severity.MUST,
-    citation=MRTR,
+    citation=f"{MRTR}#server-requirements-basic-workflow",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Treat requestState as attacker-controlled input: seal it (an AEAD, or an HMAC "
@@ -145,7 +145,7 @@ def tampered_requeststate_rejected(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/input-required-carries-requests-or-state",
     title="An input_required result carries inputRequests or a requestState",
     severity=Severity.MUST,
-    citation=MRTR,
+    citation=f"{MRTR}#server-requirements-basic-workflow",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Return at least one of inputRequests (what you need) or requestState (how to "
@@ -174,7 +174,7 @@ def input_required_carries_requests_or_state(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/input-requests-respect-declared-capabilities",
     title="A client that declared no capabilities is not asked for any",
     severity=Severity.MUST,
-    citation=MRTR,
+    citation=f"{MRTR}#server-requirements-basic-workflow",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Read clientCapabilities on every request and do not return inputRequests "

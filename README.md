@@ -118,10 +118,9 @@ without it, absence of evidence is never a pass:
 **A clean scan is not a clean bill of health.** A harness that scored these as passes would be
 lying, and a tool that implied otherwise would be worse than no tool.
 
-**Eleven rules cite a specification page rather than a heading.** Their anchors could not be
-confirmed when they were written, so they point at the page and nothing finer; the list, and how
-to promote each to an anchor, is [`docs/CITATIONS.md`](docs/CITATIONS.md). A test keeps that list
-equal to the catalog.
+**Every `MCP/` rule cites a heading that exists.** Citations were checked against the 2026-07-28
+specification source, and a test fails if a rule points at a page or anchor that is not on its
+allowlist.
 
 The broker implements all five properties, and proves it with tests that *do* have the access a scan lacks —
 `TestTokenForAnotherAudienceRejected`, `TestInboundTokenNeverForwarded`,
@@ -283,7 +282,6 @@ to; a scan of a third-party server has no such file and should use `--format jso
 - **[`docs/USING.md`](docs/USING.md)** — baselines, waivers, severity overrides, drift, gray-box evidence, output formats, wiring into CI.
 - **[`docs/FLEET.md`](docs/FLEET.md)** — scanning many servers, and `sentinel-server`: ingest, history, the dashboard, the API.
 - **[`docs/KIT.md`](docs/KIT.md)** — building a conformant server with `mcp/`.
-- [`docs/CITATIONS.md`](docs/CITATIONS.md) — which rule citations still need an anchor.
 - [`docs/examples/`](docs/examples/) — a complete `sentinel.toml` and fleet file; tests load them.
 - [`CHANGELOG.md`](CHANGELOG.md)
 - [`docs/HANDOFF.md`](docs/HANDOFF.md) — the implementation specification (SN-HND-001).

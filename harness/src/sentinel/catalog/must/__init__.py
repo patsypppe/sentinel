@@ -15,6 +15,7 @@ from sentinel.catalog.must import (
     http,
     meta,
     mrtr,
+    ratelimit,
     schemas,
     unverifiable,
 )
@@ -27,6 +28,7 @@ __all__ = [
     "http",
     "meta",
     "mrtr",
+    "ratelimit",
     "schemas",
     "unverifiable",
 ]

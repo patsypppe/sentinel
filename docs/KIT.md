@@ -75,13 +75,24 @@ skips a decision. Every one has to be answered:
 | `mcp/canonical` | byte-stable JSON |
 | `mcp/store` | the pgx pool and the migrations |
 
+## Tracing
+
+`otlp.New(endpoint, service, logger)` returns an exporter that sends one span per dispatched request to an OTLP/HTTP-JSON
+collector (port 4318; 4317 is gRPC and is refused). Wire it with
+`server.Options{SpanRecorder: exp.Record}`, call `exp.Start(ctx)`, and `defer exp.Wait()`. Spans
+carry method, tool name, outcome and trace context, never arguments or principal. The broker
+enables it when `BROKER_OTEL_ENDPOINT` is set.
+
 ## Honest limits
 
 - **`handles`, `mrtr`, `audit` (`PoolSink`) and `store` still carry their Postgres implementations
   in the same packages.** The `AuditSink` seam is an interface, so the minimal path needs no
-  database, but a server that uses handles or MRTR needs Postgres today. Splitting those behind
-  storage interfaces into an `mcp/postgres` package is the next step, and the interfaces should be
-  extracted from what the pgx code already does rather than invented.
+  database, but a server that uses handles or MRTR needs Postgres today. This is deliberate and
+  not yet changed: `handles.Resolve` enforces tenant, principal and expiry inside one SQL
+  statement, so the database is what refuses a stolen handle, and MRTR's exactly-once guarantee
+  rests on a single transaction. Moving either behind an interface forces a choice between the
+  backend returning a row that the kit re-checks, or a backend contract that must itself enforce
+  those invariants. That is a security-design decision for the owner, not a refactor.
 - `transport` takes a two-field `Settings{AllowedOrigins, AllowLegacyUnversioned}`, not the
   broker's configuration struct; the broker maps its own configuration onto it.
 - The broker (`broker/`) is the reference application built on this kit. It proves the kit

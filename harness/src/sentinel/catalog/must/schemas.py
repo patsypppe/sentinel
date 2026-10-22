@@ -6,11 +6,8 @@ schema names an HTTP header gets that header written by the client from an
 argument value, so a server that lets the *name* of that header contain a CR or LF
 has handed a header-injection primitive to whoever controls the tool manifest.
 
-Citations are page-level on purpose. The anchors for these requirements could not
-be confirmed against the live specification when the rules were written, and a
-citation to an anchor that does not exist sends a reader to the top of a page while
-implying the spec says something it does not. `docs/CITATIONS.md` lists them so a
-scheduled check can promote each to an anchor.
+Each rule cites the `x-mcp-header` constraint list (`#schema-extension`) or the tool
+definition it restates.
 """
 
 from __future__ import annotations
@@ -97,7 +94,7 @@ def _scan(
     id="MCP/2026-07-28/MUST/x-mcp-header-not-empty",
     title="An x-mcp-header annotation names a header, not an empty string",
     severity=Severity.MUST,
-    citation=STREAMABLE,
+    citation=f"{STREAMABLE}#schema-extension",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Give every x-mcp-header annotation a non-empty header name, or remove the "
@@ -118,7 +115,7 @@ def x_mcp_header_not_empty(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/x-mcp-header-token-syntax",
     title="An x-mcp-header name is a valid HTTP token",
     severity=Severity.MUST,
-    citation=STREAMABLE,
+    citation=f"{STREAMABLE}#schema-extension",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Restrict x-mcp-header names to RFC 9110 token characters: letters, digits and "
@@ -140,7 +137,7 @@ def x_mcp_header_token_syntax(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/x-mcp-header-no-control-characters",
     title="An x-mcp-header name contains no control characters, including CR and LF",
     severity=Severity.MUST,
-    citation=STREAMABLE,
+    citation=f"{STREAMABLE}#schema-extension",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Strip control characters, above all carriage return and line feed, from "
@@ -162,7 +159,7 @@ def x_mcp_header_no_control_characters(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/x-mcp-header-case-insensitively-unique",
     title="x-mcp-header names are unique within a tool, ignoring case",
     severity=Severity.MUST,
-    citation=STREAMABLE,
+    citation=f"{STREAMABLE}#schema-extension",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Give each annotated parameter of a tool a distinct header name. HTTP header "
@@ -203,7 +200,7 @@ def x_mcp_header_case_insensitively_unique(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/x-mcp-header-primitive-types-only",
     title="An x-mcp-header parameter is a string, integer or boolean",
     severity=Severity.MUST,
-    citation=STREAMABLE,
+    citation=f"{STREAMABLE}#schema-extension",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Only annotate parameters whose type is string, integer or boolean. A number, "
@@ -230,7 +227,7 @@ def x_mcp_header_primitive_types_only(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/tools-declare-valid-input-schema",
     title="A tool's inputSchema, when present, is a JSON Schema object and not null",
     severity=Severity.MUST,
-    citation=TOOLS,
+    citation=f"{TOOLS}#tool",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         'Make inputSchema a JSON Schema object with type "object". Use '
