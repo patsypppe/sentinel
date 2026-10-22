@@ -133,6 +133,15 @@ def tampered_requeststate_rejected(probe: Probe) -> RuleResult:
             f"(HTTP {retry.status}, code {retry.error_code()})"
         )
     outcome = (retry.result() or {}).get("resultType")
+    if outcome == "input_required":
+        # Asking again is an allowed reply to a retry with missing input, and the
+        # MUST only applies when the state influences behaviour, so a fresh
+        # input_required does not show that the forged state was honoured.
+        return RuleResult.indeterminate(
+            f"{found.tool} answered an altered requestState with a new input_required "
+            "rather than an error. That may be a rejection in disguise or a state read back "
+            "unverified; the wire cannot tell which."
+        )
     return RuleResult.failed(
         f"{found.tool} accepted a requestState altered by one character and answered "
         f"with resultType {outcome!r}. The state is being read back without being "

@@ -284,10 +284,20 @@ def resource_not_found_code(probe: Probe) -> RuleResult:
             "it is now -32602",
             evidence=str(resp.error()),
         )
-    if resp.result() is not None:
+    result = resp.result()
+    if result is not None:
+        contents = result.get("contents")
+        if isinstance(contents, list) and contents:
+            # A catch-all resource template can legitimately serve any URI, so a
+            # populated result does not show that "does not exist" was ignored.
+            return RuleResult.indeterminate(
+                "the probe URI was served with content; a server with a catch-all template "
+                "may really have a resource there, so non-existence was not established"
+            )
         return RuleResult.failed(
-            "reading a resource that does not exist returned a result",
-            evidence=str(resp.result())[:300],
+            "reading a resource that does not exist returned an empty result; the "
+            "specification forbids an empty contents array for a missing resource",
+            evidence=str(result)[:300],
         )
     return RuleResult.failed(f"an unknown resource returned {code} rather than -32602")
 
@@ -351,9 +361,9 @@ def no_reserved_range_errors(probe: Probe) -> RuleResult:
     citation=f"{ERRORS}",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
-        "Return -32601 MethodNotFound for a method this server does not implement, as a "
-        "JSON-RPC error rather than an HTTP 404. A client cannot distinguish a missing "
-        "method from a missing endpoint or a proxy error otherwise."
+        "Return HTTP 404 with a -32601 MethodNotFound JSON-RPC error for a method this "
+        "server does not implement. Without the error body a client cannot distinguish a "
+        "missing method from a missing endpoint or a proxy error."
     ),
 )
 def unknown_method(probe: Probe) -> RuleResult:
@@ -387,6 +397,28 @@ def unknown_method(probe: Probe) -> RuleResult:
         "connection or returning a bare HTTP error leaves the client unable to tell a "
         "malformed request from a network fault, and it will retry the former forever."
     ),
+    # Withdrawn: -32700 comes from JSON-RPC 2.0, and the MCP text only says MCP uses
+    # the standard JSON-RPC codes "for general protocol failures"; no MCP sentence
+    # makes it a MUST.
+    deprecated_in="0.4.0",
+    superseded_by="MCP/2026-07-28/SHOULD/malformed-json-is-parse-error",
+)
+def malformed_json_must(probe: Probe) -> RuleResult:
+    return malformed_json.check(probe)
+
+
+@rule(
+    id="MCP/2026-07-28/SHOULD/malformed-json-is-parse-error",
+    title="Malformed JSON returns -32700",
+    severity=Severity.SHOULD,
+    citation=f"{ERRORS}",
+    verifiability=Verifiability.BLACK_BOX,
+    remediation=(
+        "Return -32700 ParseError for a body that is not valid JSON. Closing the "
+        "connection or returning a bare HTTP error leaves the client unable to tell a "
+        "malformed request from a network fault, and it will retry the former forever."
+    ),
+    introduced_in="0.4.0",
 )
 def malformed_json(probe: Probe) -> RuleResult:
     resp = probe.send(

@@ -24,3 +24,22 @@ from sentinel.probe.client import Probe
 )
 def tools_sorted_by_name(probe: Probe) -> RuleResult:
     return checks.tools_sorted_by_name(probe)
+
+
+@rule(
+    id="SENTINEL/STYLE/tools-have-descriptions",
+    title="Every tool has a description",
+    severity=Severity.SHOULD,
+    rationale=(
+        "`description` is optional in the specification's Tool schema, so a tool without one "
+        "conforms. It is what a model reads to choose between tools, though, so an "
+        "undescribed tool is either never selected or selected by accident."
+    ),
+    verifiability=Verifiability.BLACK_BOX,
+    remediation="Describe every tool in a sentence a model could choose it by.",
+    introduced_in="0.4.0",
+)
+def tools_have_descriptions(probe: Probe) -> RuleResult:
+    from sentinel.catalog.should.ordering import tools_described
+
+    return tools_described.check(probe)

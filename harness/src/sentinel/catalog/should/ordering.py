@@ -49,6 +49,10 @@ def tools_sorted(probe: Probe) -> RuleResult:
         "Describe every tool. The description is what a model reads to choose between "
         "tools, so an undescribed tool is either never selected or selected by accident."
     ),
+    # Withdrawn: `description` is optional in the specification's Tool schema, so
+    # omitting it is conformant. It is good practice, so it lives on as a style rule.
+    deprecated_in="0.4.0",
+    superseded_by="SENTINEL/STYLE/tools-have-descriptions",
 )
 def tools_described(probe: Probe) -> RuleResult:
     result = probe.tools_list().result()

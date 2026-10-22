@@ -4,6 +4,31 @@
 
 The harness stops being a one-shot grader and becomes something a team runs.
 
+### Fixed: rules that were stricter than the specification
+
+Every `MCP/` rule was audited against the 2026-07-28 specification source and the official
+`modelcontextprotocol/conformance` suite. Rule ids are permanent, so a withdrawn rule is
+deprecated and points at its successor.
+
+- `MUST/discover-without-negotiated-version` withdrawn: the specification never exempts
+  `server/discover` from version negotiation, so it failed conformant servers.
+- Demoted to SHOULD (new ids): `discover-reports-server-info`, `list-changed-advertised-truthfully`
+  (now INDETERMINATE when the probe cannot tell), `malformed-json-is-parse-error`.
+- Moved out of the spec namespace to `SENTINEL/STYLE/`: `tools-have-descriptions`, and the
+  `initialize` / `ping` / `logging/setLevel` / `resources/(un)subscribe` removed-method checks. A
+  dual-era server MAY keep serving them. The `sampling` and `roots` checks were dropped: they remain
+  functional during their deprecation window.
+- Loosened to INDETERMINATE instead of FAIL where the wire cannot tell a violation from a
+  permitted behaviour: a headerless request that is served, a tampered `requestState` answered
+  with a fresh `input_required`, a populated result for an unknown resource URI, a tool list that
+  differs once between two connections, a tool list whose payload (not order) varies.
+- `missing-protocol-version-rejected` accepts `-32020` as well as `-32602`;
+  `missing-capability-error-shape` reads `requiredCapabilities` as an object, as the schema types it;
+  `x-mcp-header` rules no longer FAIL an untyped or union-typed property; the token-syntax rule uses a
+  full match; the rate-limit rule no longer treats the word "quota" as a throttle.
+- Three security rules cited a specification page that does not exist; every `MCP/` rule now cites a
+  heading that does.
+
 ### Added: operating it
 
 - **`sentinel.toml`**: endpoint, gate, timeouts, rule toggles, severity overrides, waivers.

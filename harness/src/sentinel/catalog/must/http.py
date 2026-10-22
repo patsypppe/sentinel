@@ -96,11 +96,13 @@ def protocol_version_header_required(probe: Probe) -> RuleResult:
     if not response.reached_server:
         return RuleResult.indeterminate(f"unreachable: {response.transport_error}")
     if response.result() is not None:
-        return RuleResult.failed(
-            f"tools/list was SERVED with no MCP-Protocol-Version header (HTTP "
-            f"{response.status}); any revision-aware policy in front of this server can "
-            "be bypassed by omitting the header",
-            evidence=str(response.result())[:300],
+        # A server that supports clients older than 2025-06-18 MAY treat a request
+        # with no header as an earlier version, so serving it is not provably wrong.
+        return RuleResult.indeterminate(
+            f"tools/list was served with no MCP-Protocol-Version header (HTTP "
+            f"{response.status}). That is a violation unless this server deliberately supports "
+            "clients older than 2025-06-18, which the specification lets it treat as "
+            "2025-03-26; the wire cannot tell the two apart."
         )
 
     code = response.error_code()

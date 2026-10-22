@@ -26,7 +26,7 @@ MAX_BURST = 2_000
 
 #: Words a throttling JSON-RPC error tends to carry, for servers that signal it in the
 #: body and not with HTTP 429.
-_THROTTLE_WORDS = ("rate limit", "rate-limit", "too many requests", "throttl", "quota")
+_THROTTLE_WORDS = ("rate limit", "rate-limit", "too many requests", "throttl")
 
 
 def _throttled(status: int, message: str) -> bool:

@@ -73,10 +73,13 @@ def tools_list_deterministic(probe: Probe) -> RuleResult:
             evidence=f"orderings observed: {sorted(orders)[:3]}",
         )
     if len(digests) > 1:
-        return RuleResult.failed(
-            f"tools/list returned {len(digests)} different tool payloads across 20 calls "
-            "with the same ordering; some field varies between calls",
-            evidence=f"{len(digests)} distinct digests",
+        # The specification asks for a deterministic ORDER; a field that varies
+        # inside a stable order is worth knowing about (it defeats caching) but is
+        # not what the SHOULD says.
+        return RuleResult.indeterminate(
+            f"tools/list kept one ordering across 20 calls, but {len(digests)} distinct "
+            "payloads: some field varies between calls. The order is deterministic, which is "
+            "what the specification asks; the varying field defeats client caching."
         )
     return RuleResult.passed("20 calls to tools/list produced one distinct payload")
 

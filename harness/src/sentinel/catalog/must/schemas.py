@@ -126,7 +126,7 @@ def x_mcp_header_not_empty(probe: Probe) -> RuleResult:
 )
 def x_mcp_header_token_syntax(probe: Probe) -> RuleResult:
     def violates(_t: str, _p: str, value: Any, _d: dict[str, Any]) -> str | None:
-        if isinstance(value, str) and value and not _TOKEN.match(value):
+        if isinstance(value, str) and value and not _TOKEN.fullmatch(value):
             return f"{value!r} is not an RFC 9110 token"
         return None
 
@@ -211,7 +211,9 @@ def x_mcp_header_case_insensitively_unique(probe: Probe) -> RuleResult:
 def x_mcp_header_primitive_types_only(probe: Probe) -> RuleResult:
     def violates(_t: str, _p: str, _v: Any, definition: dict[str, Any]) -> str | None:
         declared = definition.get("type")
-        if declared not in _HEADER_TYPES:
+        # No type, or a type array such as ["string", "null"], is not shown to be
+        # outside the permitted set, so only a declared non-primitive is a violation.
+        if isinstance(declared, str) and declared not in _HEADER_TYPES:
             return f"type is {declared!r}"
         return None
 
