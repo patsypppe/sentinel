@@ -22,6 +22,7 @@ import typer
 from sentinel import SPEC_REVISION, __version__
 from sentinel.budget import BudgetPolicy
 from sentinel.catalog.base import REGISTRY, Severity, validate_registry
+from sentinel.fixtures_path import fixtures_dir
 from sentinel.grade import (
     EXIT_GATE_FAILED,
     EXIT_HARNESS_ERROR,
@@ -842,6 +843,14 @@ def catalog_list(
     raise typer.Exit(EXIT_OK)
 
 
+@app.command()
+def demo() -> None:
+    """Scan two built-in practice servers, one broken and one correct. No setup needed."""
+    from sentinel.demo import run_demo
+
+    raise typer.Exit(run_demo())
+
+
 @fixture_app.command("serve")
 def fixture_serve(
     profile: Annotated[str, typer.Option(help="nonconformant | conformant | partial")],
@@ -854,7 +863,7 @@ def fixture_serve(
         )
         raise typer.Exit(EXIT_HARNESS_ERROR)
 
-    fixtures = REPO_ROOT / "fixtures"
+    fixtures = fixtures_dir()
     if not (fixtures / "server" / f"{profile}.py").exists():
         typer.echo(f"sentinel: cannot find the fixtures at {fixtures}", err=True)
         raise typer.Exit(EXIT_HARNESS_ERROR)

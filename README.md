@@ -11,35 +11,29 @@ You give it a server's URL. It sends the server test requests, checks each answe
 rulebook, and prints a pass/fail list. Every failure says what it saw, what to change, and which
 page of the spec the rule comes from.
 
-## Try it in two minutes
+## Try it in 30 seconds
 
-This repo includes two fake servers to practise on: one with deliberate mistakes, one that follows
-the rules. You need [uv](https://docs.astral.sh/uv/) and Python 3.12+.
+No clone, no setup, nothing to configure. This starts two practice servers on your machine (one
+with deliberate mistakes, one correct), scans both, and shows you the difference:
 
 ```bash
-git clone https://github.com/patsypppe/sentinel && cd sentinel
-
-# 1. start the two practice servers (leave this running)
-uv run sentinel fixture serve --profile nonconformant --port 9000 &
-uv run sentinel fixture serve --profile conformant    --port 9001 &
-
-# 2. scan the one with mistakes: it fails
-uv run sentinel scan --endpoint http://localhost:9000/mcp --gate must
-echo "exit code: $?"          # 1 = at least one MUST rule failed
-
-# 3. scan the correct one: it passes
-uv run sentinel scan --endpoint http://localhost:9001/mcp --gate must
-echo "exit code: $?"          # 0 = no MUST rule failed
+uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" sentinel demo
 ```
 
-A failure looks like this:
+```
+=== Server A: has deliberate mistakes ===
+  required rules (MUST):  4 pass, 33 fail, 7 could not be checked from outside
+  FAIL  MUST/cacheable-results-carry-ttl
+        4 of 4 list results omit ttlMs: ['server/discover', 'tools/list', ...]
+  ... and 29 more
+  verdict: FAIL (exit code 1)
 
+=== Server B: follows the rules ===
+  required rules (MUST):  36 pass, 0 fail, 6 could not be checked from outside
+  verdict: PASS (exit code 0)
 ```
-FAIL  MCP/2026-07-28/MUST/cacheable-results-carry-ttl
-      observed:    4 of 4 list results omit ttlMs: ['server/discover', 'tools/list', ...]
-      remediation: Add ttlMs to every list and read result. ...
-      spec:        https://modelcontextprotocol.io/specification/2026-07-28/changelog#minor-changes
-```
+
+Prefer a clone? `git clone https://github.com/patsypppe/sentinel && cd sentinel && uv run sentinel demo`.
 
 ## Scan your own server
 
@@ -52,6 +46,25 @@ uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness"
 
 If the server needs a login token, add `--token "$TOKEN"`. Only scan servers you own or have
 permission to test.
+
+## What it checks
+
+```mermaid
+flowchart LR
+    A[Your MCP server<br/>any language] -->|"plain HTTP requests<br/>(no MCP library)"| B[Sentinel probe]
+    B --> C{66 rules}
+    C --> D[Spec rules<br/>MUST / SHOULD]
+    C --> E[Tool-description quality<br/>stubs, undocumented parameters]
+    C --> F[Security basics<br/>prompt injection in tool text,<br/>origin checks, token rules]
+    D --> G[Report<br/>text, JSON, SARIF, HTML]
+    E --> G
+    F --> G
+    G --> H[Exit code 0 / 1<br/>gate your CI on it]
+```
+
+The description checks come from research, not taste: a 2026 study of 856 tools found
+[97% of tool descriptions have at least one flaw](https://arxiv.org/html/2602.14878v1), and a study
+of 10,831 servers showed those flaws [change which tool an LLM picks](https://arxiv.org/html/2602.18914v1).
 
 ## How it works
 
@@ -70,6 +83,17 @@ permission to test.
 Terms: **MUST** rules are required, and a failure fails the gate. **SHOULD** rules are
 recommendations, so they are reported but never fail the gate. The rule names carry a date,
 `2026-07-28`, because that is the spec revision they were written against.
+
+## What is in this repo
+
+| Part | What it is | Tech |
+|---|---|---|
+| [`harness/`](harness/) | **Sentinel**, the checker described above | Python 3.12, httpx, typer, pytest, mypy `--strict`, ruff |
+| [`broker/`](broker/) and [`mcp/`](mcp/) | A reference MCP server and the reusable server kit it is built on; both pass Sentinel | Go, Postgres, JWT auth, OpenTelemetry (hand-written OTLP exporter) |
+| [`fleet/`](fleet/) | A service that stores scan history for many servers | Go, Postgres (pgx), HTTP API |
+| `.github/`, [`action.yml`](action.yml) | CI, a reusable GitHub Action, and a pre-commit hook | GitHub Actions, Docker, SARIF to GitHub code scanning |
+
+Sentinel never imports the server code. It only talks HTTP, so it can be pointed at anything.
 
 ## Test Sentinel itself
 

@@ -43,3 +43,85 @@ def tools_have_descriptions(probe: Probe) -> RuleResult:
     from sentinel.catalog.should.ordering import tools_described
 
     return tools_described.check(probe)
+
+
+def _tools(probe: Probe) -> list[dict[str, object]] | None:
+    result = probe.tools_list().result()
+    tools = (result or {}).get("tools")
+    if not isinstance(tools, list):
+        return None
+    return [t for t in tools if isinstance(t, dict)]
+
+
+@rule(
+    id="SENTINEL/STYLE/description-states-purpose",
+    title="Every tool description says what the tool does",
+    severity=Severity.SHOULD,
+    rationale=(
+        "A 2026 study of 856 tools in 103 MCP servers (arXiv 2602.14878) found that 56% of "
+        "descriptions fail to state their purpose clearly. The description is all a model has "
+        "to choose a tool, so a stub such as the tool's own name is an unusable description. "
+        "This check is deliberately crude (too short, or just the name): it flags the clear "
+        "cases and says nothing about borderline ones."
+    ),
+    verifiability=Verifiability.BLACK_BOX,
+    remediation=(
+        "Write a sentence that says what the tool does and when to use it, for example "
+        "'Search open issues by keyword and return the 10 most recent matches.'"
+    ),
+    introduced_in="0.4.0",
+)
+def description_states_purpose(probe: Probe) -> RuleResult:
+    tools = _tools(probe)
+    if not tools:
+        return RuleResult.not_applicable("this server advertises no tools")
+    weak = []
+    for t in tools:
+        name = str(t.get("name", ""))
+        text = str(t.get("description") or "").strip()
+        if len(text) < 20 or text.lower().replace("_", " ") == name.lower().replace("_", " "):
+            weak.append(name)
+    if weak:
+        return RuleResult.failed(f"{len(weak)} tool(s) have a stub description: {weak[:5]}")
+    return RuleResult.passed(f"all {len(tools)} tool descriptions are more than a stub")
+
+
+@rule(
+    id="SENTINEL/STYLE/parameters-are-described",
+    title="Every tool parameter has a description",
+    severity=Severity.SHOULD,
+    rationale=(
+        "A 2026 study of 10,831 MCP servers (arXiv 2602.18914) found thousands of tools with "
+        "missing or incorrect parameter semantics, and showed in a mutation experiment that "
+        "such smells measurably change which tool an LLM selects. A parameter named `q` or "
+        "`id` is a guess unless it is described."
+    ),
+    verifiability=Verifiability.BLACK_BOX,
+    remediation=(
+        "Add a `description` to every property in the tool's inputSchema, saying what it "
+        "means, its format, and an example value where the format is not obvious."
+    ),
+    introduced_in="0.4.0",
+)
+def parameters_are_described(probe: Probe) -> RuleResult:
+    tools = _tools(probe)
+    if not tools:
+        return RuleResult.not_applicable("this server advertises no tools")
+    missing: list[str] = []
+    checked = 0
+    for t in tools:
+        schema = t.get("inputSchema")
+        props = schema.get("properties") if isinstance(schema, dict) else None
+        if not isinstance(props, dict):
+            continue
+        for pname, pdef in props.items():
+            checked += 1
+            if not (isinstance(pdef, dict) and str(pdef.get("description") or "").strip()):
+                missing.append(f"{t.get('name')}.{pname}")
+    if checked == 0:
+        return RuleResult.not_applicable("no tool takes parameters")
+    if missing:
+        return RuleResult.failed(
+            f"{len(missing)} of {checked} parameter(s) have no description: {missing[:6]}"
+        )
+    return RuleResult.passed(f"all {checked} parameters are described")

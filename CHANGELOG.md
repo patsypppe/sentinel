@@ -4,6 +4,13 @@
 
 The harness stops being a one-shot grader and becomes something a team runs.
 
+### Added: `sentinel demo` and tool-description lint
+
+- `sentinel demo`: starts two bundled practice servers (one broken, one correct), scans both and
+  prints the verdicts. Works from a plain `uvx` install because the practice servers ship in the wheel.
+- `SENTINEL/STYLE/description-states-purpose` and `SENTINEL/STYLE/parameters-are-described`,
+  grounded in two 2026 studies of MCP tool descriptions (arXiv 2602.14878, 2602.18914).
+
 ### Fixed: rules that were stricter than the specification
 
 Every `MCP/` rule was audited against the 2026-07-28 specification source and the official
