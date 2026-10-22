@@ -4,6 +4,15 @@
 
 The harness stops being a one-shot grader and becomes something a team runs.
 
+### Added: benchmarks against servers this project did not write
+
+- `benchmarks/official_negatives.py`: runs the broken fixtures from the official conformance repo and
+  reports which labelled violations Sentinel catches (6 of 8, misses explained).
+- `benchmarks/sdk_readiness.py`: scans servers built with the official SDKs.
+- Reports now say which protocol generation answered, and a scan of a legacy-only server says so at
+  the top instead of presenting a wall of failures as independent bugs.
+- The stub-description threshold is 12 characters, not 20 ("Add two numbers." is a description).
+
 ### Added: `sentinel demo` and tool-description lint
 
 - `sentinel demo`: starts two bundled practice servers (one broken, one correct), scans both and

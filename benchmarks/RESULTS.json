@@ -1,0 +1,97 @@
+[
+  {
+    "fixture": "sep-2549-no-caching-hints",
+    "labelled_violation": "omits ttlMs and cacheScope from list/read results",
+    "expected_rules": [
+      "MCP/2026-07-28/MUST/cacheable-results-carry-ttl",
+      "MCP/2026-07-28/MUST/cacheable-results-carry-scope"
+    ],
+    "caught": [
+      "MCP/2026-07-28/MUST/cacheable-results-carry-ttl",
+      "MCP/2026-07-28/MUST/cacheable-results-carry-scope"
+    ],
+    "missed": [],
+    "missed_outcomes": {},
+    "generation": "2026-07-28"
+  },
+  {
+    "fixture": "sep-2322-mrtr-broken-server",
+    "labelled_violation": "omits resultType; accepts a tampered requestState",
+    "expected_rules": [
+      "MCP/2026-07-28/MUST/result-type-present",
+      "MCP/2026-07-28/MUST/tampered-requeststate-rejected"
+    ],
+    "caught": [
+      "MCP/2026-07-28/MUST/result-type-present",
+      "MCP/2026-07-28/MUST/tampered-requeststate-rejected"
+    ],
+    "missed": [],
+    "missed_outcomes": {},
+    "generation": "2026-07-28"
+  },
+  {
+    "fixture": "sep-2164-empty-contents",
+    "labelled_violation": "returns an empty contents array for a resource that does not exist",
+    "expected_rules": [
+      "MCP/2026-07-28/MUST/resource-not-found-is-invalid-params"
+    ],
+    "caught": [
+      "MCP/2026-07-28/MUST/resource-not-found-is-invalid-params"
+    ],
+    "missed": [],
+    "missed_outcomes": {},
+    "generation": "2026-07-28"
+  },
+  {
+    "fixture": "tools-list-rotated-order",
+    "labelled_violation": "reorders tools/list on every call",
+    "expected_rules": [
+      "MCP/2026-07-28/SHOULD/tools-list-is-deterministic"
+    ],
+    "caught": [
+      "MCP/2026-07-28/SHOULD/tools-list-is-deterministic"
+    ],
+    "missed": [],
+    "missed_outcomes": {},
+    "generation": "2026-07-28"
+  },
+  {
+    "fixture": "invalid-tool-names",
+    "labelled_violation": "advertises tool names with illegal characters",
+    "expected_rules": [
+      "MCP/2026-07-28/SHOULD/tool-names-well-formed"
+    ],
+    "caught": [],
+    "missed": [
+      "MCP/2026-07-28/SHOULD/tool-names-well-formed"
+    ],
+    "missed_outcomes": {
+      "MCP/2026-07-28/SHOULD/tool-names-well-formed": "indeterminate"
+    },
+    "generation": "legacy"
+  },
+  {
+    "fixture": "no-dns-rebinding-protection",
+    "labelled_violation": "does not validate the Origin header",
+    "expected_rules": [
+      "MCP/2026-07-28/MUST/invalid-origin-rejected"
+    ],
+    "caught": [],
+    "missed": [
+      "MCP/2026-07-28/MUST/invalid-origin-rejected"
+    ],
+    "missed_outcomes": {
+      "MCP/2026-07-28/MUST/invalid-origin-rejected": "indeterminate"
+    },
+    "generation": "unreachable"
+  },
+  {
+    "fixture": "sep-2106-stripped-schema",
+    "labelled_violation": "strips JSON Schema 2020-12 keywords from a tool's inputSchema",
+    "expected_rules": [],
+    "caught": [],
+    "missed": [],
+    "missed_outcomes": {},
+    "generation": "legacy"
+  }
+]

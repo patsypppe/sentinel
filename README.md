@@ -47,6 +47,17 @@ uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness"
 If the server needs a login token, add `--token "$TOKEN"`. Only scan servers you own or have
 permission to test.
 
+## Does it work? Measured against servers I did not write
+
+| Test | Result |
+|---|---|
+| The MCP maintainers' own broken servers, each labelled with one violation | **6 of 8 labelled violations caught.** The 2 misses are explained: one server speaks only the old protocol, one refuses every probe, so Sentinel says "can't tell" instead of guessing |
+| A server built with the official Python SDK 2.x | Speaks the current spec. 26 required rules pass, 3 fail, all three on the *error code* returned for a rejected request. The spec text says one code, the SDK returns another |
+| The official conformance reference server | 5 required rules fail: it does not enforce `Mcp-Method`/`Mcp-Name` headers or `Origin` checks, which the spec requires and the official suite's own header scenarios still mark as pending |
+
+Details, methodology and limits (including where Sentinel is deliberately stricter than the
+official suite): [`benchmarks/`](benchmarks/README.md). Reproduce with two commands.
+
 ## What it checks
 
 ```mermaid

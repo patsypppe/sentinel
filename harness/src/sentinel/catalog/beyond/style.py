@@ -79,7 +79,7 @@ def description_states_purpose(probe: Probe) -> RuleResult:
     for t in tools:
         name = str(t.get("name", ""))
         text = str(t.get("description") or "").strip()
-        if len(text) < 20 or text.lower().replace("_", " ") == name.lower().replace("_", " "):
+        if len(text) < 12 or text.lower().replace("_", " ") == name.lower().replace("_", " "):
             weak.append(name)
     if weak:
         return RuleResult.failed(f"{len(weak)} tool(s) have a stub description: {weak[:5]}")

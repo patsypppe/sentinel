@@ -146,6 +146,10 @@ class ScanReport:
     waiver_notes: list[str] = field(default_factory=list)
     #: Canonical SHA-256 of the target's tool manifest at scan time.
     manifest_hash: str | None = None
+    #: Which protocol generation answered: "current", "legacy", "auth", "other" or
+    #: "unreachable" (see `population.classify`), and a human sentence about it.
+    generation: str = ""
+    generation_detail: str = ""
 
     @property
     def target(self) -> str:
@@ -315,7 +319,20 @@ def run_scan(
     report.findings = findings
     report.elapsed_s = time.perf_counter() - started
     report.manifest_hash = _manifest_hash(make_probe)
+    report.generation, report.generation_detail = _generation(make_probe)
     return report
+
+
+def _generation(make_probe: Callable[[], Probe]) -> tuple[str, str]:
+    """Which protocol generation the target speaks. Best effort, never a finding."""
+    from sentinel.population import classify
+
+    try:
+        with make_probe() as probe:
+            klass, _status, detail, _framing = classify(probe)
+    except Exception:
+        return "", ""
+    return klass, detail
 
 
 def _manifest_hash(make_probe: Callable[[], Probe]) -> str | None:

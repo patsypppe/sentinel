@@ -43,3 +43,12 @@ def test_demo_runs_end_to_end_and_shows_both_verdicts() -> None:
     assert done.returncode == 0, done.stderr
     assert "verdict: FAIL (exit code 1)" in done.stdout
     assert "verdict: PASS (exit code 0)" in done.stdout
+
+
+def test_a_legacy_only_server_is_called_out_at_the_top_of_the_report() -> None:
+    from sentinel.grade import ScanReport
+    from sentinel.report import text
+
+    report = ScanReport(endpoint="http://x/mcp", spec_revision="2026-07-28")
+    report.generation, report.generation_detail = "legacy", "negotiated '2025-11-25'"
+    assert "PREVIOUS MCP revision" in text.render(report, color=False)

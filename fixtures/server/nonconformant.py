@@ -149,7 +149,7 @@ _CONNECTION_ID = "_sentinel_connection_id"
 TOOLS: list[dict[str, Any]] = [
     {
         "name": "warehouse.query",
-        "description": "Run a query.",
+        "description": "Query.",
         "inputSchema": {"type": "object", "properties": {"sql": {"type": "string"}}},
     },
     {

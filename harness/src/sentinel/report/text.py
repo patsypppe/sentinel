@@ -45,6 +45,15 @@ def render(report: ScanReport, *, color: bool = True) -> str:
     lines: list[str] = []
     lines.append(paint(f"sentinel scan · MCP {report.spec_revision}", BOLD))
     lines.append(f"target: {report.endpoint}")
+    if report.generation == "legacy":
+        lines.append(
+            paint(
+                "note: this server speaks only the PREVIOUS MCP revision "
+                f"({report.generation_detail}). Sentinel tests the current one, so most failures "
+                "below are what migrating costs, not independent bugs.",
+                YELLOW,
+            )
+        )
     lines.append("")
 
     # Failures first: a report whose first screen is passes buries its own point.
