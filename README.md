@@ -1,6 +1,6 @@
 # Sentinel
 
-**A stateless MCP server, and the conformance harness that grades it.**
+**Check whether an MCP server follows the 2026-07-28 specification — and a reference server that does.**
 
 [![ci](https://github.com/patsypppe/sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/patsypppe/sentinel/actions/workflows/ci.yml)
 [![conformance](https://github.com/patsypppe/sentinel/actions/workflows/conformance.yml/badge.svg)](https://github.com/patsypppe/sentinel/actions/workflows/conformance.yml)
@@ -11,14 +11,35 @@ INDETERMINATE design. The data comes from the scans in [`site/data/`](site/data/
 
 [![Three scans side by side: the unmigrated server fails the MUST gate, the broker and the conformant fixture pass it](site/assets/img/showcase.png)](https://patsypppe.github.io/sentinel/)
 
-On **28 July 2026** the Model Context Protocol shipped the largest breaking revision in its
-history: it converted MCP from a stateful, session-based, bidirectional protocol into a
-**stateless request/response protocol**. Sessions are gone. The `initialize` handshake is gone.
-`server/discover` is mandatory. Server-initiated requests were replaced wholesale by Multi
-Round-Trip Requests. `CacheableResult` became required. Sampling, Roots, Logging, HTTP+SSE
-transport and OAuth Dynamic Client Registration were all deprecated on a twelve-month clock.
+## What this is
 
-Every MCP server in the wild was written against the old idioms.
+[MCP](https://modelcontextprotocol.io) (Model Context Protocol) is how AI applications talk to tools.
+Its newest specification revision is dated **2026-07-28**. It changes how servers work: no
+`initialize` handshake and no sessions, so every request carries its own protocol version and
+the server keeps no per-connection state; servers can no longer send requests to the client, and
+instead ask for more input by returning an `input_required` result that the client answers by
+retrying; and list results must say how long they can be cached. See the
+[revision's own change list](https://modelcontextprotocol.io/specification/2026-07-28/changelog).
+
+**Sentinel answers one question: does this MCP server follow that specification?** Point it at a
+server's URL and it sends real requests, checks every answer against the MUST/SHOULD requirements,
+and tells you which rules failed, what it saw, what to change, and which page of the spec the rule
+comes from. It works on any server in any language, because it only speaks HTTP to it.
+
+```bash
+uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" \
+  sentinel scan --endpoint https://your-server.example/mcp --gate must
+```
+
+Exit code `0` means no MUST rule failed; `1` means at least one did. Some requirements cannot be
+checked from outside a server (for example, "does it log every call?"); those are reported as
+`INDETERMINATE`, never as passes.
+
+Sentinel is not the official test suite. The MCP project publishes
+[`modelcontextprotocol/conformance`](https://github.com/modelcontextprotocol/conformance), which
+drives a server with a scripted client and expects the server to expose specific test tools. Sentinel
+needs nothing from the server, adds the operational half (baselines, waivers, fleets, drift
+detection, deprecation tracking, CI reports) and is stricter in places, so run both if you can.
 
 | | |
 |---|---|
@@ -186,12 +207,12 @@ for a reason outside this repository.
 
 ### Scanning your own server
 
-No clone needed: every GitHub release publishes the harness to PyPI as
-`sentinel-mcp-conformance` (the `release` workflow).
+No clone needed. Until the first release is published to PyPI (`sentinel-mcp-conformance`, via
+the `release` workflow), install from git:
 
 ```bash
-uvx sentinel-mcp-conformance scan --endpoint https://your-server.example/mcp --gate must
-pipx install sentinel-mcp-conformance   # then: sentinel scan ...
+uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" \
+  sentinel scan --endpoint https://your-server.example/mcp --gate must
 ```
 
 From a clone:
