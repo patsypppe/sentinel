@@ -61,6 +61,16 @@ resources, tasks, OAuth flows) on servers built to its fixtures, and Sentinel do
 Sentinel grades an arbitrary server as it is, and adds checks the suite lacks (description quality,
 tool-text injection, Origin, header rules). Use both.
 
+## The whole registry
+
+[`REGISTRY_SCAN.md`](REGISTRY_SCAN.md): every remote server in the official MCP registry (15,451
+endpoints) graded against the current revision, from the `registry-scan` workflow. 14.6% speak the new
+revision, 35.7% only the previous one, 39.1% need credentials. Aggregate only, never per server.
+The workflow runs on GitHub's runners because the environment these benchmarks were developed in
+cannot reach the public internet. Caveat: a server counts as failing a rule on the exact error code, and
+the Python SDK's code differs from the spec text, so the rule-level percentages partly reflect SDK
+defaults, not independent server bugs.
+
 ## Published servers: the larger sample
 
 > **How this number was corrected.** The first version of the parameter rule counted only a

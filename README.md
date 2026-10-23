@@ -59,6 +59,27 @@ uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness"
 If the server needs a login token, add `--token "$TOKEN"`. Only scan servers you own or have
 permission to test.
 
+## What I found scanning the whole MCP registry
+
+I ran Sentinel against **every remote server in the official MCP registry: 15,451 endpoints** (safe mode,
+one connection per host, no tool invoked unless read-only; run on GitHub Actions, 2026-10-23).
+
+| Where the registry is today | Endpoints |
+|---|---:|
+| Already speak the new protocol revision | 2,263 (14.6%) |
+| Only speak the previous revision | 5,522 (35.7%) |
+| Require credentials before answering | 6,044 (39.1%) |
+| Unreachable, erroring, or neither handshake | 1,622 (10.5%) |
+
+Of the 2,263 that speak the new revision, **13 (0.6%) pass every required rule Sentinel can verify from
+the wire**; the median server fails 3. Read that with care: the most-failed rules are mostly about the
+*exact error code* a server returns when it rejects a bad request (the top one, 97% of servers, is the
+code for a request with no protocol version). The official Python SDK answers a different code from
+the one the spec text names, and servers inherit what their SDK does. So this measures how closely the
+ecosystem tracks the spec text today, and says less about servers being broken. Aggregate only, by
+design: per-server findings go to each maintainer first. Detail:
+[`benchmarks/REGISTRY_SCAN.md`](benchmarks/REGISTRY_SCAN.md).
+
 ## What I found linting 28 real MCP servers
 
 ![Where each parameter is documented, per published MCP server](benchmarks/popular_servers.svg)
