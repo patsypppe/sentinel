@@ -7,7 +7,7 @@ a table and writes it next to the script.
 |---|---|---|
 | Does Sentinel catch violations that the MCP maintainers labelled? | `official_negatives.py` | [`RESULTS.md`](RESULTS.md) |
 | What does Sentinel report on servers built with the official SDKs? | `sdk_readiness.py` | [`SDK_RESULTS.md`](SDK_RESULTS.md) |
-| How do 27 widely used published servers fare? | `popular_servers.py` | [`POPULAR_SERVERS.md`](POPULAR_SERVERS.md) |
+| How do 28 widely used published servers fare? | `popular_servers.py` | [`POPULAR_SERVERS.md`](POPULAR_SERVERS.md) |
 
 ```bash
 git clone https://github.com/modelcontextprotocol/conformance && cd conformance
@@ -63,13 +63,25 @@ tool-text injection, Origin, header rules). Use both.
 
 ## Published servers: the larger sample
 
+> **How this number was corrected.** The first version of the parameter rule counted only a
+> `description` on the schema property, and reported 10 of 27 servers with 28% of parameters
+> undocumented. Reading the source of the first server I meant to report (`duckduckgo-mcp-server`)
+> showed all nine parameters documented in a docstring `Args:` block that the SDK puts in the tool
+> description but not the schema. The official filesystem server's `path` parameters were flagged
+> although their name says what they are. Both were false positives in the rule, so it now accepts
+> prose documentation, nested object descriptions and self-evident plain-string names. The
+> corrected result is 8 of 28 servers and 17% of parameters. The rule is stricter than a model
+> needs in one respect (it prefers schema descriptions) and says so in its remediation.
+
+
 ![Share of parameters documented, per server](popular_servers.svg)
 
 
 `popular_servers.py` starts 29 published servers the way their READMEs say (`npx -y ...` or `uvx ...`,
 with dummy credentials where a token is only needed to start), reads each tool list over stdio, and
-runs Sentinel's manifest rules. 27 started. Result: **335 tools and 1,184 parameters; 10 of 27 servers
-leave parameters undocumented, 28% of all parameters.** The 2 that did not start are listed.
+runs Sentinel's manifest rules. 28 started. Result: **362 tools and 1,349 parameters; 8 of 28 servers
+have parameters documented nowhere (234 parameters, 17%); 3 more document some only in the
+description text.** The one that did not start is listed.
 
 Limits: the list is hand-picked to span reference, vendor and community servers, not the top N by
 stars (no registry API is reachable from here). Only top-level parameters are counted. The

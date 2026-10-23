@@ -4,6 +4,13 @@
 
 The harness stops being a one-shot grader and becomes something a team runs.
 
+### Fixed: the parameter-documentation rule over-reported
+
+`SENTINEL/STYLE/parameters-are-described` counted only schema descriptions. It now also accepts a
+parameter documented in the tool description (`name: ...`, as SDK docstring `Args:` blocks produce), an
+object whose fields are all described, and self-evident plain-string names (`path`, `url`, ...).
+The benchmark moved from 28% to 17% of parameters as a result.
+
 ### Changed: lint shares one server process
 
 The lint rules only read, so they share one child process instead of starting the server per rule:
@@ -14,8 +21,8 @@ The lint rules only read, so they share one child process instead of starting th
 - `sentinel lint --command "npx -y <server>"` runs the manifest rules against a server started as a
   child process (newline-delimited JSON over pipes), or `--endpoint` for HTTP. Most published MCP
   servers are stdio programs, which Sentinel could not reach before.
-- `benchmarks/popular_servers.py`: lints 29 published servers; 27 started, 335 tools, 28% of
-  parameters undocumented.
+- `benchmarks/popular_servers.py`: lints 29 published servers; 28 started, 362 tools, 1,349
+  parameters, 17% documented nowhere.
 
 ### Added: legacy-session mode
 

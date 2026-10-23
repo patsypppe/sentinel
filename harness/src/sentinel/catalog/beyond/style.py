@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from sentinel.catalog import checks
 from sentinel.catalog.base import RuleResult, Severity, Verifiability, rule
 from sentinel.probe.client import Probe
@@ -43,6 +45,67 @@ def tools_have_descriptions(probe: Probe) -> RuleResult:
     from sentinel.catalog.should.ordering import tools_described
 
     return tools_described.check(probe)
+
+
+#: Plain-string parameters whose name already says what they are. Flagging `path` on a file
+#: tool, or `url` on a fetch tool, would be pedantry that costs the rule its credibility.
+SELF_EVIDENT = frozenset(
+    {
+        "path",
+        "file_path",
+        "filepath",
+        "url",
+        "uri",
+        "query",
+        "id",
+        "name",
+        "text",
+        "content",
+        "command",
+        "prompt",
+        "message",
+        "input",
+        "title",
+        "key",
+        "value",
+    }
+)
+
+
+def _nested_described(definition: dict[str, object]) -> bool:
+    """An object (or array of objects) whose every field carries its own description."""
+    node = definition.get("items") if definition.get("type") == "array" else definition
+    props = node.get("properties") if isinstance(node, dict) else None
+    if not isinstance(props, dict) or not props:
+        return False
+    return all(
+        isinstance(v, dict) and str(v.get("description") or "").strip() for v in props.values()
+    )
+
+
+def parameter_documented(tool: dict[str, object], name: str, definition: object) -> str | None:
+    """How a parameter is documented, or None if it is not.
+
+    "schema": the property has a `description`, or is an object whose fields all do.
+    "prose": the tool's description documents it in the usual shapes (`name: ...`,
+    `name (type): ...`, `name - ...` or a backticked `name`), which is where many servers put
+    it, for example a docstring `Args:` block that the SDK copies into the description but not
+    into the schema. A bare mention of a common word like "path" in a sentence does NOT count.
+    "obvious": a plain string whose name says what it is (see SELF_EVIDENT).
+    """
+    if isinstance(definition, dict) and (
+        str(definition.get("description") or "").strip() or _nested_described(definition)
+    ):
+        return "schema"
+    text = str(tool.get("description") or "")
+    escaped = re.escape(name)
+    shaped = rf"(?<![A-Za-z0-9_])[`*]*{escaped}[`*]*\s*(?:\([^)\n]*\))?\s*[:\-\u2013\u2014]\s*\S"
+    if re.search(shaped, text) or re.search(rf"`{escaped}`", text):
+        return "prose"
+    plain_string = isinstance(definition, dict) and definition.get("type") == "string"
+    if plain_string and name.lower() in SELF_EVIDENT and "enum" not in definition:  # type: ignore[operator]
+        return "obvious"
+    return None
 
 
 def _tools(probe: Probe) -> list[dict[str, object]] | None:
@@ -99,7 +162,9 @@ def description_states_purpose(probe: Probe) -> RuleResult:
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Add a `description` to every property in the tool's inputSchema, saying what it "
-        "means, its format, and an example value where the format is not obvious."
+        "means, its format, and an example value where the format is not obvious. A parameter "
+        "documented in the tool description (`name: ...`) also counts, but the schema is the "
+        "place clients and models read per-parameter meaning from."
     ),
     introduced_in="0.4.0",
 )
@@ -116,7 +181,7 @@ def parameters_are_described(probe: Probe) -> RuleResult:
             continue
         for pname, pdef in props.items():
             checked += 1
-            if not (isinstance(pdef, dict) and str(pdef.get("description") or "").strip()):
+            if parameter_documented(t, str(pname), pdef) is None:
                 missing.append(f"{t.get('name')}.{pname}")
     if checked == 0:
         return RuleResult.not_applicable("no tool takes parameters")

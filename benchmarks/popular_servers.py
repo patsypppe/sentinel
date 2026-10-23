@@ -23,6 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 from sentinel.catalog.base import Outcome
+from sentinel.catalog.beyond.style import parameter_documented
 from sentinel.grade import LINT_RULES, run_scan
 from sentinel.probe.client import Probe
 
@@ -107,8 +108,8 @@ def lint(server: Server, timeout: float) -> dict[str, object]:
         row["status"] = "no tools listed (did not start, or listed none)"
         return row
 
-    params = [
-        (t.get("name"), p, d)
+    kinds = [
+        parameter_documented(t, p, d)
         for t in tools
         if isinstance(t, dict)
         for p, d in ((t.get("inputSchema") or {}).get("properties") or {}).items()
@@ -116,12 +117,11 @@ def lint(server: Server, timeout: float) -> dict[str, object]:
     row.update(
         status="ok",
         tools=len(tools),
-        params=len(params),
-        params_described=sum(
-            1
-            for _, _, d in params
-            if isinstance(d, dict) and str(d.get("description") or "").strip()
-        ),
+        params=len(kinds),
+        params_schema=kinds.count("schema"),
+        params_prose=kinds.count("prose"),
+        params_obvious=kinds.count("obvious"),
+        params_undocumented=kinds.count(None),
         tools_described=sum(1 for t in tools if str(t.get("description") or "").strip()),
     )
     report = run_scan(
@@ -152,13 +152,16 @@ def render(rows: list[dict[str, object]]) -> str:
     n = len(ok)
     tools = sum(int(r["tools"]) for r in ok)  # type: ignore[arg-type]
     params = sum(int(r["params"]) for r in ok)  # type: ignore[arg-type]
-    described = sum(int(r["params_described"]) for r in ok)  # type: ignore[arg-type]
+    in_schema = sum(int(r["params_schema"]) for r in ok)  # type: ignore[arg-type]
+    in_prose = sum(int(r["params_prose"]) for r in ok)  # type: ignore[arg-type]
+    obvious = sum(int(r["params_obvious"]) for r in ok)  # type: ignore[arg-type]
+    nowhere = sum(int(r["params_undocumented"]) for r in ok)  # type: ignore[arg-type]
     undescribed_tools = tools - sum(int(r["tools_described"]) for r in ok)  # type: ignore[arg-type]
 
     def share(rule: str) -> int:
         return sum(1 for r in ok if rule in r["failed_rules"])  # type: ignore[operator]
 
-    pct = 100 * (params - described) // max(params, 1)
+    pct = 100 * nowhere // max(params, 1)
 
     def kind_count(want: Callable[[str], bool]) -> int:
         return sum(1 for r in ok if any(want(k) for k in r["injection_kinds"]))  # type: ignore[attr-defined]
@@ -172,8 +175,13 @@ def render(rows: list[dict[str, object]]) -> str:
         "",
         "| Finding | Servers affected | Detail |",
         "|---|---|---|",
-        f"| Parameters with no description | **{share('parameters-are-described')} of {n}** "
-        f"| {params - described} of {params} parameters ({pct}%) |",
+        f"| Parameters documented nowhere (not in the schema, not in the description text) | "
+        f"**{share('parameters-are-described')} of {n}** "
+        f"| {nowhere} of {params} parameters ({pct}%) |",
+        f"| Parameters documented only in the description text, not the schema | "
+        f"{sum(1 for r in ok if r['params_prose'])} of {n} | {in_prose} of {params} parameters |",
+        f"| Self-evident plain-string parameters (`path`, `url`, ...) | | {obvious} of {params} |",
+        f"| Parameters documented in the schema | | {in_schema} of {params} parameters |",
         f"| Stub or missing tool description | **{share('description-states-purpose')} of {n}** "
         f"| {undescribed_tools} tools have no description at all |",
         f"| Tool list not in a stable order | {share('tools-list-is-deterministic')} of {n} | |",
@@ -185,7 +193,7 @@ def render(rows: list[dict[str, object]]) -> str:
         "",
         "## Per server",
         "",
-        "| Server | Tools | Params described | Rules failed |",
+        "| Server | Tools | In schema / text only / self-evident / nowhere | Rules failed |",
         "|---|---|---|---|",
     ]
     for r in rows:
@@ -193,7 +201,9 @@ def render(rows: list[dict[str, object]]) -> str:
             out.append(f"| {r['server']} | - | - | {r['status']} |")
         else:
             out.append(
-                f"| {r['server']} | {r['tools']} | {r['params_described']}/{r['params']} "
+                f"| {r['server']} | {r['tools']} "
+                f"| {r['params_schema']} / {r['params_prose']} / {r['params_obvious']} "
+                f"/ {r['params_undocumented']} "
                 f"| {', '.join(r['failed_rules']) or 'none'} |"  # type: ignore[arg-type]
             )
     return "\n".join(out) + "\n"

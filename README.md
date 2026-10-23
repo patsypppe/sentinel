@@ -59,19 +59,24 @@ uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness"
 If the server needs a login token, add `--token "$TOKEN"`. Only scan servers you own or have
 permission to test.
 
-## What I found linting 27 real MCP servers
+## What I found linting 28 real MCP servers
 
-![Share of parameters with a description, per published MCP server](benchmarks/popular_servers.svg)
+![Where each parameter is documented, per published MCP server](benchmarks/popular_servers.svg)
 
-I ran `sentinel lint` on 27 widely used servers from npm and PyPI, the official filesystem, GitHub and
-Playwright servers among them. **17 document every parameter of every tool. 10 do not**, and the tail is
-long: `desktop-commander` documents 0 of 72 parameters, `firecrawl` 55 of 194, and the official
-`server-filesystem` 7 of 25.
+I ran `sentinel lint` on 28 widely used servers from npm and PyPI, the official filesystem,
+GitHub and Playwright servers among them: 362 tools, 1,349 parameters. **20 of the 28 leave nothing a
+model needs undocumented. 8 do**, and the gaps are concentrated: `firecrawl` leaves 102 of its 194
+parameters documented nowhere, `notion` 31 of 71, `desktop-commander` 38 of 72, and the official
+`server-filesystem` 5 of 25 (`edits`, `excludePatterns` and other structured arguments).
+
+"Documented" is judged the way a model would read it: in the schema, or in the tool description in
+the usual `name: ...` shape, or a self-evident name like `path`. The first version of this rule counted
+only schema descriptions and over-reported; two false-positive classes were found by reading the
+servers' source and fixed (see [`benchmarks/`](benchmarks/README.md)).
 
 That matters because the description is all a model has to decide how to call a tool. Two 2026 studies
 ([856 tools](https://arxiv.org/html/2602.14878v1), [10,831 servers](https://arxiv.org/html/2602.18914v1))
-found these gaps are common and that fixing them measurably changes which tool an LLM picks. An
-undocumented `path` or `id` parameter is a guess.
+found these gaps are common and that fixing them measurably changes which tool an LLM picks.
 
 On the protocol side, Sentinel catches every violation it has a rule for in the MCP maintainers' own
 deliberately broken servers, and says "can't tell" where it can't. Methodology, per-server numbers,
@@ -127,7 +132,7 @@ recommendations, so they are reported but never fail the gate. The rule names ca
 - **Measured, not assumed, performance.** The first stdio version restarted the server once per rule.
   Sharing one process across the read-only rules made a lint **4 to 7 times faster** (filesystem
   server 6.8 s to 1.0 s; Playwright 6.1 s to 1.2 s) with identical results, and a test pins the start count.
-- **It audited itself.** Every rule was checked against the specification text and the official
+- **It audited itself, twice.** Every rule was checked against the specification text and the official
   conformance suite. One rule had invented a requirement the spec does not make, so it was withdrawn,
   and 11 more were withdrawn or demoted to advisory, with about ten loosened. Rule ids are permanent, so each
   retired rule is deprecated and points at its replacement.

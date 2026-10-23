@@ -16,7 +16,7 @@ SERVER = textwrap.dedent(
     import json, sys
     TOOLS = [
         {"name": "lookup_order", "description": "Look up an order by its id.",
-         "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}}}},
+         "inputSchema": {"type": "object", "properties": {"filters": {"type": "object"}}}},
     ]
     print("starting up", flush=True)  # a banner on stdout is not a reply
     for line in sys.stdin:

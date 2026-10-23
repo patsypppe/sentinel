@@ -1,119 +1,139 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="700" height="690" font-family="Helvetica,Arial,sans-serif" font-size="12">
-<rect width="700" height="690" fill="#ffffff"/>
-<text x="16" y="26" font-size="16" font-weight="bold" fill="#111">How much of each tool's input is documented?</text>
-<text x="16" y="45" fill="#555">Share of parameters with a description, 27 published MCP servers, linted by Sentinel</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="712" font-family="Helvetica,Arial,sans-serif" font-size="12">
+<rect width="720" height="712" fill="#ffffff"/>
+<text x="16" y="26" font-size="16" font-weight="bold" fill="#111">Are tool parameters documented where a model can read them?</text>
+<text x="16" y="45" fill="#555">Where each parameter is documented, 28 published MCP servers, linted by Sentinel</text>
 <text x="182" y="76" text-anchor="end" fill="#222">desktop-commander</text>
 <rect x="190" y="64" width="360" height="14" fill="#eee"/>
-<rect x="190" y="64" width="1" height="14" fill="#d6453d"/>
-<text x="558" y="76" fill="#333">0%  (0/72)</text>
-<text x="182" y="98" text-anchor="end" fill="#222">markitdown</text>
+<rect x="190" y="64" width="130" height="14" fill="#e0a030"/>
+<rect x="320" y="64" width="40" height="14" fill="#b9c2cc"/>
+<rect x="360" y="64" width="190" height="14" fill="#d6453d"/>
+<text x="558" y="76" fill="#333">38 of 72 undocumented</text>
+<text x="182" y="98" text-anchor="end" fill="#222">firecrawl</text>
 <rect x="190" y="86" width="360" height="14" fill="#eee"/>
-<rect x="190" y="86" width="1" height="14" fill="#d6453d"/>
-<text x="558" y="98" fill="#333">0%  (0/1)</text>
-<text x="182" y="120" text-anchor="end" fill="#222">duckduckgo</text>
+<rect x="190" y="86" width="102" height="14" fill="#2e9d5b"/>
+<rect x="292" y="86" width="45" height="14" fill="#e0a030"/>
+<rect x="337" y="86" width="24" height="14" fill="#b9c2cc"/>
+<rect x="361" y="86" width="189" height="14" fill="#d6453d"/>
+<text x="558" y="98" fill="#333">102 of 194 undocumented</text>
+<text x="182" y="120" text-anchor="end" fill="#222">notion</text>
 <rect x="190" y="108" width="360" height="14" fill="#eee"/>
-<rect x="190" y="108" width="1" height="14" fill="#d6453d"/>
-<text x="558" y="120" fill="#333">0%  (0/9)</text>
-<text x="182" y="142" text-anchor="end" fill="#222">server-filesystem</text>
+<rect x="190" y="108" width="203" height="14" fill="#2e9d5b"/>
+<rect x="393" y="108" width="157" height="14" fill="#d6453d"/>
+<text x="558" y="120" fill="#333">31 of 71 undocumented</text>
+<text x="182" y="142" text-anchor="end" fill="#222">server-github</text>
 <rect x="190" y="130" width="360" height="14" fill="#eee"/>
-<rect x="190" y="130" width="101" height="14" fill="#d6453d"/>
-<text x="558" y="142" fill="#333">28%  (7/25)</text>
-<text x="182" y="164" text-anchor="end" fill="#222">firecrawl</text>
+<rect x="190" y="130" width="219" height="14" fill="#2e9d5b"/>
+<rect x="409" y="130" width="6" height="14" fill="#b9c2cc"/>
+<rect x="415" y="130" width="136" height="14" fill="#d6453d"/>
+<text x="558" y="142" fill="#333">49 of 130 undocumented</text>
+<text x="182" y="164" text-anchor="end" fill="#222">server-filesystem</text>
 <rect x="190" y="152" width="360" height="14" fill="#eee"/>
-<rect x="190" y="152" width="102" height="14" fill="#d6453d"/>
-<text x="558" y="164" fill="#333">28%  (55/194)</text>
-<text x="182" y="186" text-anchor="end" fill="#222">server-memory</text>
+<rect x="190" y="152" width="115" height="14" fill="#2e9d5b"/>
+<rect x="305" y="152" width="173" height="14" fill="#b9c2cc"/>
+<rect x="478" y="152" width="72" height="14" fill="#d6453d"/>
+<text x="558" y="164" fill="#333">5 of 25 undocumented</text>
+<text x="182" y="186" text-anchor="end" fill="#222">server-everything</text>
 <rect x="190" y="174" width="360" height="14" fill="#eee"/>
-<rect x="190" y="174" width="180" height="14" fill="#e0a030"/>
-<text x="558" y="186" fill="#333">50%  (4/8)</text>
-<text x="182" y="208" text-anchor="end" fill="#222">notion</text>
+<rect x="190" y="174" width="338" height="14" fill="#2e9d5b"/>
+<rect x="528" y="174" width="22" height="14" fill="#d6453d"/>
+<text x="558" y="186" fill="#333">1 of 16 undocumented</text>
+<text x="182" y="208" text-anchor="end" fill="#222">mcp-server-kubernetes</text>
 <rect x="190" y="196" width="360" height="14" fill="#eee"/>
-<rect x="190" y="196" width="203" height="14" fill="#e0a030"/>
-<text x="558" y="208" fill="#333">56%  (40/71)</text>
-<text x="182" y="230" text-anchor="end" fill="#222">server-github</text>
+<rect x="190" y="196" width="346" height="14" fill="#2e9d5b"/>
+<rect x="536" y="196" width="2" height="14" fill="#b9c2cc"/>
+<rect x="538" y="196" width="12" height="14" fill="#d6453d"/>
+<text x="558" y="208" fill="#333">5 of 152 undocumented</text>
+<text x="182" y="230" text-anchor="end" fill="#222">basic-memory</text>
 <rect x="190" y="218" width="360" height="14" fill="#eee"/>
-<rect x="190" y="218" width="219" height="14" fill="#e0a030"/>
-<text x="558" y="230" fill="#333">61%  (79/130)</text>
-<text x="182" y="252" text-anchor="end" fill="#222">server-everything</text>
+<rect x="190" y="218" width="353" height="14" fill="#2e9d5b"/>
+<rect x="543" y="218" width="7" height="14" fill="#d6453d"/>
+<text x="558" y="230" fill="#333">3 of 165 undocumented</text>
+<text x="182" y="252" text-anchor="end" fill="#222">server-memory</text>
 <rect x="190" y="240" width="360" height="14" fill="#eee"/>
-<rect x="190" y="240" width="338" height="14" fill="#e0a030"/>
-<text x="558" y="252" fill="#333">94%  (15/16)</text>
-<text x="182" y="274" text-anchor="end" fill="#222">mcp-server-kubernetes</text>
+<rect x="190" y="240" width="360" height="14" fill="#2e9d5b"/>
+<text x="558" y="252" fill="#333">all 8 documented</text>
+<text x="182" y="274" text-anchor="end" fill="#222">server-sequential-thinking</text>
 <rect x="190" y="262" width="360" height="14" fill="#eee"/>
-<rect x="190" y="262" width="346" height="14" fill="#e0a030"/>
-<text x="558" y="274" fill="#333">96%  (146/152)</text>
-<text x="182" y="296" text-anchor="end" fill="#222">server-sequential-thinking</text>
+<rect x="190" y="262" width="360" height="14" fill="#2e9d5b"/>
+<text x="558" y="274" fill="#333">all 9 documented</text>
+<text x="182" y="296" text-anchor="end" fill="#222">server-puppeteer</text>
 <rect x="190" y="284" width="360" height="14" fill="#eee"/>
 <rect x="190" y="284" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="296" fill="#333">100%  (9/9)</text>
-<text x="182" y="318" text-anchor="end" fill="#222">server-puppeteer</text>
+<text x="558" y="296" fill="#333">all 15 documented</text>
+<text x="182" y="318" text-anchor="end" fill="#222">server-brave-search</text>
 <rect x="190" y="306" width="360" height="14" fill="#eee"/>
 <rect x="190" y="306" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="318" fill="#333">100%  (15/15)</text>
-<text x="182" y="340" text-anchor="end" fill="#222">server-brave-search</text>
+<text x="558" y="318" fill="#333">all 5 documented</text>
+<text x="182" y="340" text-anchor="end" fill="#222">server-slack</text>
 <rect x="190" y="328" width="360" height="14" fill="#eee"/>
 <rect x="190" y="328" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="340" fill="#333">100%  (5/5)</text>
-<text x="182" y="362" text-anchor="end" fill="#222">server-slack</text>
+<text x="558" y="340" fill="#333">all 17 documented</text>
+<text x="182" y="362" text-anchor="end" fill="#222">server-google-maps</text>
 <rect x="190" y="350" width="360" height="14" fill="#eee"/>
 <rect x="190" y="350" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="362" fill="#333">100%  (17/17)</text>
-<text x="182" y="384" text-anchor="end" fill="#222">server-google-maps</text>
+<text x="558" y="362" fill="#333">all 14 documented</text>
+<text x="182" y="384" text-anchor="end" fill="#222">playwright-mcp</text>
 <rect x="190" y="372" width="360" height="14" fill="#eee"/>
 <rect x="190" y="372" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="384" fill="#333">100%  (14/14)</text>
-<text x="182" y="406" text-anchor="end" fill="#222">playwright-mcp</text>
+<text x="558" y="384" fill="#333">all 70 documented</text>
+<text x="182" y="406" text-anchor="end" fill="#222">context7</text>
 <rect x="190" y="394" width="360" height="14" fill="#eee"/>
 <rect x="190" y="394" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="406" fill="#333">100%  (70/70)</text>
-<text x="182" y="428" text-anchor="end" fill="#222">context7</text>
+<text x="558" y="406" fill="#333">all 5 documented</text>
+<text x="182" y="428" text-anchor="end" fill="#222">chrome-devtools</text>
 <rect x="190" y="416" width="360" height="14" fill="#eee"/>
 <rect x="190" y="416" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="428" fill="#333">100%  (5/5)</text>
-<text x="182" y="450" text-anchor="end" fill="#222">chrome-devtools</text>
+<text x="558" y="428" fill="#333">all 121 documented</text>
+<text x="182" y="450" text-anchor="end" fill="#222">tavily</text>
 <rect x="190" y="438" width="360" height="14" fill="#eee"/>
 <rect x="190" y="438" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="450" fill="#333">100%  (121/121)</text>
-<text x="182" y="472" text-anchor="end" fill="#222">tavily</text>
+<text x="558" y="450" fill="#333">all 42 documented</text>
+<text x="182" y="472" text-anchor="end" fill="#222">exa</text>
 <rect x="190" y="460" width="360" height="14" fill="#eee"/>
 <rect x="190" y="460" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="472" fill="#333">100%  (42/42)</text>
-<text x="182" y="494" text-anchor="end" fill="#222">exa</text>
+<text x="558" y="472" fill="#333">all 4 documented</text>
+<text x="182" y="494" text-anchor="end" fill="#222">figma-developer</text>
 <rect x="190" y="482" width="360" height="14" fill="#eee"/>
 <rect x="190" y="482" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="494" fill="#333">100%  (4/4)</text>
-<text x="182" y="516" text-anchor="end" fill="#222">figma-developer</text>
+<text x="558" y="494" fill="#333">all 7 documented</text>
+<text x="182" y="516" text-anchor="end" fill="#222">browser-tools</text>
 <rect x="190" y="504" width="360" height="14" fill="#eee"/>
 <rect x="190" y="504" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="516" fill="#333">100%  (7/7)</text>
-<text x="182" y="538" text-anchor="end" fill="#222">browser-tools</text>
+<text x="558" y="516" fill="#333">all 37 documented</text>
+<text x="182" y="538" text-anchor="end" fill="#222">playwright-executeautomation</text>
 <rect x="190" y="526" width="360" height="14" fill="#eee"/>
 <rect x="190" y="526" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="538" fill="#333">100%  (37/37)</text>
-<text x="182" y="560" text-anchor="end" fill="#222">playwright-executeautomation</text>
+<text x="558" y="538" fill="#333">all 82 documented</text>
+<text x="182" y="560" text-anchor="end" fill="#222">mcp-server-fetch</text>
 <rect x="190" y="548" width="360" height="14" fill="#eee"/>
 <rect x="190" y="548" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="560" fill="#333">100%  (82/82)</text>
-<text x="182" y="582" text-anchor="end" fill="#222">mcp-server-fetch</text>
+<text x="558" y="560" fill="#333">all 4 documented</text>
+<text x="182" y="582" text-anchor="end" fill="#222">mcp-server-time</text>
 <rect x="190" y="570" width="360" height="14" fill="#eee"/>
 <rect x="190" y="570" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="582" fill="#333">100%  (4/4)</text>
-<text x="182" y="604" text-anchor="end" fill="#222">mcp-server-time</text>
+<text x="558" y="582" fill="#333">all 4 documented</text>
+<text x="182" y="604" text-anchor="end" fill="#222">markitdown</text>
 <rect x="190" y="592" width="360" height="14" fill="#eee"/>
-<rect x="190" y="592" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="604" fill="#333">100%  (4/4)</text>
-<text x="182" y="626" text-anchor="end" fill="#222">arxiv</text>
+<rect x="190" y="592" width="360" height="14" fill="#b9c2cc"/>
+<text x="558" y="604" fill="#333">all 1 documented</text>
+<text x="182" y="626" text-anchor="end" fill="#222">duckduckgo</text>
 <rect x="190" y="614" width="360" height="14" fill="#eee"/>
-<rect x="190" y="614" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="626" fill="#333">100%  (55/55)</text>
-<text x="182" y="648" text-anchor="end" fill="#222">aws-documentation</text>
+<rect x="190" y="614" width="360" height="14" fill="#e0a030"/>
+<text x="558" y="626" fill="#333">all 9 documented</text>
+<text x="182" y="648" text-anchor="end" fill="#222">arxiv</text>
 <rect x="190" y="636" width="360" height="14" fill="#eee"/>
 <rect x="190" y="636" width="360" height="14" fill="#2e9d5b"/>
-<text x="558" y="648" fill="#333">100%  (15/15)</text>
-<rect x="190" y="666" width="12" height="12" fill="#2e9d5b"/>
-<text x="208" y="676" fill="#333">all documented</text>
-<rect x="320" y="666" width="12" height="12" fill="#e0a030"/>
-<text x="338" y="676" fill="#333">partly</text>
-<rect x="390" y="666" width="12" height="12" fill="#d6453d"/>
-<text x="408" y="676" fill="#333">under half</text>
+<text x="558" y="648" fill="#333">all 55 documented</text>
+<text x="182" y="670" text-anchor="end" fill="#222">aws-documentation</text>
+<rect x="190" y="658" width="360" height="14" fill="#eee"/>
+<rect x="190" y="658" width="360" height="14" fill="#2e9d5b"/>
+<text x="558" y="670" fill="#333">all 15 documented</text>
+<rect x="190" y="688" width="12" height="12" fill="#2e9d5b"/>
+<text x="208" y="698" fill="#333">in the schema</text>
+<rect x="295" y="688" width="12" height="12" fill="#e0a030"/>
+<text x="313" y="698" fill="#333">description text only</text>
+<rect x="445" y="688" width="12" height="12" fill="#b9c2cc"/>
+<text x="463" y="698" fill="#333">self-evident name</text>
+<rect x="570" y="688" width="12" height="12" fill="#d6453d"/>
+<text x="588" y="698" fill="#333">documented nowhere</text>
 </svg>

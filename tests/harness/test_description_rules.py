@@ -52,3 +52,28 @@ def test_a_legacy_only_server_is_called_out_at_the_top_of_the_report() -> None:
     report = ScanReport(endpoint="http://x/mcp", spec_revision="2026-07-28")
     report.generation, report.generation_detail = "legacy", "negotiated '2025-11-25'"
     assert "PREVIOUS MCP revision" in text.render(report, color=False)
+
+
+def test_parameter_documentation_is_judged_the_way_a_model_reads_it() -> None:
+    from sentinel.catalog.beyond.style import parameter_documented as documented
+
+    tool = {
+        "description": (
+            "Search the web.\n\nArgs:\n    query: What to look for.\n"
+            "    max_results (int): How many.\nReads a file at path."
+        )
+    }
+    assert documented(tool, "query", {"type": "string"}) == "prose"
+    assert documented(tool, "max_results", {"type": "integer"}) == "prose"
+    assert documented(tool, "x", {"type": "string", "description": "hi"}) == "schema"
+    # A sentence that merely contains the word does not document the parameter.
+    assert documented({"description": "Read a file at path."}, "limit", {"type": "integer"}) is None
+    # Self-evident only for a plain string; a structured `path` is not.
+    assert documented({"description": "x"}, "path", {"type": "string"}) == "obvious"
+    assert documented({"description": "x"}, "path", {"type": "array"}) is None
+    nested = {
+        "type": "array",
+        "items": {"type": "object", "properties": {"a": {"description": "A."}}},
+    }
+    assert documented({"description": "x"}, "edits", nested) == "schema"
+    assert documented({"description": "x"}, "edits", {"type": "array", "items": {}}) is None

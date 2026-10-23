@@ -5,11 +5,13 @@
     "status": "ok",
     "tools": 9,
     "params": 8,
-    "params_described": 4,
+    "params_schema": 8,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 9,
     "injection_kinds": [],
     "failed_rules": [
-      "parameters-are-described",
       "tools-sorted-by-name"
     ]
   },
@@ -19,7 +21,10 @@
     "status": "ok",
     "tools": 14,
     "params": 25,
-    "params_described": 7,
+    "params_schema": 8,
+    "params_prose": 0,
+    "params_obvious": 12,
+    "params_undocumented": 5,
     "tools_described": 14,
     "injection_kinds": [],
     "failed_rules": [
@@ -33,7 +38,10 @@
     "status": "ok",
     "tools": 13,
     "params": 16,
-    "params_described": 15,
+    "params_schema": 15,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 1,
     "tools_described": 13,
     "injection_kinds": [],
     "failed_rules": [
@@ -47,7 +55,10 @@
     "status": "ok",
     "tools": 1,
     "params": 9,
-    "params_described": 9,
+    "params_schema": 9,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 1,
     "injection_kinds": [],
     "failed_rules": []
@@ -58,7 +69,10 @@
     "status": "ok",
     "tools": 7,
     "params": 15,
-    "params_described": 15,
+    "params_schema": 15,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 7,
     "injection_kinds": [],
     "failed_rules": [
@@ -71,7 +85,10 @@
     "status": "ok",
     "tools": 26,
     "params": 130,
-    "params_described": 79,
+    "params_schema": 79,
+    "params_prose": 0,
+    "params_obvious": 2,
+    "params_undocumented": 49,
     "tools_described": 26,
     "injection_kinds": [],
     "failed_rules": [
@@ -85,7 +102,10 @@
     "status": "ok",
     "tools": 2,
     "params": 5,
-    "params_described": 5,
+    "params_schema": 5,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 2,
     "injection_kinds": [],
     "failed_rules": [
@@ -98,7 +118,10 @@
     "status": "ok",
     "tools": 8,
     "params": 17,
-    "params_described": 17,
+    "params_schema": 17,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 8,
     "injection_kinds": [],
     "failed_rules": [
@@ -111,7 +134,10 @@
     "status": "ok",
     "tools": 7,
     "params": 14,
-    "params_described": 14,
+    "params_schema": 14,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 7,
     "injection_kinds": [],
     "failed_rules": [
@@ -124,7 +150,10 @@
     "status": "ok",
     "tools": 25,
     "params": 70,
-    "params_described": 70,
+    "params_schema": 70,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 25,
     "injection_kinds": [],
     "failed_rules": [
@@ -137,7 +166,10 @@
     "status": "ok",
     "tools": 2,
     "params": 5,
-    "params_described": 5,
+    "params_schema": 5,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 2,
     "injection_kinds": [],
     "failed_rules": [
@@ -150,7 +182,10 @@
     "status": "ok",
     "tools": 24,
     "params": 71,
-    "params_described": 40,
+    "params_schema": 40,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 31,
     "tools_described": 24,
     "injection_kinds": [],
     "failed_rules": [
@@ -164,7 +199,10 @@
     "status": "ok",
     "tools": 28,
     "params": 194,
-    "params_described": 55,
+    "params_schema": 55,
+    "params_prose": 24,
+    "params_obvious": 13,
+    "params_undocumented": 102,
     "tools_described": 28,
     "injection_kinds": [],
     "failed_rules": [
@@ -178,7 +216,10 @@
     "status": "ok",
     "tools": 32,
     "params": 121,
-    "params_described": 121,
+    "params_schema": 121,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 32,
     "injection_kinds": [],
     "failed_rules": []
@@ -189,7 +230,10 @@
     "status": "ok",
     "tools": 25,
     "params": 72,
-    "params_described": 0,
+    "params_schema": 0,
+    "params_prose": 26,
+    "params_obvious": 8,
+    "params_undocumented": 38,
     "tools_described": 25,
     "injection_kinds": [
       "sensitive-path"
@@ -206,7 +250,10 @@
     "status": "ok",
     "tools": 5,
     "params": 42,
-    "params_described": 42,
+    "params_schema": 42,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 5,
     "injection_kinds": [],
     "failed_rules": [
@@ -219,7 +266,10 @@
     "status": "ok",
     "tools": 2,
     "params": 4,
-    "params_described": 4,
+    "params_schema": 4,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 2,
     "injection_kinds": [],
     "failed_rules": [
@@ -232,7 +282,10 @@
     "status": "ok",
     "tools": 2,
     "params": 7,
-    "params_described": 7,
+    "params_schema": 7,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 2,
     "injection_kinds": [],
     "failed_rules": [
@@ -245,7 +298,10 @@
     "status": "ok",
     "tools": 23,
     "params": 152,
-    "params_described": 146,
+    "params_schema": 146,
+    "params_prose": 0,
+    "params_obvious": 1,
+    "params_undocumented": 5,
     "tools_described": 23,
     "injection_kinds": [],
     "failed_rules": [
@@ -259,7 +315,10 @@
     "status": "ok",
     "tools": 16,
     "params": 37,
-    "params_described": 37,
+    "params_schema": 37,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 16,
     "injection_kinds": [],
     "failed_rules": [
@@ -272,7 +331,10 @@
     "status": "ok",
     "tools": 33,
     "params": 82,
-    "params_described": 82,
+    "params_schema": 82,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 33,
     "injection_kinds": [],
     "failed_rules": [
@@ -285,7 +347,10 @@
     "status": "ok",
     "tools": 1,
     "params": 4,
-    "params_described": 4,
+    "params_schema": 4,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 1,
     "injection_kinds": [],
     "failed_rules": []
@@ -293,7 +358,7 @@
   {
     "server": "mcp-server-git",
     "command": "uvx mcp-server-git --repository /tmp",
-    "status": "no tools listed (did not start, or needs real credentials)"
+    "status": "no tools listed (did not start, or listed none)"
   },
   {
     "server": "mcp-server-time",
@@ -301,7 +366,10 @@
     "status": "ok",
     "tools": 2,
     "params": 4,
-    "params_described": 4,
+    "params_schema": 4,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 2,
     "injection_kinds": [],
     "failed_rules": [
@@ -314,12 +382,13 @@
     "status": "ok",
     "tools": 1,
     "params": 1,
-    "params_described": 0,
+    "params_schema": 0,
+    "params_prose": 0,
+    "params_obvious": 1,
+    "params_undocumented": 0,
     "tools_described": 1,
     "injection_kinds": [],
-    "failed_rules": [
-      "parameters-are-described"
-    ]
+    "failed_rules": []
   },
   {
     "server": "duckduckgo",
@@ -327,11 +396,13 @@
     "status": "ok",
     "tools": 3,
     "params": 9,
-    "params_described": 0,
+    "params_schema": 0,
+    "params_prose": 9,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 3,
     "injection_kinds": [],
     "failed_rules": [
-      "parameters-are-described",
       "tools-sorted-by-name"
     ]
   },
@@ -341,7 +412,10 @@
     "status": "ok",
     "tools": 19,
     "params": 55,
-    "params_described": 55,
+    "params_schema": 55,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 19,
     "injection_kinds": [],
     "failed_rules": [
@@ -351,7 +425,19 @@
   {
     "server": "basic-memory",
     "command": "uvx basic-memory mcp",
-    "status": "no tools listed (did not start, or needs real credentials)"
+    "status": "ok",
+    "tools": 27,
+    "params": 165,
+    "params_schema": 162,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 3,
+    "tools_described": 27,
+    "injection_kinds": [],
+    "failed_rules": [
+      "parameters-are-described",
+      "tools-sorted-by-name"
+    ]
   },
   {
     "server": "aws-documentation",
@@ -359,7 +445,10 @@
     "status": "ok",
     "tools": 5,
     "params": 15,
-    "params_described": 15,
+    "params_schema": 15,
+    "params_prose": 0,
+    "params_obvious": 0,
+    "params_undocumented": 0,
     "tools_described": 5,
     "injection_kinds": [
       "sensitive-path"
