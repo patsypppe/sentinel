@@ -4,6 +4,14 @@
 
 The harness stops being a one-shot grader and becomes something a team runs.
 
+### Added: `sentinel lint` and stdio servers
+
+- `sentinel lint --command "npx -y <server>"` runs the manifest rules against a server started as a
+  child process (newline-delimited JSON over pipes), or `--endpoint` for HTTP. Most published MCP
+  servers are stdio programs, which Sentinel could not reach before.
+- `benchmarks/popular_servers.py`: lints 29 published servers; 27 started, 335 tools, 28% of
+  parameters undocumented.
+
 ### Added: legacy-session mode
 
 Against a server that has not migrated to the current protocol, the rules that only read the tool

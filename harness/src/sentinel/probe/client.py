@@ -25,6 +25,7 @@ from sentinel.probe.transport import (
     DEFAULT_TIMEOUT,
     RawResponse,
     Request,
+    StdioTransport,
     Transport,
 )
 
@@ -108,8 +109,12 @@ class Probe:
         safe: bool = False,
         context: dict[str, Any] | None = None,
         legacy: bool = False,
+        command: list[str] | None = None,
+        command_env: dict[str, str] | None = None,
     ) -> None:
         self.endpoint = endpoint
+        self.command = command
+        self.command_env = command_env
         #: Legacy mode speaks the PREVIOUS revision: it opens a session with
         #: `initialize` the first time it sends anything, then sends plain requests under
         #: that session. It exists so the rules that read a server's tool manifest (names,
@@ -137,15 +142,19 @@ class Probe:
         #: process cannot silently share one, and so every input a rule reads is
         #: reachable from its single argument.
         self.budgets = budgets if budgets is not None else BudgetPolicy()
-        self._transport = Transport(
-            endpoint,
-            timeout=timeout,
-            bearer_token=bearer_token,
-            verify=verify,
-            proxy=proxy,
-            client_cert=client_cert,
-            retries=retries,
-        )
+        self._transport: Transport | StdioTransport
+        if command is not None:
+            self._transport = StdioTransport(command, timeout=timeout, env=command_env)
+        else:
+            self._transport = Transport(
+                endpoint,
+                timeout=timeout,
+                bearer_token=bearer_token,
+                verify=verify,
+                proxy=proxy,
+                client_cert=client_cert,
+                retries=retries,
+            )
 
     def close(self) -> None:
         self._transport.close()
@@ -177,6 +186,8 @@ class Probe:
             budgets=self.budgets,
             context=self.context,
             legacy=self.legacy,
+            command=self.command,
+            command_env=self.command_env,
         )
 
     def new_connection(self) -> Probe:
@@ -203,6 +214,8 @@ class Probe:
             budgets=self.budgets,
             context=self.context,
             legacy=self.legacy,
+            command=self.command,
+            command_env=self.command_env,
         )
 
     def _ensure_legacy_session(self) -> None:

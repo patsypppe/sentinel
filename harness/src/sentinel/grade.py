@@ -241,6 +241,7 @@ def run_scan(
     skip: frozenset[str] = frozenset(),
     probe_factory: Callable[[], Probe] | None = None,
     context: dict[str, object] | None = None,
+    detect_generation: bool = True,
 ) -> ScanReport:
     """Evaluate every rule against one endpoint.
 
@@ -286,7 +287,8 @@ def run_scan(
             legacy=legacy,
         )
 
-    report.generation, report.generation_detail = _generation(make_probe)
+    if detect_generation:
+        report.generation, report.generation_detail = _generation(make_probe)
 
     def run_one(r: BaseRule) -> Finding:
         rule_started = time.perf_counter()
@@ -332,6 +334,7 @@ def run_scan(
 #: Rules whose verdict depends only on what a server says in tools/list (or on one HTTP header),
 #: not on which protocol revision carries it. Against a server that has not migrated they run
 #: over a legacy session instead of reporting "unreachable".
+#: What `sentinel lint` runs: ERA_INDEPENDENT minus the one rule that needs an HTTP endpoint.
 ERA_INDEPENDENT = frozenset(
     {
         "MCP/2026-07-28/SHOULD/tool-names-well-formed",
@@ -404,3 +407,8 @@ def unverifiable_rules(registry: Registry | None = None) -> list[BaseRule]:
     """
     reg = registry if registry is not None else REGISTRY
     return [r for r in reg.all() if r.verifiability is Verifiability.UNVERIFIABLE]
+
+
+#: The rules `sentinel lint` runs. They read only a server's tool manifest, so they work over
+#: any transport, including a stdio child process.
+LINT_RULES = ERA_INDEPENDENT - {"MCP/2026-07-28/MUST/invalid-origin-rejected"}

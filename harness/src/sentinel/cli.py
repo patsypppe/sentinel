@@ -844,6 +844,66 @@ def catalog_list(
 
 
 @app.command()
+def lint(
+    command: Annotated[
+        str | None,
+        typer.Option(
+            help=(
+                'A stdio server to start, e.g. "npx -y @modelcontextprotocol/server-memory". '
+                "Run without a shell, with a minimal environment."
+            )
+        ),
+    ] = None,
+    endpoint: Annotated[
+        str | None, typer.Option(help="An HTTP MCP endpoint, instead of --command.")
+    ] = None,
+    fmt: Annotated[str, typer.Option("--format", help="text | json | markdown")] = "text",
+    timeout: Annotated[float, typer.Option(help="Seconds to wait for each reply.")] = 30.0,
+    env: Annotated[
+        list[str] | None,
+        typer.Option("--env", help="KEY=VALUE passed to the server process. Repeatable."),
+    ] = None,
+) -> None:
+    """Lint a server's tool manifest: names, descriptions, parameters, schemas, injection.
+
+    Works on any MCP server, stdio or HTTP, old protocol or new. Exit 1 if a rule failed.
+    """
+    import shlex
+
+    from sentinel.catalog.base import Outcome
+    from sentinel.grade import LINT_RULES, run_scan
+    from sentinel.probe.client import Probe
+    from sentinel.report import render_report
+
+    if (command is None) == (endpoint is None):
+        typer.echo("sentinel: give exactly one of --command or --endpoint", err=True)
+        raise typer.Exit(EXIT_HARNESS_ERROR)
+    if command is not None:
+        argv = shlex.split(command)
+        extra = dict(item.split("=", 1) for item in (env or []) if "=" in item)
+
+        def factory() -> Probe:
+            return Probe(
+                "stdio:" + command, timeout=timeout, legacy=True, command=argv, command_env=extra
+            )
+
+        report = run_scan(
+            "stdio:" + command,
+            only=set(LINT_RULES),
+            probe_factory=factory,
+            concurrency=4,
+            detect_generation=False,
+        )
+        report.generation, report.generation_detail = "stdio", "run as a child process"
+    else:
+        assert endpoint is not None
+        report = run_scan(endpoint, only=set(LINT_RULES), timeout=timeout)
+    failed = any(f.outcome is Outcome.FAIL and not f.rule.is_deprecated for f in report.findings)
+    typer.echo(render_report(fmt, report, color=False, gate_failed=failed, gate="lint"))
+    raise typer.Exit(1 if failed else 0)
+
+
+@app.command()
 def demo() -> None:
     """Scan two built-in practice servers, one broken and one correct. No setup needed."""
     from sentinel.demo import run_demo

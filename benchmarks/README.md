@@ -7,6 +7,7 @@ a table and writes it next to the script.
 |---|---|---|
 | Does Sentinel catch violations that the MCP maintainers labelled? | `official_negatives.py` | [`RESULTS.md`](RESULTS.md) |
 | What does Sentinel report on servers built with the official SDKs? | `sdk_readiness.py` | [`SDK_RESULTS.md`](SDK_RESULTS.md) |
+| How do 27 widely used published servers fare? | `popular_servers.py` | [`POPULAR_SERVERS.md`](POPULAR_SERVERS.md) |
 
 ```bash
 git clone https://github.com/modelcontextprotocol/conformance && cd conformance
@@ -59,6 +60,27 @@ So the two answer different questions. The official suite checks content handlin
 resources, tasks, OAuth flows) on servers built to its fixtures, and Sentinel does not cover those.
 Sentinel grades an arbitrary server as it is, and adds checks the suite lacks (description quality,
 tool-text injection, Origin, header rules). Use both.
+
+## Published servers: the larger sample
+
+`popular_servers.py` starts 29 published servers the way their READMEs say (`npx -y ...` or `uvx ...`,
+with dummy credentials where a token is only needed to start), reads each tool list over stdio, and
+runs Sentinel's manifest rules. 27 started. Result: **335 tools and 1,184 parameters; 10 of 27 servers
+leave parameters undocumented, 28% of all parameters.** The 2 that did not start are listed.
+
+Limits: the list is hand-picked to span reference, vendor and community servers, not the top N by
+stars (no registry API is reachable from here). Only top-level parameters are counted. The
+credential-path check flagged `.env`/`.aws` mentions in two servers' descriptions; those read as
+warnings, not attacks, so they are reported separately and not counted as injection. Per-server
+results are in the table so any of them can be rechecked.
+
+## Other tools
+
+I tried [Snyk Agent Scan](https://appsecsanta.com/mcp-scan) (formerly Invariant's `mcp-scan`) on the
+same kind of server. Its security analysis calls Snyk's cloud service, which this environment cannot
+reach, so `scan` hung until killed and I have **no comparison to report**. It does not check protocol
+conformance either; the overlap with Sentinel is the tool-description security check, and that
+comparison needs a machine with internet access and a Snyk token.
 
 ## Where Sentinel is stricter than the official suite, on purpose
 

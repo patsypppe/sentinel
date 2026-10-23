@@ -1,0 +1,372 @@
+[
+  {
+    "server": "server-memory",
+    "command": "npx -y @modelcontextprotocol/server-memory",
+    "status": "ok",
+    "tools": 9,
+    "params": 8,
+    "params_described": 4,
+    "tools_described": 9,
+    "injection_kinds": [],
+    "failed_rules": [
+      "parameters-are-described",
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "server-filesystem",
+    "command": "npx -y @modelcontextprotocol/server-filesystem /tmp",
+    "status": "ok",
+    "tools": 14,
+    "params": 25,
+    "params_described": 7,
+    "tools_described": 14,
+    "injection_kinds": [],
+    "failed_rules": [
+      "parameters-are-described",
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "server-everything",
+    "command": "npx -y @modelcontextprotocol/server-everything",
+    "status": "ok",
+    "tools": 13,
+    "params": 16,
+    "params_described": 15,
+    "tools_described": 13,
+    "injection_kinds": [],
+    "failed_rules": [
+      "parameters-are-described",
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "server-sequential-thinking",
+    "command": "npx -y @modelcontextprotocol/server-sequential-thinking",
+    "status": "ok",
+    "tools": 1,
+    "params": 9,
+    "params_described": 9,
+    "tools_described": 1,
+    "injection_kinds": [],
+    "failed_rules": []
+  },
+  {
+    "server": "server-puppeteer",
+    "command": "npx -y @modelcontextprotocol/server-puppeteer",
+    "status": "ok",
+    "tools": 7,
+    "params": 15,
+    "params_described": 15,
+    "tools_described": 7,
+    "injection_kinds": [],
+    "failed_rules": [
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "server-github",
+    "command": "npx -y @modelcontextprotocol/server-github",
+    "status": "ok",
+    "tools": 26,
+    "params": 130,
+    "params_described": 79,
+    "tools_described": 26,
+    "injection_kinds": [],
+    "failed_rules": [
+      "parameters-are-described",
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "server-brave-search",
+    "command": "npx -y @modelcontextprotocol/server-brave-search",
+    "status": "ok",
+    "tools": 2,
+    "params": 5,
+    "params_described": 5,
+    "tools_described": 2,
+    "injection_kinds": [],
+    "failed_rules": [
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "server-slack",
+    "command": "npx -y @modelcontextprotocol/server-slack",
+    "status": "ok",
+    "tools": 8,
+    "params": 17,
+    "params_described": 17,
+    "tools_described": 8,
+    "injection_kinds": [],
+    "failed_rules": [
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "server-google-maps",
+    "command": "npx -y @modelcontextprotocol/server-google-maps",
+    "status": "ok",
+    "tools": 7,
+    "params": 14,
+    "params_described": 14,
+    "tools_described": 7,
+    "injection_kinds": [],
+    "failed_rules": [
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "playwright-mcp",
+    "command": "npx -y @playwright/mcp@latest",
+    "status": "ok",
+    "tools": 25,
+    "params": 70,
+    "params_described": 70,
+    "tools_described": 25,
+    "injection_kinds": [],
+    "failed_rules": [
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "context7",
+    "command": "npx -y @upstash/context7-mcp",
+    "status": "ok",
+    "tools": 2,
+    "params": 5,
+    "params_described": 5,
+    "tools_described": 2,
+    "injection_kinds": [],
+    "failed_rules": [
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "notion",
+    "command": "npx -y @notionhq/notion-mcp-server",
+    "status": "ok",
+    "tools": 24,
+    "params": 71,
+    "params_described": 40,
+    "tools_described": 24,
+    "injection_kinds": [],
+    "failed_rules": [
+      "parameters-are-described",
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "firecrawl",
+    "command": "npx -y firecrawl-mcp",
+    "status": "ok",
+    "tools": 28,
+    "params": 194,
+    "params_described": 55,
+    "tools_described": 28,
+    "injection_kinds": [],
+    "failed_rules": [
+      "parameters-are-described",
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "chrome-devtools",
+    "command": "npx -y chrome-devtools-mcp@latest",
+    "status": "ok",
+    "tools": 32,
+    "params": 121,
+    "params_described": 121,
+    "tools_described": 32,
+    "injection_kinds": [],
+    "failed_rules": []
+  },
+  {
+    "server": "desktop-commander",
+    "command": "npx -y @wonderwhy-er/desktop-commander",
+    "status": "ok",
+    "tools": 25,
+    "params": 72,
+    "params_described": 0,
+    "tools_described": 25,
+    "injection_kinds": [
+      "sensitive-path"
+    ],
+    "failed_rules": [
+      "parameters-are-described",
+      "tool-description-injection",
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "tavily",
+    "command": "npx -y tavily-mcp",
+    "status": "ok",
+    "tools": 5,
+    "params": 42,
+    "params_described": 42,
+    "tools_described": 5,
+    "injection_kinds": [],
+    "failed_rules": [
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "exa",
+    "command": "npx -y exa-mcp-server",
+    "status": "ok",
+    "tools": 2,
+    "params": 4,
+    "params_described": 4,
+    "tools_described": 2,
+    "injection_kinds": [],
+    "failed_rules": [
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "figma-developer",
+    "command": "npx -y figma-developer-mcp --stdio",
+    "status": "ok",
+    "tools": 2,
+    "params": 7,
+    "params_described": 7,
+    "tools_described": 2,
+    "injection_kinds": [],
+    "failed_rules": [
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "mcp-server-kubernetes",
+    "command": "npx -y mcp-server-kubernetes",
+    "status": "ok",
+    "tools": 23,
+    "params": 152,
+    "params_described": 146,
+    "tools_described": 23,
+    "injection_kinds": [],
+    "failed_rules": [
+      "parameters-are-described",
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "browser-tools",
+    "command": "npx -y @agentdeskai/browser-tools-mcp@latest",
+    "status": "ok",
+    "tools": 16,
+    "params": 37,
+    "params_described": 37,
+    "tools_described": 16,
+    "injection_kinds": [],
+    "failed_rules": [
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "playwright-executeautomation",
+    "command": "npx -y @executeautomation/playwright-mcp-server",
+    "status": "ok",
+    "tools": 33,
+    "params": 82,
+    "params_described": 82,
+    "tools_described": 33,
+    "injection_kinds": [],
+    "failed_rules": [
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "mcp-server-fetch",
+    "command": "uvx mcp-server-fetch",
+    "status": "ok",
+    "tools": 1,
+    "params": 4,
+    "params_described": 4,
+    "tools_described": 1,
+    "injection_kinds": [],
+    "failed_rules": []
+  },
+  {
+    "server": "mcp-server-git",
+    "command": "uvx mcp-server-git --repository /tmp",
+    "status": "no tools listed (did not start, or needs real credentials)"
+  },
+  {
+    "server": "mcp-server-time",
+    "command": "uvx mcp-server-time",
+    "status": "ok",
+    "tools": 2,
+    "params": 4,
+    "params_described": 4,
+    "tools_described": 2,
+    "injection_kinds": [],
+    "failed_rules": [
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "markitdown",
+    "command": "uvx markitdown-mcp",
+    "status": "ok",
+    "tools": 1,
+    "params": 1,
+    "params_described": 0,
+    "tools_described": 1,
+    "injection_kinds": [],
+    "failed_rules": [
+      "parameters-are-described"
+    ]
+  },
+  {
+    "server": "duckduckgo",
+    "command": "uvx duckduckgo-mcp-server",
+    "status": "ok",
+    "tools": 3,
+    "params": 9,
+    "params_described": 0,
+    "tools_described": 3,
+    "injection_kinds": [],
+    "failed_rules": [
+      "parameters-are-described",
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "arxiv",
+    "command": "uvx arxiv-mcp-server",
+    "status": "ok",
+    "tools": 19,
+    "params": 55,
+    "params_described": 55,
+    "tools_described": 19,
+    "injection_kinds": [],
+    "failed_rules": [
+      "tools-sorted-by-name"
+    ]
+  },
+  {
+    "server": "basic-memory",
+    "command": "uvx basic-memory mcp",
+    "status": "no tools listed (did not start, or needs real credentials)"
+  },
+  {
+    "server": "aws-documentation",
+    "command": "uvx awslabs.aws-documentation-mcp-server@latest",
+    "status": "ok",
+    "tools": 5,
+    "params": 15,
+    "params_described": 15,
+    "tools_described": 5,
+    "injection_kinds": [
+      "sensitive-path"
+    ],
+    "failed_rules": [
+      "tool-description-injection",
+      "tools-sorted-by-name"
+    ]
+  }
+]

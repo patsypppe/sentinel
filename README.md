@@ -35,6 +35,18 @@ uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness"
 
 Prefer a clone? `git clone https://github.com/patsypppe/sentinel && cd sentinel && uv run sentinel demo`.
 
+## Lint any server, including stdio ones
+
+Most published MCP servers run as a local program, not at a URL. Point Sentinel at the command:
+
+```bash
+sentinel lint --command "npx -y @modelcontextprotocol/server-filesystem /tmp"
+```
+
+It starts the server, reads its tool list, and checks names, descriptions, undocumented parameters,
+schema validity and hidden instructions. It works for old and new protocol versions and exits 1 if a
+rule fails, so it drops straight into CI.
+
 ## Scan your own server
 
 No clone needed:
@@ -51,12 +63,13 @@ permission to test.
 
 | Test | Result |
 |---|---|
-| The MCP maintainers' own broken servers, each labelled with one violation | **7 of 7 gradable labelled violations caught.** One broken server crashes on every request (nothing can grade it) and one violation has no rule yet: both listed |
-| A server built with the official Python SDK 2.x | Speaks the current spec. 26 required rules pass, 3 fail, all three on the *error code* returned for a rejected request. The spec text says one code, the SDK returns another |
-| The official conformance reference server | 5 required rules fail: it does not enforce `Mcp-Method`/`Mcp-Name` headers or `Origin` checks, which the spec requires and the official suite's own header scenarios still mark as pending |
+| **27 widely used published servers** (npm and PyPI: filesystem, GitHub, Playwright, Notion, Context7, Firecrawl, Figma and more), linted over stdio | **335 tools, 1,184 parameters. 10 of the 27 servers leave parameters undocumented: 332 of 1,184 parameters (28%) have no description.** 0 had stub descriptions or illegal tool names |
+| The MCP maintainers' own broken servers, each labelled with one violation | **7 of 7 gradable violations caught.** One fixture crashes on every request so nothing can grade it, and one violation has no rule yet: both listed |
+| A server built with the official Python SDK 2.x | Speaks the current spec. 26 required rules pass, 3 fail, all on the *error code* returned for a rejected request: the spec text says one code, the SDK returns another |
+| The official conformance reference server | 5 required rules fail: no `Mcp-Method`/`Mcp-Name` header or `Origin` enforcement, which the spec requires |
 
-Details, methodology and limits (including where Sentinel is deliberately stricter than the
-official suite): [`benchmarks/`](benchmarks/README.md). Reproduce with two commands.
+Methodology, per-server tables, comparison with the official suite and limits:
+[`benchmarks/`](benchmarks/README.md). Reproduce each with one command.
 
 ## What it checks
 
