@@ -63,6 +63,9 @@ tool-text injection, Origin, header rules). Use both.
 
 ## Published servers: the larger sample
 
+![Share of parameters documented, per server](popular_servers.svg)
+
+
 `popular_servers.py` starts 29 published servers the way their READMEs say (`npx -y ...` or `uvx ...`,
 with dummy credentials where a token is only needed to start), reads each tool list over stdio, and
 runs Sentinel's manifest rules. 27 started. Result: **335 tools and 1,184 parameters; 10 of 27 servers
@@ -73,6 +76,21 @@ stars (no registry API is reachable from here). Only top-level parameters are co
 credential-path check flagged `.env`/`.aws` mentions in two servers' descriptions; those read as
 warnings, not attacks, so they are reported separately and not counted as injection. Per-server
 results are in the table so any of them can be rechecked.
+
+## Speed: one server process, not one per rule
+
+`sentinel lint` first started the server once per rule (a dozen times). The lint rules only read, so
+they now share one process. Same rule outcomes, wall-clock for a full lint on this machine:
+
+| Server | One process per rule | One shared process |
+|---|---|---|
+| `server-filesystem` | 6.8 s | 1.0 s |
+| `@playwright/mcp` | 6.1 s | 1.2 s |
+| `server-github` | 4.7 s | 0.9 s |
+| `notion-mcp-server` | 5.0 s | 1.1 s |
+
+Single runs after the packages were already cached, so treat the ratio (4.4x to 6.7x) as the point,
+not the decimals.
 
 ## Other tools
 

@@ -882,18 +882,26 @@ def lint(
         argv = shlex.split(command)
         extra = dict(item.split("=", 1) for item in (env or []) if "=" in item)
 
-        def factory() -> Probe:
-            return Probe(
-                "stdio:" + command, timeout=timeout, legacy=True, command=argv, command_env=extra
-            )
-
-        report = run_scan(
+        # The lint rules only read, so they share ONE server process instead of starting
+        # the server once per rule (a dozen times).
+        shared = Probe(
             "stdio:" + command,
-            only=set(LINT_RULES),
-            probe_factory=factory,
-            concurrency=4,
-            detect_generation=False,
+            timeout=timeout,
+            legacy=True,
+            command=argv,
+            command_env=extra,
+            borrowed=True,
         )
+        try:
+            report = run_scan(
+                "stdio:" + command,
+                only=set(LINT_RULES),
+                probe_factory=lambda: shared,
+                concurrency=4,
+                detect_generation=False,
+            )
+        finally:
+            shared.release()
         report.generation, report.generation_detail = "stdio", "run as a child process"
     else:
         assert endpoint is not None

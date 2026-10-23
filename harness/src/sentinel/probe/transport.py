@@ -342,6 +342,9 @@ class StdioTransport:
         self.retries = 0
         self._proc: subprocess.Popen[bytes] | None = None
         self._lines: queue.Queue[bytes | None] = queue.Queue()
+        # One request at a time: replies are matched by id off a single pipe, so two
+        # threads sharing a process must not both be reading it.
+        self._lock = threading.Lock()
 
     def _start(self) -> str | None:
         if self._proc is not None:
@@ -369,6 +372,10 @@ class StdioTransport:
         self._lines.put(None)
 
     def send(self, request: Request) -> RawResponse:
+        with self._lock:
+            return self._send(request)
+
+    def _send(self, request: Request) -> RawResponse:
         started = time.perf_counter()
 
         def failed(reason: str) -> RawResponse:

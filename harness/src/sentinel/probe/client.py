@@ -14,6 +14,7 @@ makes a failure attributable.
 
 from __future__ import annotations
 
+import threading
 import uuid
 from dataclasses import replace
 from typing import Any
@@ -111,8 +112,13 @@ class Probe:
         legacy: bool = False,
         command: list[str] | None = None,
         command_env: dict[str, str] | None = None,
+        borrowed: bool = False,
     ) -> None:
         self.endpoint = endpoint
+        #: A borrowed probe is shared by several rules, so `close()` leaves it open;
+        #: whoever lent it calls `release()`. Only for read-only rules.
+        self.borrowed = borrowed
+        self._legacy_lock = threading.Lock()
         self.command = command
         self.command_env = command_env
         #: Legacy mode speaks the PREVIOUS revision: it opens a session with
@@ -157,6 +163,11 @@ class Probe:
             )
 
     def close(self) -> None:
+        if not self.borrowed:
+            self._transport.close()
+
+    def release(self) -> None:
+        """Really close a probe that was lent out with `borrowed=True`."""
         self._transport.close()
 
     def __enter__(self) -> Probe:
@@ -220,9 +231,13 @@ class Probe:
 
     def _ensure_legacy_session(self) -> None:
         """Open the previous revision's session once: `initialize`, then the notification."""
-        if self._legacy_ready:
-            return
-        self._legacy_ready = True
+        with self._legacy_lock:
+            if self._legacy_ready:
+                return
+            self._open_legacy_session()
+            self._legacy_ready = True
+
+    def _open_legacy_session(self) -> None:
         base = {HEADER_PROTOCOL_VERSION: LEGACY_REVISION}
         opened = self._transport.send(
             Request(

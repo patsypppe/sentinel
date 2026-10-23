@@ -4,6 +4,11 @@
 
 The harness stops being a one-shot grader and becomes something a team runs.
 
+### Changed: lint shares one server process
+
+The lint rules only read, so they share one child process instead of starting the server per rule:
+4.4x to 6.7x faster with identical results. `benchmarks/chart.py` draws the 27-server result as an SVG.
+
 ### Added: `sentinel lint` and stdio servers
 
 - `sentinel lint --command "npx -y <server>"` runs the manifest rules against a server started as a

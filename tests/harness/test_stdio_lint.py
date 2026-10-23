@@ -64,3 +64,29 @@ def test_lint_reads_a_stdio_servers_manifest_and_reports_the_undescribed_paramet
     assert outcome["SENTINEL/STYLE/parameters-are-described"] == "fail"
     assert outcome["MCP/2026-07-28/SHOULD/tool-names-well-formed"] == "pass"
     assert done.returncode == 1
+
+
+def test_lint_starts_the_server_once_not_once_per_rule(tmp_path: pytest.TempPathFactory) -> None:
+    counter = tmp_path / "starts.txt"  # type: ignore[operator]
+    script = tmp_path / "server.py"  # type: ignore[operator]
+    script.write_text(f"open({str(counter)!r}, 'a').write('x')\n" + SERVER)
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "sentinel.cli",
+            "lint",
+            "--command",
+            f"{sys.executable} {script}",
+            "--format",
+            "json",
+            "--timeout",
+            "10",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+    # One shared process, plus one extra connection for the two-connections consistency rule.
+    assert len(counter.read_text()) <= 2

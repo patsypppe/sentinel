@@ -59,24 +59,31 @@ uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness"
 If the server needs a login token, add `--token "$TOKEN"`. Only scan servers you own or have
 permission to test.
 
-## Does it work? Measured against servers I did not write
+## What I found linting 27 real MCP servers
 
-| Test | Result |
-|---|---|
-| **27 widely used published servers** (npm and PyPI: filesystem, GitHub, Playwright, Notion, Context7, Firecrawl, Figma and more), linted over stdio | **335 tools, 1,184 parameters. 10 of the 27 servers leave parameters undocumented: 332 of 1,184 parameters (28%) have no description.** 0 had stub descriptions or illegal tool names |
-| The MCP maintainers' own broken servers, each labelled with one violation | **7 of 7 gradable violations caught.** One fixture crashes on every request so nothing can grade it, and one violation has no rule yet: both listed |
-| A server built with the official Python SDK 2.x | Speaks the current spec. 26 required rules pass, 3 fail, all on the *error code* returned for a rejected request: the spec text says one code, the SDK returns another |
-| The official conformance reference server | 5 required rules fail: no `Mcp-Method`/`Mcp-Name` header or `Origin` enforcement, which the spec requires |
+![Share of parameters with a description, per published MCP server](benchmarks/popular_servers.svg)
 
-Methodology, per-server tables, comparison with the official suite and limits:
-[`benchmarks/`](benchmarks/README.md). Reproduce each with one command.
+I ran `sentinel lint` on 27 widely used servers from npm and PyPI, the official filesystem, GitHub and
+Playwright servers among them. **17 document every parameter of every tool. 10 do not**, and the tail is
+long: `desktop-commander` documents 0 of 72 parameters, `firecrawl` 55 of 194, and the official
+`server-filesystem` 7 of 25.
+
+That matters because the description is all a model has to decide how to call a tool. Two 2026 studies
+([856 tools](https://arxiv.org/html/2602.14878v1), [10,831 servers](https://arxiv.org/html/2602.18914v1))
+found these gaps are common and that fixing them measurably changes which tool an LLM picks. An
+undocumented `path` or `id` parameter is a guess.
+
+On the protocol side, Sentinel catches every violation it has a rule for in the MCP maintainers' own
+deliberately broken servers, and says "can't tell" where it can't. Methodology, per-server numbers,
+the comparison with the official suite and the limits are in [`benchmarks/`](benchmarks/README.md);
+each result reproduces with one command.
 
 ## What it checks
 
 ```mermaid
 flowchart LR
     A[Your MCP server<br/>any language] -->|"plain HTTP requests<br/>(no MCP library)"| B[Sentinel probe]
-    B --> C{66 rules}
+    B --> C{68 rules}
     C --> D[Spec rules<br/>MUST / SHOULD]
     C --> E[Tool-description quality<br/>stubs, undocumented parameters]
     C --> F[Security basics<br/>prompt injection in tool text,<br/>origin checks, token rules]
@@ -107,6 +114,25 @@ of 10,831 servers showed those flaws [change which tool an LLM picks](https://ar
 Terms: **MUST** rules are required, and a failure fails the gate. **SHOULD** rules are
 recommendations, so they are reported but never fail the gate. The rule names carry a date,
 `2026-07-28`, because that is the spec revision they were written against.
+
+## Engineering notes
+
+- **A literal client, on purpose.** Sentinel sends raw HTTP and uses no MCP library: a library quietly
+  fixes the mistakes you are trying to find.
+- **"Can't tell" is a real answer.** A requirement that cannot be checked from outside is reported as
+  `INDETERMINATE` and is never counted as a pass.
+- **Two transports behind one interface.** HTTP, and stdio (a child process speaking newline-delimited
+  JSON), so every rule works on the majority of servers that only run locally. A server that has not
+  migrated to the current protocol is linted over a previous-revision session instead of failing every rule.
+- **Measured, not assumed, performance.** The first stdio version restarted the server once per rule.
+  Sharing one process across the read-only rules made a lint **4 to 7 times faster** (filesystem
+  server 6.8 s to 1.0 s; Playwright 6.1 s to 1.2 s) with identical results, and a test pins the start count.
+- **It audited itself.** Every rule was checked against the specification text and the official
+  conformance suite. One rule had invented a requirement the spec does not make, so it was withdrawn,
+  and 11 more were withdrawn or demoted to advisory, with about ten loosened. Rule ids are permanent, so each
+  retired rule is deprecated and points at its replacement.
+- **Quality gates.** `mypy --strict`, ruff, 394 tests (including an oracle that measures recall against
+  a deliberately broken server), CI on every push, SARIF output for GitHub code scanning.
 
 ## What is in this repo
 
