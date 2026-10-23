@@ -269,7 +269,7 @@ def run_scan(
     rules = [r for r in rules if r.id not in skip]
     identity = report.target
 
-    def make_probe() -> Probe:
+    def make_probe(*, legacy: bool = False) -> Probe:
         if probe_factory is not None:
             return probe_factory()
         return Probe(
@@ -283,12 +283,19 @@ def run_scan(
             budgets=budgets,
             safe=safe,
             context=context,
+            legacy=legacy,
         )
+
+    report.generation, report.generation_detail = _generation(make_probe)
 
     def run_one(r: BaseRule) -> Finding:
         rule_started = time.perf_counter()
         try:
-            with make_probe() as probe:
+            # A server that has not migrated cannot answer the current wire at all, so the
+            # rules that only read its tool manifest speak the previous revision to it.
+            # Every other rule still tests the current one, and fails honestly.
+            use_legacy = report.generation == "legacy" and r.id in ERA_INDEPENDENT
+            with make_probe(legacy=use_legacy) as probe:
                 result = r.evaluate(probe)
         except Exception as exc:
             # A rule that raises is a HARNESS defect, and saying so is more
@@ -319,11 +326,32 @@ def run_scan(
     report.findings = findings
     report.elapsed_s = time.perf_counter() - started
     report.manifest_hash = _manifest_hash(make_probe)
-    report.generation, report.generation_detail = _generation(make_probe)
     return report
 
 
-def _generation(make_probe: Callable[[], Probe]) -> tuple[str, str]:
+#: Rules whose verdict depends only on what a server says in tools/list (or on one HTTP header),
+#: not on which protocol revision carries it. Against a server that has not migrated they run
+#: over a legacy session instead of reporting "unreachable".
+ERA_INDEPENDENT = frozenset(
+    {
+        "MCP/2026-07-28/SHOULD/tool-names-well-formed",
+        "MCP/2026-07-28/SHOULD/tool-names-unique-within-server",
+        "MCP/2026-07-28/SHOULD/tools-list-is-deterministic",
+        "MCP/2026-07-28/MUST/tools-declare-input-schema",
+        "MCP/2026-07-28/MUST/tools-declare-valid-input-schema",
+        "MCP/2026-07-28/MUST/tools-are-named",
+        "MCP/2026-07-28/MUST/invalid-origin-rejected",
+        "SENTINEL/STYLE/description-states-purpose",
+        "SENTINEL/STYLE/parameters-are-described",
+        "SENTINEL/STYLE/tools-have-descriptions",
+        "SENTINEL/STYLE/tools-sorted-by-name",
+        "SENTINEL/SECURITY/tool-description-injection",
+        "SENTINEL/OPS/tool-descriptions-are-distinct",
+    }
+)
+
+
+def _generation(make_probe: Callable[..., Probe]) -> tuple[str, str]:
     """Which protocol generation the target speaks. Best effort, never a finding."""
     from sentinel.population import classify
 
@@ -335,7 +363,7 @@ def _generation(make_probe: Callable[[], Probe]) -> tuple[str, str]:
     return klass, detail
 
 
-def _manifest_hash(make_probe: Callable[[], Probe]) -> str | None:
+def _manifest_hash(make_probe: Callable[..., Probe]) -> str | None:
     """The canonical hash of the target's tool manifest, or None if unreadable.
 
     Best effort and never a finding: a target whose manifest cannot be read has

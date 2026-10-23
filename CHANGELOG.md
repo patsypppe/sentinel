@@ -4,10 +4,16 @@
 
 The harness stops being a one-shot grader and becomes something a team runs.
 
+### Added: legacy-session mode
+
+Against a server that has not migrated to the current protocol, the rules that only read the tool
+manifest (names, descriptions, injection, schema validity, Origin) now open a previous-revision
+session and run, instead of every rule reporting the server unreachable.
+
 ### Added: benchmarks against servers this project did not write
 
 - `benchmarks/official_negatives.py`: runs the broken fixtures from the official conformance repo and
-  reports which labelled violations Sentinel catches (6 of 8, misses explained).
+  reports which labelled violations Sentinel catches (7 of 7 gradable; one fixture is unusable and one violation has no rule, both listed).
 - `benchmarks/sdk_readiness.py`: scans servers built with the official SDKs.
 - Reports now say which protocol generation answered, and a scan of a legacy-only server says so at
   the top instead of presenting a wall of failures as independent bugs.

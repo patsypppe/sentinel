@@ -28,16 +28,37 @@ same person looked at the fixtures while writing the mapping, and no rule was ch
 these results. One change *was* made from the SDK scan: the stub-description threshold went from
 20 to 12 characters after "Add two numbers." was flagged, which is a false positive.
 
-**Misses are reported, not tuned away.** Of the 8 labelled violations, 2 were missed:
+**Misses and exclusions are reported, not tuned away.** The seven broken servers carry eight
+rule-level violations in total (one server names a violation Sentinel has no rule for):
 
-- one broken server speaks only the *previous* MCP revision, so none of Sentinel's rules (which test
-  the current one) can run against it. Sentinel now says so at the top of the report;
-- one refuses every probe with HTTP 500, so Sentinel reports INDETERMINATE for the Origin rule
-  rather than guess. That is the designed behaviour (an unverifiable requirement is never a pass),
-  and it costs recall.
+- 7 of 8 are caught. Six on servers that speak the current protocol, one on a server that has not
+  migrated (for the rules that only read the tool manifest, Sentinel opens a previous-revision
+  session instead of reporting "unreachable");
+- the remaining one, `no-dns-rebinding-protection`, is *not gradable*: with the installed SDK it
+  answers every request, for any client, with HTTP 500 ("inputSchema must be a Zod schema"), so
+  Sentinel correctly reports INDETERMINATE rather than guess. It stays in the table but out of the
+  denominator;
+- `sep-2106-stripped-schema` (JSON Schema 2020-12 keywords stripped) has no Sentinel rule and
+  contributes no expectation. That is a coverage gap, not a catch.
 
-One labelled violation (JSON Schema 2020-12 keywords stripped from a schema) has no Sentinel rule at
-all. That is a coverage gap.
+Net: **7 of the 7 gradable violations caught**, 1 fixture unusable, 1 known coverage gap.
+
+## Head to head with the official suite, on a server it was not built for
+
+Same server, the official Python SDK demo (two tools, no special fixtures), graded by each tool:
+
+| | Official `conformance` suite (`--requirements 2026-07-28`) | Sentinel |
+|---|---|---|
+| What it needs from the server | its own fixed test tools, prompts and resources | nothing |
+| Result on this server | 113 checks pass, 57 fail | 26 required rules pass, 3 fail |
+| Why the failures | in the scenarios I sampled (`tools-call-image`, `prompts-get-simple`) the server simply lacks the suite's fixtures: "No image content found", "Unknown prompt: test_simple_prompt". Those are not violations by the server | the 3 fails are real divergences from the spec text (error codes); the rest is checked on whatever the server exposes |
+| Flags the undocumented tool | yes ("Tool 1: missing description") | yes |
+| Flags the wrong rejection error code | no (it treats the code as optional) | yes (the spec text says MUST) |
+
+So the two answer different questions. The official suite checks content handling (images, prompts,
+resources, tasks, OAuth flows) on servers built to its fixtures, and Sentinel does not cover those.
+Sentinel grades an arbitrary server as it is, and adds checks the suite lacks (description quality,
+tool-text injection, Origin, header rules). Use both.
 
 ## Where Sentinel is stricter than the official suite, on purpose
 

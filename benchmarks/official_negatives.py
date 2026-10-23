@@ -148,6 +148,14 @@ def render(rows: list[dict[str, object]]) -> str:
     for r in rows:
         exp, got = r["expected_rules"], r["caught"]
         assert isinstance(exp, list) and isinstance(got, list)
+        if exp and r["generation"] == "unreachable":
+            # Every request failed, for any client. Nothing can be graded, so it is shown
+            # but kept out of the denominator rather than counted as a miss or a catch.
+            out.append(
+                f"| `{r['fixture']}` | {r['labelled_violation']} | not gradable | "
+                "the fixture itself fails every request (server error on all methods) |"
+            )
+            continue
         if not exp:
             verdict, why = (
                 "no rule",

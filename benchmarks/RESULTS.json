@@ -61,13 +61,11 @@
     "expected_rules": [
       "MCP/2026-07-28/SHOULD/tool-names-well-formed"
     ],
-    "caught": [],
-    "missed": [
+    "caught": [
       "MCP/2026-07-28/SHOULD/tool-names-well-formed"
     ],
-    "missed_outcomes": {
-      "MCP/2026-07-28/SHOULD/tool-names-well-formed": "indeterminate"
-    },
+    "missed": [],
+    "missed_outcomes": {},
     "generation": "legacy"
   },
   {

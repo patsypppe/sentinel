@@ -8,8 +8,8 @@ Each server below is a deliberately broken fixture from the official `modelconte
 | `sep-2322-mrtr-broken-server` | omits resultType; accepts a tampered requestState | 2/2 caught |  |
 | `sep-2164-empty-contents` | returns an empty contents array for a resource that does not exist | 1/1 caught |  |
 | `tools-list-rotated-order` | reorders tools/list on every call | 1/1 caught |  |
-| `invalid-tool-names` | advertises tool names with illegal characters | 0/1 caught | server speaks only the previous MCP revision, so the rule never ran |
-| `no-dns-rebinding-protection` | does not validate the Origin header | 0/1 caught | Sentinel reported indeterminate, not FAIL: the server refused the probe for an unrelated reason, and Sentinel does not guess |
+| `invalid-tool-names` | advertises tool names with illegal characters | 1/1 caught |  |
+| `no-dns-rebinding-protection` | does not validate the Origin header | not gradable | the fixture itself fails every request (server error on all methods) |
 | `sep-2106-stripped-schema` | strips JSON Schema 2020-12 keywords from a tool's inputSchema | no rule | coverage gap: JSON Schema 2020-12 preservation is not checked |
 
-**6 of 8 labelled violations caught** (75%). Misses are listed, not hidden.
+**7 of 7 labelled violations caught** (100%). Misses are listed, not hidden.

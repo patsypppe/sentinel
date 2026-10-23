@@ -45,12 +45,11 @@ import httpx
 from sentinel import SPEC_REVISION, __version__
 from sentinel.catalog.base import Outcome, Severity
 from sentinel.grade import run_scan
-from sentinel.probe.client import Probe
+from sentinel.probe.client import LEGACY_REVISION, Probe
 from sentinel.probe.transport import DEFAULT_USER_AGENT, Request
 
 REGISTRY_BASE = "https://registry.modelcontextprotocol.io"
 OFFICIAL_META = "io.modelcontextprotocol.registry/official"
-LEGACY_REVISION = "2025-11-25"
 
 CLASS_CURRENT = SPEC_REVISION
 CLASS_LEGACY = "legacy"

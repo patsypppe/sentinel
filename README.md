@@ -51,7 +51,7 @@ permission to test.
 
 | Test | Result |
 |---|---|
-| The MCP maintainers' own broken servers, each labelled with one violation | **6 of 8 labelled violations caught.** The 2 misses are explained: one server speaks only the old protocol, one refuses every probe, so Sentinel says "can't tell" instead of guessing |
+| The MCP maintainers' own broken servers, each labelled with one violation | **7 of 7 gradable labelled violations caught.** One broken server crashes on every request (nothing can grade it) and one violation has no rule yet: both listed |
 | A server built with the official Python SDK 2.x | Speaks the current spec. 26 required rules pass, 3 fail, all three on the *error code* returned for a rejected request. The spec text says one code, the SDK returns another |
 | The official conformance reference server | 5 required rules fail: it does not enforce `Mcp-Method`/`Mcp-Name` headers or `Origin` checks, which the spec requires and the official suite's own header scenarios still mark as pending |
 
