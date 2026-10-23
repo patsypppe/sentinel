@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import json
+import re
 import time
 import urllib.parse
 from collections import Counter, defaultdict
@@ -91,6 +92,10 @@ class Result:
     should: dict[str, int] = field(default_factory=dict)
     must_failures: list[str] = field(default_factory=list)
     should_failures: list[str] = field(default_factory=list)
+    #: For each failed MUST rule, what the server actually answered: "HTTP 400, code -32600".
+    #: Only ever aggregated; it exists to tell "the server is broken" from "the server answers
+    #: a different code from the one the rule expects".
+    observed: dict[str, str] = field(default_factory=dict)
     skipped_for_safety: int = 0
     response_framing: str = ""
     elapsed_s: float = 0.0
@@ -250,12 +255,30 @@ def scan_target(target: Target, *, timeout: float = 10.0) -> Result:
             result.should_failures = sorted(
                 f.rule.id for f in report.by_outcome(Outcome.FAIL, Severity.SHOULD)
             )
+            result.observed = {
+                f.rule.id: _observed(f.result.evidence, f.result.detail)
+                for f in report.by_outcome(Outcome.FAIL, Severity.MUST)
+            }
             result.skipped_for_safety = len(report.skipped_for_safety)
     except Exception as exc:  # one broken server must not end a population scan
         result.classification = CLASS_UNREACHABLE
         result.detail = f"scan aborted: {type(exc).__name__}: {exc}"
     result.elapsed_s = round(time.perf_counter() - started, 3)
     return result
+
+
+def _observed(evidence: object, detail: str) -> str:
+    """The wire behaviour behind a failure, in a form that can be counted across servers."""
+    text = f"{evidence or ''} {detail}"
+    if m := re.search(r"HTTP (\d{3}), code (-?\d+)", text):
+        return f"HTTP {m[1]}, code {m[2]}"
+    code = re.search(r"error code was (-?\d+)", text)
+    status = re.search(r"HTTP status was (\d{3})", text)
+    if code or status:
+        return f"HTTP {status[1] if status else '?'}, code {code[1] if code else '?'}"
+    if "was SERVED" in text or "was served" in text:
+        return "request was served"
+    return "other"
 
 
 def scan_population(
@@ -332,6 +355,14 @@ def summarize(results: list[Result], *, listed: int, scanned_at: str) -> dict[st
                 {"ruleId": rule, "servers": n, "pctOfGraded": pct(n, len(current))}
                 for rule, n in must_rule_failures.most_common(15)
             ],
+            "observedOnTopRules": {
+                rule: dict(
+                    Counter(
+                        r.observed.get(rule, "other") for r in current if rule in r.observed
+                    ).most_common(5)
+                )
+                for rule, _ in must_rule_failures.most_common(5)
+            },
             "mostFailedShould": [
                 {"ruleId": rule, "servers": n, "pctOfGraded": pct(n, len(current))}
                 for rule, n in should_rule_failures.most_common(10)
@@ -394,6 +425,13 @@ def render_markdown(summary: dict[str, Any]) -> str:
             f"| `{row['ruleId']}` | {row['servers']} | {row['pctOfGraded']} |"
             for row in cur["mostFailedMust"]
         ]
+        lines.append("")
+    observed = cur.get("observedOnTopRules") or {}
+    if observed:
+        lines += ["## What the failing servers actually answered", ""]
+        for rule, counts in observed.items():
+            shown = ", ".join(f"{what}: {n}" for what, n in counts.items())
+            lines.append(f"- `{rule}`: {shown}")
         lines.append("")
     lines += [
         "Per-server results are deliberately not published: findings go to each "

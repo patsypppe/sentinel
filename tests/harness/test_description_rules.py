@@ -77,3 +77,13 @@ def test_parameter_documentation_is_judged_the_way_a_model_reads_it() -> None:
     }
     assert documented({"description": "x"}, "edits", nested) == "schema"
     assert documented({"description": "x"}, "edits", {"type": "array", "items": {}}) is None
+
+
+def test_observed_wire_behaviour_is_extracted_for_aggregation() -> None:
+    from sentinel.population import _observed
+
+    assert _observed("HTTP 400, code -32600", "") == "HTTP 400, code -32600"
+    both = "rejected: error code was -32601, not -32602; HTTP status was 200, not 400"
+    assert _observed(None, both) == "HTTP 200, code -32601"
+    assert _observed(None, "tools/list was SERVED with no header") == "request was served"
+    assert _observed(None, "something else entirely") == "other"
