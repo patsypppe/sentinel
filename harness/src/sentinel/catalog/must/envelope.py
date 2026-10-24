@@ -296,7 +296,27 @@ def tools_list_connection_independent(probe: Probe) -> RuleResult:
             f"the second connection returned a non-array tools field: {second.get('tools')!r}"
         )
 
+    if first.get("nextCursor") or second.get("nextCursor"):
+        return RuleResult.indeterminate(
+            "tools/list is paginated, and only the first page was compared across the two "
+            "connections"
+        )
+
     if here != there:
+        # The set MAY change over time, so a difference between two calls made
+        # moments apart proves nothing until it survives a second look.
+        again_first = canonical((probe.tools_list().result() or {}).get("tools"))
+        recheck = probe.new_connection()
+        try:
+            again_second = canonical((recheck.tools_list().result() or {}).get("tools"))
+        finally:
+            recheck.close()
+        if again_first is None or again_second is None or again_first == again_second:
+            return RuleResult.indeterminate(
+                "the two connections disagreed once, but agreed on a second look; the tool "
+                "set changed between calls, which the specification allows"
+            )
+        here, there = again_first, again_second
         only_here = [t for t in here if t not in there]
         only_there = [t for t in there if t not in here]
         return RuleResult.failed(

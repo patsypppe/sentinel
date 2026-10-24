@@ -14,7 +14,7 @@
 # version pinned by `rev`.
 - id: sentinel-scan
   name: sentinel MCP conformance scan
-  description: Grade a locally-running MCP server against MCP 2026-07-28 and fail on a MUST violation.
+  description: Grade a locally-running MCP server against the current MCP spec and fail on a MUST violation.
   entry: ghcr.io/patsypppe/sentinel:latest scan --gate must --no-color
   language: docker_image
   pass_filenames: false

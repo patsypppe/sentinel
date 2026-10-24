@@ -160,7 +160,9 @@ def _rule(
 
 def test_namespace_is_derived_from_the_id() -> None:
     assert _rule("MCP/2026-07-28/MUST/a").namespace is Namespace.MCP
-    assert _rule("SENTINEL/STYLE/a", citation="", rationale="x" * 25).namespace is Namespace.SENTINEL
+    assert (
+        _rule("SENTINEL/STYLE/a", citation="", rationale="x" * 25).namespace is Namespace.SENTINEL
+    )
 
 
 def test_slug_is_the_last_segment() -> None:
@@ -170,8 +172,13 @@ def test_slug_is_the_last_segment() -> None:
 def test_all_excludes_deprecated_rules_by_default() -> None:
     reg = Registry()
     reg.register(_rule("MCP/2026-07-28/MUST/live"))
-    reg.register(_rule("MCP/2026-07-28/MUST/gone", deprecated_in="0.2.0",
-                       superseded_by="MCP/2026-07-28/MUST/live"))
+    reg.register(
+        _rule(
+            "MCP/2026-07-28/MUST/gone",
+            deprecated_in="0.2.0",
+            superseded_by="MCP/2026-07-28/MUST/live",
+        )
+    )
 
     assert [r.id for r in reg.all()] == ["MCP/2026-07-28/MUST/live"]
     assert len(reg.all(include_deprecated=True)) == 2
@@ -180,8 +187,13 @@ def test_all_excludes_deprecated_rules_by_default() -> None:
 def test_by_severity_honours_include_deprecated() -> None:
     reg = Registry()
     reg.register(_rule("MCP/2026-07-28/MUST/live"))
-    reg.register(_rule("MCP/2026-07-28/MUST/gone", deprecated_in="0.2.0",
-                       superseded_by="MCP/2026-07-28/MUST/live"))
+    reg.register(
+        _rule(
+            "MCP/2026-07-28/MUST/gone",
+            deprecated_in="0.2.0",
+            superseded_by="MCP/2026-07-28/MUST/live",
+        )
+    )
 
     assert len(reg.by_severity(Severity.MUST)) == 1
     assert len(reg.by_severity(Severity.MUST, include_deprecated=True)) == 2
@@ -189,8 +201,13 @@ def test_by_severity_honours_include_deprecated() -> None:
 
 def test_deprecated_rule_must_name_a_successor_that_exists() -> None:
     reg = Registry()
-    reg.register(_rule("MCP/2026-07-28/MUST/gone", deprecated_in="0.2.0",
-                       superseded_by="MCP/2026-07-28/SHOULD/nowhere"))
+    reg.register(
+        _rule(
+            "MCP/2026-07-28/MUST/gone",
+            deprecated_in="0.2.0",
+            superseded_by="MCP/2026-07-28/SHOULD/nowhere",
+        )
+    )
 
     problems = validate_registry(reg)
     assert any("superseded_by" in p.problem for p in problems)
@@ -216,8 +233,13 @@ def test_two_live_rules_may_not_share_a_slug() -> None:
 def test_a_deprecated_rule_and_its_successor_may_share_a_slug() -> None:
     """This is the whole point of the mechanism."""
     reg = Registry()
-    reg.register(_rule("MCP/2026-07-28/MUST/same-slug", deprecated_in="0.2.0",
-                       superseded_by="MCP/2026-07-28/SHOULD/same-slug"))
+    reg.register(
+        _rule(
+            "MCP/2026-07-28/MUST/same-slug",
+            deprecated_in="0.2.0",
+            superseded_by="MCP/2026-07-28/SHOULD/same-slug",
+        )
+    )
     reg.register(_rule("MCP/2026-07-28/SHOULD/same-slug", severity=Severity.SHOULD))
 
     assert validate_registry(reg) == []
@@ -231,9 +253,11 @@ def test_sentinel_namespace_requires_a_rationale_and_no_citation() -> None:
 
     reg2 = Registry()
     reg2.register(
-        _rule("SENTINEL/STYLE/a",
-              citation="https://modelcontextprotocol.io/specification/2026-07-28/basic",
-              rationale="x" * 25)
+        _rule(
+            "SENTINEL/STYLE/a",
+            citation="https://modelcontextprotocol.io/specification/2026-07-28/basic",
+            rationale="x" * 25,
+        )
     )
     assert any("citation" in p.problem for p in validate_registry(reg2))
 
@@ -280,51 +304,49 @@ RULE_ID_PATTERN = re.compile(
 Add the fields to `BaseRule`, after `title`:
 
 ```python
-    #: The sentinel version this rule first shipped in.
-    introduced_in: str = "0.1.0"
-    #: The sentinel version that deprecated it, or None while it is live. A
-    #: deprecated rule is excluded from scans by default but keeps its id
-    #: forever, so an archived report stays readable.
-    deprecated_in: str | None = None
-    #: The rule id that replaced it. Required when deprecated_in is set.
-    superseded_by: str | None = None
-    #: Why a beyond-spec rule exists. SENTINEL-namespace rules carry this
-    #: INSTEAD of a citation -- a citation field pointing at nothing is how a
-    #: catalog starts lying.
-    rationale: str = ""
+#: The sentinel version this rule first shipped in.
+introduced_in: str = "0.1.0"
+#: The sentinel version that deprecated it, or None while it is live. A
+#: deprecated rule is excluded from scans by default but keeps its id
+#: forever, so an archived report stays readable.
+deprecated_in: str | None = None
+#: The rule id that replaced it. Required when deprecated_in is set.
+superseded_by: str | None = None
+#: Why a beyond-spec rule exists. SENTINEL-namespace rules carry this
+#: INSTEAD of a citation -- a citation field pointing at nothing is how a
+#: catalog starts lying.
+rationale: str = ""
 
-    @property
-    def namespace(self) -> Namespace:
-        return Namespace.SENTINEL if self.id.startswith("SENTINEL/") else Namespace.MCP
 
-    @property
-    def is_deprecated(self) -> bool:
-        return self.deprecated_in is not None
+@property
+def namespace(self) -> Namespace:
+    return Namespace.SENTINEL if self.id.startswith("SENTINEL/") else Namespace.MCP
 
-    @property
-    def slug(self) -> str:
-        return self.id.rsplit("/", 1)[-1]
+
+@property
+def is_deprecated(self) -> bool:
+    return self.deprecated_in is not None
+
+
+@property
+def slug(self) -> str:
+    return self.id.rsplit("/", 1)[-1]
 ```
 
 Replace `Registry.all` and `Registry.by_severity`:
 
 ```python
-    def all(self, *, include_deprecated: bool = False) -> list[BaseRule]:
-        # Sorted by id so a report's order is stable across runs and two reports
-        # can be diffed.
-        rules = self._rules.values()
-        if not include_deprecated:
-            rules = [r for r in rules if not r.is_deprecated]  # type: ignore[assignment]
-        return sorted(rules, key=lambda r: r.id)
+def all(self, *, include_deprecated: bool = False) -> list[BaseRule]:
+    # Sorted by id so a report's order is stable across runs and two reports
+    # can be diffed.
+    rules = self._rules.values()
+    if not include_deprecated:
+        rules = [r for r in rules if not r.is_deprecated]  # type: ignore[assignment]
+    return sorted(rules, key=lambda r: r.id)
 
-    def by_severity(
-        self, severity: Severity, *, include_deprecated: bool = False
-    ) -> list[BaseRule]:
-        return [
-            r
-            for r in self.all(include_deprecated=include_deprecated)
-            if r.severity is severity
-        ]
+
+def by_severity(self, severity: Severity, *, include_deprecated: bool = False) -> list[BaseRule]:
+    return [r for r in self.all(include_deprecated=include_deprecated) if r.severity is severity]
 ```
 
 Extend the `rule()` decorator signature with the four new keyword-only parameters (all defaulted) and pass them into `BaseRule(...)`:
@@ -389,7 +411,9 @@ def validate_registry(registry: Registry | None = None) -> list[ValidationProble
                 problems.append(ValidationProblem(r.id, "has no spec citation"))
             elif not r.citation.startswith(SPEC_BASE):
                 problems.append(
-                    ValidationProblem(r.id, f"citation does not point into {SPEC_BASE}: {r.citation}")
+                    ValidationProblem(
+                        r.id, f"citation does not point into {SPEC_BASE}: {r.citation}"
+                    )
                 )
             if r.rationale:
                 problems.append(
@@ -425,9 +449,7 @@ def validate_registry(registry: Registry | None = None) -> list[ValidationProble
         if r.is_deprecated:
             if not r.superseded_by:
                 problems.append(
-                    ValidationProblem(
-                        r.id, "is deprecated but names no successor in superseded_by"
-                    )
+                    ValidationProblem(r.id, "is deprecated but names no successor in superseded_by")
                 )
             elif r.superseded_by not in known:
                 problems.append(
@@ -439,15 +461,15 @@ def validate_registry(registry: Registry | None = None) -> list[ValidationProble
             previous = live_slugs.get(r.slug)
             if previous is not None:
                 problems.append(
-                    ValidationProblem(
-                        r.id, f"shares the live slug {r.slug!r} with {previous}"
-                    )
+                    ValidationProblem(r.id, f"shares the live slug {r.slug!r} with {previous}")
                 )
             live_slugs[r.slug] = r.id
 
         if r.verifiability is Verifiability.UNVERIFIABLE and r.severity is not Severity.MUST:
             problems.append(
-                ValidationProblem(r.id, "is UNVERIFIABLE but not a MUST; nothing else needs the bucket")
+                ValidationProblem(
+                    r.id, "is UNVERIFIABLE but not a MUST; nothing else needs the bucket"
+                )
             )
 
     return problems
@@ -499,8 +521,9 @@ def _finding(rule_id: str, outcome: Outcome, severity: Severity) -> Finding:
         rule=_rule(
             rule_id,
             severity=severity,
-            citation="" if rule_id.startswith("SENTINEL/") else
-                     "https://modelcontextprotocol.io/specification/2026-07-28/basic",
+            citation=""
+            if rule_id.startswith("SENTINEL/")
+            else "https://modelcontextprotocol.io/specification/2026-07-28/basic",
             rationale="x" * 25 if rule_id.startswith("SENTINEL/") else "",
         ),
         result=RuleResult(outcome, "detail"),
@@ -555,21 +578,19 @@ In `grade.py`, add `include_deprecated: bool = False` to `run_scan`'s keyword-on
 Change `ScanReport.gate` to filter by namespace, and say why in a comment:
 
 ```python
-    def gate(self, severity: Severity | None) -> int:
-        """The process exit code for this report.
+def gate(self, severity: Severity | None) -> int:
+    """The process exit code for this report.
 
-        Only the MCP namespace can fail a spec gate. A SENTINEL rule is an
-        opinion this project holds and the specification does not; letting one
-        fail `--gate must` would make a conformance verdict unfalsifiable.
-        """
-        if severity is None:
-            return EXIT_OK
-        failed = [
-            f
-            for f in self.by_outcome(Outcome.FAIL, severity)
-            if f.rule.namespace is Namespace.MCP
-        ]
-        return EXIT_GATE_FAILED if failed else EXIT_OK
+    Only the MCP namespace can fail a spec gate. A SENTINEL rule is an
+    opinion this project holds and the specification does not; letting one
+    fail `--gate must` would make a conformance verdict unfalsifiable.
+    """
+    if severity is None:
+        return EXIT_OK
+    failed = [
+        f for f in self.by_outcome(Outcome.FAIL, severity) if f.rule.namespace is Namespace.MCP
+    ]
+    return EXIT_GATE_FAILED if failed else EXIT_OK
 ```
 
 Import `Namespace` in `grade.py`.
@@ -577,16 +598,16 @@ Import `Namespace` in `grade.py`.
 In `cli.py`, add the flag to `scan()` and pass it through:
 
 ```python
-    include_deprecated_rules: Annotated[
-        bool,
-        typer.Option(
-            "--include-deprecated-rules",
-            help=(
-                "Also run rules this catalog has deprecated. Each is reported with the "
-                "rule that replaced it, so an archived report stays reproducible."
-            ),
+include_deprecated_rules: Annotated[
+    bool,
+    typer.Option(
+        "--include-deprecated-rules",
+        help=(
+            "Also run rules this catalog has deprecated. Each is reported with the "
+            "rule that replaced it, so an archived report stays reproducible."
         ),
-    ] = False,
+    ),
+] = (False,)
 ```
 
 ```python
@@ -811,8 +832,8 @@ Replace `meta()`:
 Add the two parameters to `build()` and thread them into the `meta()` call:
 
 ```python
-        omit_client_capabilities: bool = False,
-        client_capabilities: Any = _UNSET,
+omit_client_capabilities: bool = (False,)
+client_capabilities: Any = (_UNSET,)
 ```
 ```python
         if include_meta:
@@ -837,25 +858,21 @@ HEADER_PROTOCOL_VERSION = "MCP-Protocol-Version"
 and in `build()`, after the `Mcp-Name` block and before `built.update(headers or {})`:
 
 ```python
-        if not omit_protocol_version_header:
-            declared = self.meta(version=version).get(KEY_PROTOCOL_VERSION)
-            resolved_header = (
-                protocol_version_header
-                if protocol_version_header is not None
-                else declared
-            )
-            # When the caller asked for an unversioned body there is nothing for
-            # the header to agree with, so sending one would manufacture the
-            # very mismatch the header rule exists to detect.
-            if resolved_header is not None:
-                built[HEADER_PROTOCOL_VERSION] = str(resolved_header)
+if not omit_protocol_version_header:
+    declared = self.meta(version=version).get(KEY_PROTOCOL_VERSION)
+    resolved_header = protocol_version_header if protocol_version_header is not None else declared
+    # When the caller asked for an unversioned body there is nothing for
+    # the header to agree with, so sending one would manufacture the
+    # very mismatch the header rule exists to detect.
+    if resolved_header is not None:
+        built[HEADER_PROTOCOL_VERSION] = str(resolved_header)
 ```
 
 with the two parameters added to `build()`'s signature:
 
 ```python
-        omit_protocol_version_header: bool = False,
-        protocol_version_header: str | None = None,
+omit_protocol_version_header: bool = (False,)
+protocol_version_header: str | None = (None,)
 ```
 
 In `transport.py`, add the constant and send it:
@@ -1113,6 +1130,7 @@ In `must/envelope.py`, replace the `@rule(...)`-decorated `server_info_echoed` a
 ```python
 from sentinel.catalog import checks
 
+
 @rule(
     id="MCP/2026-07-28/MUST/server-info-echoed",
     title="Every result echoes serverInfo",
@@ -1261,9 +1279,7 @@ from sentinel.probe.client import Probe
         "environments -- and comparable hashes are what drift detection runs on."
     ),
     verifiability=Verifiability.BLACK_BOX,
-    remediation=(
-        "Sort tools by name byte-wise (not case-insensitively, not by locale collation)."
-    ),
+    remediation=("Sort tools by name byte-wise (not case-insensitively, not by locale collation)."),
     introduced_in="0.2.0",
 )
 def tools_sorted_by_name(probe: Probe) -> RuleResult:
@@ -1386,14 +1402,11 @@ def tools_list_connection_independent(probe: Probe) -> RuleResult:
         other.close()
 
     if second is None:
-        return RuleResult.indeterminate(
-            "the second connection returned no result; cannot compare"
-        )
+        return RuleResult.indeterminate("the second connection returned no result; cannot compare")
     there = canonical(second.get("tools"))
     if there is None:
         return RuleResult.failed(
-            f"the second connection returned a non-array tools field: "
-            f"{second.get('tools')!r}"
+            f"the second connection returned a non-array tools field: {second.get('tools')!r}"
         )
 
     if here != there:
@@ -1404,13 +1417,10 @@ def tools_list_connection_independent(probe: Probe) -> RuleResult:
             f"{len(there)} on another with the same credential; the set varies "
             "per-connection",
             evidence=(
-                f"only on connection A: {only_here[:2]}; "
-                f"only on connection B: {only_there[:2]}"
+                f"only on connection A: {only_here[:2]}; only on connection B: {only_there[:2]}"
             ),
         )
-    return RuleResult.passed(
-        f"two independent connections returned the same {len(here)} tools"
-    )
+    return RuleResult.passed(f"two independent connections returned the same {len(here)} tools")
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -1635,9 +1645,7 @@ def resolve_removal(
     window: RemovalWindow = feature.removal
     while isinstance(window, FollowsFeature):
         if window.feature_id in seen:
-            return AfterEvent(
-                f"a cycle in the registry's follows-chain at {window.feature_id}"
-            )
+            return AfterEvent(f"a cycle in the registry's follows-chain at {window.feature_id}")
         seen.add(window.feature_id)
         followed = table.get(window.feature_id)
         if followed is None:
@@ -1691,15 +1699,12 @@ FEATURES: list[DeprecatedFeature] = [
 Update `render_text` and `render_json` to use `resolve_removal` and to branch on the window type. Text:
 
 ```python
-        window = resolve_removal(detection.feature)
-        if isinstance(window, FixedRevision):
-            months = inventory.months_remaining(detection)
-            when = (
-                f"removable on or after {window.on_or_after.isoformat()} "
-                f"({months} month(s) from now)"
-            )
-        else:
-            when = f"removable {window.describe()} (not yet scheduled)"
+window = resolve_removal(detection.feature)
+if isinstance(window, FixedRevision):
+    months = inventory.months_remaining(detection)
+    when = f"removable on or after {window.on_or_after.isoformat()} ({months} month(s) from now)"
+else:
+    when = f"removable {window.describe()} (not yet scheduled)"
 ```
 
 JSON: emit `"removal": {"kind": "fixed_revision", "onOrAfter": "...", "monthsRemaining": n}` or `{"kind": "after_event", "condition": "...", "sep": "...", "monthsRemaining": null}`, and `"deprecatedOn"` per feature.
@@ -2245,9 +2250,7 @@ def no_errors_in_legacy_range(probe: Probe) -> RuleResult:
             f"-32000…-32019 sub-range: {offenders}",
             evidence="; ".join(offenders),
         )
-    return RuleResult.passed(
-        f"none of {observed} provoked errors used the retired sub-range"
-    )
+    return RuleResult.passed(f"none of {observed} provoked errors used the retired sub-range")
 ```
 
 > `response.error()` must exist on `RawResponse`. Check `harness/src/sentinel/probe/transport.py`; if the accessor is named differently (e.g. `envelope()["error"]`), use whatever `must/headers.py` already uses to read an error code and match it exactly — that file provokes errors the same way.
@@ -2386,8 +2389,8 @@ def test_a_transport_error_is_retried_but_a_served_response_is_not(monkeypatch) 
     monkeypatch.setattr(transport._client, "post", flaky)
     response = transport.send(Request(method="tools/list", params=None, request_id="1", headers={}))
 
-    assert calls["n"] == 3          # two retries, then success
-    assert response.status == 500   # and the 500 is NOT retried
+    assert calls["n"] == 3  # two retries, then success
+    assert response.status == 500  # and the 500 is NOT retried
 ```
 
 - [ ] **Step 3: Implement**
@@ -2395,52 +2398,58 @@ def test_a_transport_error_is_retried_but_a_served_response_is_not(monkeypatch) 
 `transport.py`: store `verify`, `proxy`, `client_cert`, `retries`; pass `verify`/`proxy`/`cert` to `httpx.Client`; wrap the `post` call in a bounded retry with exponential backoff that catches **only** `httpx.RequestError`:
 
 ```python
-        started = time.perf_counter()
-        last_error: str | None = None
-        for attempt in range(self.retries + 1):
-            try:
-                resp = self._client.post(self.endpoint, content=request.body(), headers=headers)
-            except httpx.RequestError as exc:
-                last_error = f"{type(exc).__name__}: {exc}"
-                if attempt < self.retries:
-                    # Transport failures only. A response the server actually
-                    # sent is never retried: re-running a tools/call would
-                    # re-run its side effects and make every idempotency rule
-                    # in the catalog meaningless.
-                    time.sleep(0.1 * (2**attempt))
-                    continue
-                return RawResponse(
-                    status=0, headers={}, body=b"",
-                    elapsed_s=time.perf_counter() - started,
-                    transport_error=last_error,
-                )
-            return RawResponse(
-                status=resp.status_code,
-                headers={k.lower(): v for k, v in resp.headers.items()},
-                body=resp.content,
-                elapsed_s=time.perf_counter() - started,
-            )
-        raise AssertionError("unreachable")
+started = time.perf_counter()
+last_error: str | None = None
+for attempt in range(self.retries + 1):
+    try:
+        resp = self._client.post(self.endpoint, content=request.body(), headers=headers)
+    except httpx.RequestError as exc:
+        last_error = f"{type(exc).__name__}: {exc}"
+        if attempt < self.retries:
+            # Transport failures only. A response the server actually
+            # sent is never retried: re-running a tools/call would
+            # re-run its side effects and make every idempotency rule
+            # in the catalog meaningless.
+            time.sleep(0.1 * (2**attempt))
+            continue
+        return RawResponse(
+            status=0,
+            headers={},
+            body=b"",
+            elapsed_s=time.perf_counter() - started,
+            transport_error=last_error,
+        )
+    return RawResponse(
+        status=resp.status_code,
+        headers={k.lower(): v for k, v in resp.headers.items()},
+        body=resp.content,
+        elapsed_s=time.perf_counter() - started,
+    )
+raise AssertionError("unreachable")
 ```
 
 `client.py`: thread the four options through `__init__` and `new_connection()`; add
 
 ```python
-    def build_notification(
-        self, method: str, params: dict[str, Any] | None = None, **overrides: Any
-    ) -> Request:
-        """A JSON-RPC notification: no id, and no response is expected."""
-        request = self.build(method, params, **overrides)
-        request.request_id = None
-        return request
+def build_notification(
+    self, method: str, params: dict[str, Any] | None = None, **overrides: Any
+) -> Request:
+    """A JSON-RPC notification: no id, and no response is expected."""
+    request = self.build(method, params, **overrides)
+    request.request_id = None
+    return request
 
-    def notify(self, method: str, params: dict[str, Any] | None = None, **overrides: Any) -> RawResponse:
-        return self._transport.send(self.build_notification(method, params, **overrides))
 
-    def prompts_get(
-        self, name: str, arguments: dict[str, Any] | None = None, **overrides: Any
-    ) -> RawResponse:
-        return self.call("prompts/get", {"name": name, "arguments": arguments or {}}, **overrides)
+def notify(
+    self, method: str, params: dict[str, Any] | None = None, **overrides: Any
+) -> RawResponse:
+    return self._transport.send(self.build_notification(method, params, **overrides))
+
+
+def prompts_get(
+    self, name: str, arguments: dict[str, Any] | None = None, **overrides: Any
+) -> RawResponse:
+    return self.call("prompts/get", {"name": name, "arguments": arguments or {}}, **overrides)
 ```
 
 `Request.request_id` must become `Any | None` and `Request.body()` must omit `"id"` when it is `None`. Add `"prompts/get": "name"` to `NAME_BEARING` — it is already there; verify.
@@ -2502,7 +2511,9 @@ def test_meta_rules_pass_the_conformant_fixture(rule_id: str, conformant_endpoin
 
 
 @pytest.mark.parametrize("rule_id", META_RULES)
-def test_meta_rules_fail_the_nonconformant_fixture(rule_id: str, nonconformant_endpoint: str) -> None:
+def test_meta_rules_fail_the_nonconformant_fixture(
+    rule_id: str, nonconformant_endpoint: str
+) -> None:
     from sentinel.catalog.base import REGISTRY, Outcome
     from sentinel.probe.client import Probe
 
@@ -2656,13 +2667,10 @@ def missing_capability_error_shape(probe: Probe) -> RuleResult:
                 + "; ".join(problems),
                 evidence=str(error)[:400],
             )
-        return RuleResult.passed(
-            f"-32021 named the capabilities it needed: {required}"
-        )
+        return RuleResult.passed(f"-32021 named the capabilities it needed: {required}")
 
     return RuleResult.not_applicable(
-        "no request the probe can make required a client capability, so -32021 was "
-        "never provoked"
+        "no request the probe can make required a client capability, so -32021 was never provoked"
     )
 ```
 
@@ -2812,8 +2820,7 @@ def notification_not_answered_with_a_result(probe: Probe) -> RuleResult:
             evidence=f"HTTP {response.status}",
         )
     return RuleResult.failed(
-        f"a notification was answered with HTTP {response.status}; expected 202 or an "
-        "error status",
+        f"a notification was answered with HTTP {response.status}; expected 202 or an error status",
     )
 ```
 
@@ -3057,8 +3064,7 @@ def input_required_only_on_supported_requests(probe: Probe) -> RuleResult:
     offenders = [name for name, send in unsupported if _input_required(send()) is not None]
     if offenders:
         return RuleResult.failed(
-            f"{offenders} answered with resultType input_required; only "
-            f"{list(SUPPORTED)} may",
+            f"{offenders} answered with resultType input_required; only {list(SUPPORTED)} may",
             evidence=f"input_required from: {offenders}",
         )
     return RuleResult.passed(
@@ -3098,9 +3104,7 @@ def input_requests_respect_declared_capabilities(probe: Probe) -> RuleResult:
             f"nor serve roots -- and was asked anyway: {offenders}",
             evidence="; ".join(offenders),
         )
-    return RuleResult.passed(
-        "no inputRequests were sent to a client that declared no capabilities"
-    )
+    return RuleResult.passed("no inputRequests were sent to a client that declared no capabilities")
 
 
 @rule(
@@ -3121,9 +3125,7 @@ def input_requests_respect_declared_capabilities(probe: Probe) -> RuleResult:
 def tampered_requeststate_rejected(probe: Probe) -> RuleResult:
     found = [(m, r) for m, r in _provoke(probe) if isinstance(r.get("requestState"), str)]
     if not found:
-        return RuleResult.not_applicable(
-            "this server never returned a requestState to tamper with"
-        )
+        return RuleResult.not_applicable("this server never returned a requestState to tamper with")
 
     method, result = found[0]
     original = result["requestState"]
@@ -3152,8 +3154,7 @@ def tampered_requeststate_rejected(probe: Probe) -> RuleResult:
 
     if response.error() is not None:
         return RuleResult.passed(
-            f"a requestState with one byte changed was rejected "
-            f"(code {response.error_code()})"
+            f"a requestState with one byte changed was rejected (code {response.error_code()})"
         )
     completed = response.result()
     if completed is not None and completed.get("resultType") == "complete":
@@ -3221,9 +3222,7 @@ Same parametrised pair, over the ten ids above. For a target with no resources o
 The envelope rules follow the shape already in `must/envelope.py`, applied to a different set of senders. The capability-truthfulness rules are the interesting ones — both directions, from one `server/discover`:
 
 ```python
-def _capability_matches(
-    probe: Probe, capability: str, method: str, payload_key: str
-) -> RuleResult:
+def _capability_matches(probe: Probe, capability: str, method: str, payload_key: str) -> RuleResult:
     discovered = probe.discover().result()
     if discovered is None:
         return RuleResult.indeterminate("server/discover returned no result")
@@ -3325,9 +3324,14 @@ pytestmark = pytest.mark.unit
 
 
 def test_finds_a_top_level_annotation() -> None:
-    schema = {"type": "object", "properties": {"region": {"type": "string", "x-mcp-header": "Region"}}}
+    schema = {
+        "type": "object",
+        "properties": {"region": {"type": "string", "x-mcp-header": "Region"}},
+    }
     found = walk_header_annotations(schema)
-    assert found == [HeaderAnnotation(name="Region", path=("region",), reachable=True, type_="string")]
+    assert found == [
+        HeaderAnnotation(name="Region", path=("region",), reachable=True, type_="string")
+    ]
 
 
 def test_finds_a_nested_object_annotation_and_calls_it_reachable() -> None:
@@ -3360,7 +3364,7 @@ def test_finds_a_nested_object_annotation_and_calls_it_reachable() -> None:
     ],
 )
 def test_annotations_behind_a_forbidden_keyword_are_not_reachable(wrapper: dict) -> None:
-    """"The chain MUST NOT pass through items, composition keywords, conditional
+    """ "The chain MUST NOT pass through items, composition keywords, conditional
     keywords, or $ref.\""""
     found = walk_header_annotations({"type": "object", **wrapper})
     assert found, "the annotation should still be FOUND, so it can be reported"
@@ -3368,7 +3372,10 @@ def test_annotations_behind_a_forbidden_keyword_are_not_reachable(wrapper: dict)
 
 
 def test_control_characters_are_detected() -> None:
-    schema = {"type": "object", "properties": {"a": {"type": "string", "x-mcp-header": "X\r\nInjected: 1"}}}
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "string", "x-mcp-header": "X\r\nInjected: 1"}},
+    }
     assert walk_header_annotations(schema)[0].name == "X\r\nInjected: 1"
 ```
 
@@ -3397,11 +3404,23 @@ PRIMITIVE_TYPES = {"integer", "string", "boolean"}
 
 #: Keywords a statically-reachable chain MUST NOT pass through.
 FORBIDDEN_KEYWORDS = (
-    "items", "prefixItems", "additionalItems", "contains",
-    "oneOf", "anyOf", "allOf", "not",
-    "if", "then", "else",
-    "$ref", "$defs", "definitions",
-    "additionalProperties", "patternProperties", "propertyNames",
+    "items",
+    "prefixItems",
+    "additionalItems",
+    "contains",
+    "oneOf",
+    "anyOf",
+    "allOf",
+    "not",
+    "if",
+    "then",
+    "else",
+    "$ref",
+    "$defs",
+    "definitions",
+    "additionalProperties",
+    "patternProperties",
+    "propertyNames",
 )
 
 
@@ -3457,12 +3476,14 @@ def walk_header_annotations(schema: object) -> list[HeaderAnnotation]:
 Create `harness/src/sentinel/catalog/must/schemas.py` with a shared helper that collects every tool's annotations once and eight rules over it. Each rule reports the tool name and the property path, because *"Rejection means the client MUST exclude the invalid tool"* — the reader needs to know which tool disappears. Remediation for `x-mcp-header-no-control-characters` must say what it actually is:
 
 ```python
-    remediation=(
+remediation = (
+    (
         "Remove control characters from every x-mcp-header value. A CR or LF in a "
         "header name is header injection: a client that mirrors it produces a request "
         "with a header boundary the server never intended. Conforming clients drop the "
         "whole tool rather than send it, so the tool is unusable either way."
     ),
+)
 ```
 
 `no-retired-error-codes-emitted` is separate and simple: provoke the same five errors `should/errors.py` uses and FAIL on `-32002` or `-32042` — *"Implementations of this protocol version **MUST NOT** emit these codes."*

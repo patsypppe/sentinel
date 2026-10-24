@@ -178,13 +178,17 @@ that is one of three variants:
 
 ```python
 @dataclass(frozen=True, slots=True)
-class FixedRevision:      # "First revision released on or after <date>"
+class FixedRevision:  # "First revision released on or after <date>"
     on_or_after: datetime.date
+
+
 @dataclass(frozen=True, slots=True)
-class FollowsFeature:     # "Follows Sampling (SEP-2577)"
+class FollowsFeature:  # "Follows Sampling (SEP-2577)"
     feature_key: str
+
+
 @dataclass(frozen=True, slots=True)
-class AfterEvent:         # "Three months after SEP-2596 reaches Final"
+class AfterEvent:  # "Three months after SEP-2596 reaches Final"
     description: str
     sep: str
 ```
@@ -210,9 +214,9 @@ What follows extends it; nothing here replaces it.
 `BaseRule` gains three fields:
 
 ```python
-introduced_in: str            # sentinel version, e.g. "0.1.0"
-deprecated_in: str | None     # sentinel version, None while live
-superseded_by: str | None     # rule id, or None
+introduced_in: str  # sentinel version, e.g. "0.1.0"
+deprecated_in: str | None  # sentinel version, None while live
+superseded_by: str | None  # rule id, or None
 ```
 
 `REGISTRY.all()` excludes deprecated rules by default. `--include-deprecated-rules` re-includes

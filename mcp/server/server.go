@@ -50,6 +50,9 @@ type Options struct {
 	// carries an Origin, which is the correct default for a server with no
 	// browser clients.
 	AllowedOrigins []string
+	// SpanRecorder, when set, receives a span for every dispatched request. Pass an
+	// otlp.Exporter's Record to export traces. It must not block.
+	SpanRecorder func(transport.Span)
 	// ToolsListCacheTTLMs is how long a client may cache tools/list. Zero means
 	// five minutes.
 	ToolsListCacheTTLMs int
@@ -100,13 +103,19 @@ func New(o Options) (*Server, error) {
 		s.memory = audit.NewMemorySink(0)
 		sink = s.memory
 	}
+	opts := []transport.Option{
+		transport.WithAuthenticator(o.Authenticator),
+		transport.WithAuditSink(sink),
+	}
+	if o.SpanRecorder != nil {
+		opts = append(opts, transport.WithSpanRecorder(o.SpanRecorder))
+	}
 	s.http = transport.NewServer(
 		DefaultMux(o.Info, o.Instructions, reg, policy),
 		transport.Settings{AllowedOrigins: o.AllowedOrigins},
 		o.Info,
 		logger,
-		transport.WithAuthenticator(o.Authenticator),
-		transport.WithAuditSink(sink),
+		opts...,
 	)
 	return s, nil
 }

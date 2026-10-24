@@ -43,6 +43,9 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          # The post-job cache prune has failed the whole job with exit code 2 on runs
+          # where every real step passed. A cache that is not pruned is merely larger.
+          prune-cache: false
       - run: uv sync --python 3.12 --frozen
 
       - name: bring up the broker
@@ -209,6 +212,9 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          # The post-job cache prune has failed the whole job with exit code 2 on runs
+          # where every real step passed. A cache that is not pruned is merely larger.
+          prune-cache: false
       - run: uv sync --python 3.12 --frozen
 
       # MEASUREMENTS.md is committed, and stale numbers are worse than none —

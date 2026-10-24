@@ -54,8 +54,8 @@ def _named_tool(probe: Probe) -> str | None:
 )
 def mcp_method_required(probe: Probe) -> RuleResult:
     resp = probe.tools_list(omit_mcp_method=True)
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     if resp.result() is not None:
         return RuleResult.failed(
@@ -110,8 +110,8 @@ def mcp_name_required(probe: Probe) -> RuleResult:
         )
 
     resp = probe.tools_call(name, {}, omit_mcp_name=True)
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     if resp.result() is not None:
         return RuleResult.failed(
@@ -169,8 +169,8 @@ def mcp_name_not_required_where_undefined(probe: Probe) -> RuleResult:
 
     for method in NO_NAME_METHODS:
         resp = probe.call(method)
-        if not resp.reached_server:
-            return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+        if resp.unusable_reason() is not None:
+            return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
         if resp.result() is not None:
             checked += 1
             continue
@@ -223,8 +223,8 @@ def header_mismatch_rejected(probe: Probe) -> RuleResult:
     # The header claims tools/list; the body calls tools/call. This is the exact
     # shape of a request trying to slip past a header-based policy.
     resp = probe.tools_call("any.tool", {}, mcp_method="tools/list", mcp_name="tools/list")
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     if resp.result() is not None:
         return RuleResult.failed(
@@ -270,8 +270,8 @@ def header_mismatch_rejected(probe: Probe) -> RuleResult:
 )
 def resource_not_found_code(probe: Probe) -> RuleResult:
     resp = probe.resources_read("sentinel://does-not-exist/probe")
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     code = resp.error_code()
     if code == -32601:
@@ -284,10 +284,20 @@ def resource_not_found_code(probe: Probe) -> RuleResult:
             "it is now -32602",
             evidence=str(resp.error()),
         )
-    if resp.result() is not None:
+    result = resp.result()
+    if result is not None:
+        contents = result.get("contents")
+        if isinstance(contents, list) and contents:
+            # A catch-all resource template can legitimately serve any URI, so a
+            # populated result does not show that "does not exist" was ignored.
+            return RuleResult.indeterminate(
+                "the probe URI was served with content; a server with a catch-all template "
+                "may really have a resource there, so non-existence was not established"
+            )
         return RuleResult.failed(
-            "reading a resource that does not exist returned a result",
-            evidence=str(resp.result())[:300],
+            "reading a resource that does not exist returned an empty result; the "
+            "specification forbids an empty contents array for a missing resource",
+            evidence=str(result)[:300],
         )
     return RuleResult.failed(f"an unknown resource returned {code} rather than -32602")
 
@@ -351,15 +361,15 @@ def no_reserved_range_errors(probe: Probe) -> RuleResult:
     citation=f"{ERRORS}",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
-        "Return -32601 MethodNotFound for a method this server does not implement, as a "
-        "JSON-RPC error rather than an HTTP 404. A client cannot distinguish a missing "
-        "method from a missing endpoint or a proxy error otherwise."
+        "Return HTTP 404 with a -32601 MethodNotFound JSON-RPC error for a method this "
+        "server does not implement. Without the error body a client cannot distinguish a "
+        "missing method from a missing endpoint or a proxy error."
     ),
 )
 def unknown_method(probe: Probe) -> RuleResult:
     resp = probe.call("sentinel/definitely-not-a-real-method", {})
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     if resp.result() is not None:
         return RuleResult.failed(
@@ -387,6 +397,28 @@ def unknown_method(probe: Probe) -> RuleResult:
         "connection or returning a bare HTTP error leaves the client unable to tell a "
         "malformed request from a network fault, and it will retry the former forever."
     ),
+    # Withdrawn: -32700 comes from JSON-RPC 2.0, and the MCP text only says MCP uses
+    # the standard JSON-RPC codes "for general protocol failures"; no MCP sentence
+    # makes it a MUST.
+    deprecated_in="0.4.0",
+    superseded_by="MCP/2026-07-28/SHOULD/malformed-json-is-parse-error",
+)
+def malformed_json_must(probe: Probe) -> RuleResult:
+    return malformed_json.check(probe)
+
+
+@rule(
+    id="MCP/2026-07-28/SHOULD/malformed-json-is-parse-error",
+    title="Malformed JSON returns -32700",
+    severity=Severity.SHOULD,
+    citation=f"{ERRORS}",
+    verifiability=Verifiability.BLACK_BOX,
+    remediation=(
+        "Return -32700 ParseError for a body that is not valid JSON. Closing the "
+        "connection or returning a bare HTTP error leaves the client unable to tell a "
+        "malformed request from a network fault, and it will retry the former forever."
+    ),
+    introduced_in="0.4.0",
 )
 def malformed_json(probe: Probe) -> RuleResult:
     resp = probe.send(
@@ -399,8 +431,8 @@ def malformed_json(probe: Probe) -> RuleResult:
             headers={HEADER_MCP_METHOD: "tools/list"},
         )
     )
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     code = resp.error_code()
     if code == -32700:

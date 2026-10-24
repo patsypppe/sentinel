@@ -106,11 +106,13 @@ def test_the_example_is_audited_and_says_what_it_cannot_prove(example_endpoint: 
         for f in report["findings"]
         if f["outcome"] == "indeterminate"
     }
-    # The same five the harness cannot settle from the wire for any server.
+    # The same five the harness cannot settle from the wire for any server, plus rate limiting,
+    # which needs --probe-rate-limit to send the traffic.
     assert indeterminate == {
         "handle-possession-is-not-authentication",
         "mrtr-retries-are-idempotent",
         "no-token-passthrough",
         "token-audience-validated",
         "invocations-are-audited",
+        "tool-invocations-rate-limited",
     }

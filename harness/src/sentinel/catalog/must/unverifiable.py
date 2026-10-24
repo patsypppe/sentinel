@@ -18,7 +18,7 @@ is actionable rather than a shrug.
 
 from __future__ import annotations
 
-from sentinel.catalog.base import SPEC_BASE, RuleResult, Severity, Verifiability, rule
+from sentinel.catalog.base import DOCS_BASE, SPEC_BASE, RuleResult, Severity, Verifiability, rule
 from sentinel.catalog.graybox_checks import (
     audience_check,
     egress_check,
@@ -27,7 +27,7 @@ from sentinel.catalog.graybox_checks import (
 )
 from sentinel.probe.client import Probe
 
-SECURITY = f"{SPEC_BASE}/basic/security_best_practices"
+SECURITY = f"{DOCS_BASE}/tutorials/security/security_best_practices"
 
 
 @rule(

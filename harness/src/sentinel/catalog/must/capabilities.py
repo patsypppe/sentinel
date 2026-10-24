@@ -29,8 +29,8 @@ TOOLS = f"{SPEC_BASE}/server/tools"
 )
 def tools_capability_matches_tools_list(probe: Probe) -> RuleResult:
     discovered = probe.discover()
-    if not discovered.reached_server:
-        return RuleResult.indeterminate(f"unreachable: {discovered.transport_error}")
+    if discovered.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"unreachable: {discovered.unusable_reason()}")
     result = discovered.result()
     if result is None:
         return RuleResult.indeterminate("server/discover did not return a result")
@@ -38,8 +38,8 @@ def tools_capability_matches_tools_list(probe: Probe) -> RuleResult:
     declared = isinstance(capabilities, dict) and "tools" in capabilities
 
     listed = probe.tools_list()
-    if not listed.reached_server:
-        return RuleResult.indeterminate(f"unreachable: {listed.transport_error}")
+    if listed.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"unreachable: {listed.unusable_reason()}")
     body = listed.result()
     tools = body.get("tools") if body is not None else None
     serves = isinstance(tools, list)

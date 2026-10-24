@@ -48,9 +48,10 @@ These do not warn. They are gone, and a client on the new revision will get an e
 | `logging/setLevel` | `_meta.io.modelcontextprotocol/logLevel` | Minutes. The level travels per-request instead of per-session. |
 | `notifications/roots/list_changed` | — | Minutes. |
 
-**Detected by:** `MUST/initialize-removed`, `MUST/ping-removed`, `MUST/logging-set-level-removed`,
-`MUST/resources-subscribe-removed`, `MUST/resources-unsubscribe-removed`,
-`MUST/sampling-create-message-removed`, `MUST/roots-list-removed`.
+**Detected by:** `SENTINEL/STYLE/initialize-removed`, `SENTINEL/STYLE/ping-removed`, `SENTINEL/STYLE/logging-set-level-removed`,
+`SENTINEL/STYLE/resources-subscribe-removed`, `SENTINEL/STYLE/resources-unsubscribe-removed`
+(advisory: a dual-era server may keep serving them). Sampling and roots stay functional during
+their deprecation window and are no longer checked.
 
 > A removed method must return **method-not-found**, not vanish from your router. A client that
 > gets a 404 from your endpoint cannot tell a removed method from a broken proxy. Answer, and name
@@ -266,7 +267,7 @@ meaning; a code you keep inside `-32000` … `-32019` is one they are told to re
 
 **Detected by:** `MUST/resource-not-found-is-invalid-params`, `MUST/no-errors-in-reserved-range`,
 `SHOULD/no-errors-in-legacy-range`, `MUST/unknown-method-is-method-not-found`,
-`MUST/malformed-json-is-parse-error`.
+`SHOULD/malformed-json-is-parse-error`.
 
 ---
 

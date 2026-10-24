@@ -1,6 +1,6 @@
 name: Sentinel MCP conformance
 description: >-
-  Grade an MCP server against the 2026-07-28 specification. Fails the job on any
+  Grade an MCP server against the current MCP specification. Fails the job on any
   MUST violation, reports what cannot be verified from the wire, and uploads the
   findings to GitHub code scanning.
 author: patsypppe

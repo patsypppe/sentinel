@@ -14,6 +14,7 @@ makes a failure attributable.
 
 from __future__ import annotations
 
+import threading
 import uuid
 from dataclasses import replace
 from typing import Any
@@ -25,8 +26,12 @@ from sentinel.probe.transport import (
     DEFAULT_TIMEOUT,
     RawResponse,
     Request,
+    StdioTransport,
     Transport,
 )
+
+#: The previous protocol revision, spoken only by the legacy-session mode below.
+LEGACY_REVISION = "2025-11-25"
 
 #: `_meta` keys, spelled exactly as the specification spells them.
 KEY_PROTOCOL_VERSION = "io.modelcontextprotocol/protocolVersion"
@@ -104,8 +109,26 @@ class Probe:
         budgets: BudgetPolicy | None = None,
         safe: bool = False,
         context: dict[str, Any] | None = None,
+        legacy: bool = False,
+        command: list[str] | None = None,
+        command_env: dict[str, str] | None = None,
+        borrowed: bool = False,
     ) -> None:
         self.endpoint = endpoint
+        #: A borrowed probe is shared by several rules, so `close()` leaves it open;
+        #: whoever lent it calls `release()`. Only for read-only rules.
+        self.borrowed = borrowed
+        self._legacy_lock = threading.Lock()
+        self.command = command
+        self.command_env = command_env
+        #: Legacy mode speaks the PREVIOUS revision: it opens a session with
+        #: `initialize` the first time it sends anything, then sends plain requests under
+        #: that session. It exists so the rules that read a server's tool manifest (names,
+        #: descriptions, injection) can still say something true about a server that has
+        #: not migrated, instead of every rule reporting "unreachable".
+        self.legacy = legacy
+        self._legacy_ready = False
+        self._legacy_headers: dict[str, str] = {}
         #: Inputs a rule may need beyond the wire: a baseline snapshot for the
         #: drift rule, supplied evidence for the gray-box rules. Carried on the
         #: probe, like the budgets, so every input a rule reads is reachable from
@@ -125,17 +148,26 @@ class Probe:
         #: process cannot silently share one, and so every input a rule reads is
         #: reachable from its single argument.
         self.budgets = budgets if budgets is not None else BudgetPolicy()
-        self._transport = Transport(
-            endpoint,
-            timeout=timeout,
-            bearer_token=bearer_token,
-            verify=verify,
-            proxy=proxy,
-            client_cert=client_cert,
-            retries=retries,
-        )
+        self._transport: Transport | StdioTransport
+        if command is not None:
+            self._transport = StdioTransport(command, timeout=timeout, env=command_env)
+        else:
+            self._transport = Transport(
+                endpoint,
+                timeout=timeout,
+                bearer_token=bearer_token,
+                verify=verify,
+                proxy=proxy,
+                client_cert=client_cert,
+                retries=retries,
+            )
 
     def close(self) -> None:
+        if not self.borrowed:
+            self._transport.close()
+
+    def release(self) -> None:
+        """Really close a probe that was lent out with `borrowed=True`."""
         self._transport.close()
 
     def __enter__(self) -> Probe:
@@ -164,6 +196,9 @@ class Probe:
             safe=self.safe,
             budgets=self.budgets,
             context=self.context,
+            legacy=self.legacy,
+            command=self.command,
+            command_env=self.command_env,
         )
 
     def new_connection(self) -> Probe:
@@ -189,6 +224,42 @@ class Probe:
             safe=self.safe,
             budgets=self.budgets,
             context=self.context,
+            legacy=self.legacy,
+            command=self.command,
+            command_env=self.command_env,
+        )
+
+    def _ensure_legacy_session(self) -> None:
+        """Open the previous revision's session once: `initialize`, then the notification."""
+        with self._legacy_lock:
+            if self._legacy_ready:
+                return
+            self._open_legacy_session()
+            self._legacy_ready = True
+
+    def _open_legacy_session(self) -> None:
+        base = {HEADER_PROTOCOL_VERSION: LEGACY_REVISION}
+        opened = self._transport.send(
+            Request(
+                method="initialize",
+                params={
+                    "protocolVersion": LEGACY_REVISION,
+                    "capabilities": {},
+                    "clientInfo": CLIENT_INFO,
+                },
+                request_id=1,
+                headers=dict(base),
+            )
+        )
+        session = opened.headers.get("mcp-session-id")
+        self._legacy_headers = {**base, **({"Mcp-Session-Id": session} if session else {})}
+        self._transport.send(
+            Request(
+                method="notifications/initialized",
+                params=None,
+                request_id=None,
+                headers=dict(self._legacy_headers),
+            )
         )
 
     # -- request construction ---------------------------------------------
@@ -258,6 +329,14 @@ class Probe:
         request_id: Any = None,
     ) -> Request:
         """Build a conformant request, then apply whatever the caller overrode."""
+        if self.legacy:
+            self._ensure_legacy_session()
+            return Request(
+                method=method,
+                params=dict(params or {}) or None,
+                request_id=request_id if request_id is not None else str(uuid.uuid4()),
+                headers={**self._legacy_headers, **(headers or {})},
+            )
         body_params = dict(params or {})
         if include_meta:
             body_params["_meta"] = self.meta(

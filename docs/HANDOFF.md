@@ -538,24 +538,33 @@ Verification: `broker audit verify --from --to` walks the chain and reports the 
 
 ```python
 # harness/src/sentinel/catalog/base.py
-class Severity(StrEnum):     MUST = "must"; SHOULD = "should"; MAY = "may"
+class Severity(StrEnum):
+    MUST = "must"
+    SHOULD = "should"
+    MAY = "may"
+
+
 class Verifiability(StrEnum):
-    BLACK_BOX = "black_box"          # provable from the wire alone
-    GRAY_BOX = "gray_box"            # needs cooperative configuration
-    UNVERIFIABLE = "unverifiable"    # cannot be proven externally
+    BLACK_BOX = "black_box"  # provable from the wire alone
+    GRAY_BOX = "gray_box"  # needs cooperative configuration
+    UNVERIFIABLE = "unverifiable"  # cannot be proven externally
+
 
 class Outcome(StrEnum):
-    PASS = "pass"; FAIL = "fail"
+    PASS = "pass"
+    FAIL = "fail"
     NOT_APPLICABLE = "not_applicable"
     INDETERMINATE = "indeterminate"  # verifiability prevented a verdict
 
+
 class Rule(Protocol):
-    id: str                # "MCP/2026-07-28/MUST/discover-implemented"
+    id: str  # "MCP/2026-07-28/MUST/discover-implemented"
     severity: Severity
-    citation: str          # URL with anchor into the spec — mandatory
+    citation: str  # URL with anchor into the spec — mandatory
     verifiability: Verifiability
-    remediation: str       # what to change, not what is wrong
-    fixtures: list[str]    # which fixture profiles exercise it
+    remediation: str  # what to change, not what is wrong
+    fixtures: list[str]  # which fixture profiles exercise it
+
     async def evaluate(self, probe: Probe) -> RuleResult: ...
 ```
 

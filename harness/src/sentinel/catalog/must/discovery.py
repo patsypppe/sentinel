@@ -36,8 +36,8 @@ LIFECYCLE = f"{SPEC_BASE}/basic/versioning"
 )
 def discover_implemented(probe: Probe) -> RuleResult:
     resp = probe.discover()
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     result = resp.result()
     if result is not None:
@@ -68,11 +68,17 @@ def discover_implemented(probe: Probe) -> RuleResult:
         "find out which versions exist BEFORE committing to one, so refusing it for an "
         "absent or unknown version makes the server undiscoverable."
     ),
+    # Withdrawn: the specification never exempts server/discover from version
+    # negotiation. It says a server MUST answer an unsupported version with
+    # UnsupportedProtocolVersionError and a request that omits the version with
+    # -32602, and discover has no carve-out, so this FAILed conformant servers.
+    deprecated_in="0.4.0",
+    superseded_by="MCP/2026-07-28/MUST/unsupported-version-rejected",
 )
 def discover_without_version(probe: Probe) -> RuleResult:
     absent = probe.discover(version=None)
-    if not absent.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {absent.transport_error}")
+    if absent.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {absent.unusable_reason()}")
 
     if absent.result() is None:
         return RuleResult.failed(
@@ -131,6 +137,26 @@ def discover_reports_versions(probe: Probe) -> RuleResult:
         "entries on the server's identity, so a server that will not name itself cannot "
         "be cached against."
     ),
+    # Withdrawn: the spec says servers SHOULD include serverInfo, not MUST.
+    deprecated_in="0.4.0",
+    superseded_by="MCP/2026-07-28/SHOULD/discover-reports-server-info",
+)
+def discover_reports_server_info_must(probe: Probe) -> RuleResult:
+    return discover_reports_server_info.check(probe)
+
+
+@rule(
+    id="MCP/2026-07-28/SHOULD/discover-reports-server-info",
+    title="server/discover identifies the server",
+    severity=Severity.SHOULD,
+    citation=f"{SPEC_BASE}/server/discover#response",
+    verifiability=Verifiability.BLACK_BOX,
+    remediation=(
+        "Report serverInfo with at least a name from server/discover. Clients key cache "
+        "entries on the server's identity, so a server that will not name itself cannot "
+        "be cached against. The specification says servers SHOULD include it."
+    ),
+    introduced_in="0.4.0",
 )
 def discover_reports_server_info(probe: Probe) -> RuleResult:
     result = probe.discover().result()
@@ -185,15 +211,15 @@ def discover_reports_capabilities(probe: Probe) -> RuleResult:
     citation=f"{LIFECYCLE}#protocol-version-negotiation",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
-        "Return -32022 UnsupportedProtocolVersion, with supportedVersions in the error "
+        "Return -32022 UnsupportedProtocolVersion, with `supported` and `requested` in the error "
         "data, when a request declares a version this server does not implement. Serving "
         "the request anyway leaves the client believing a version was agreed."
     ),
 )
 def unsupported_version_rejected(probe: Probe) -> RuleResult:
     resp = probe.tools_list(version="2099-01-01")
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     code = resp.error_code()
     if code == -32022:
@@ -220,6 +246,27 @@ def unsupported_version_rejected(probe: Probe) -> RuleResult:
         "that trusts the declaration will wait for change notifications that never arrive, "
         "and will serve stale tools indefinitely."
     ),
+    # Withdrawn: the specification says a server that declared listChanged SHOULD
+    # notify subscribers; it does not require subscriptions/listen to exist.
+    deprecated_in="0.4.0",
+    superseded_by="MCP/2026-07-28/SHOULD/list-changed-advertised-truthfully",
+)
+def list_changed_is_truthful_must(probe: Probe) -> RuleResult:
+    return list_changed_is_truthful.check(probe)
+
+
+@rule(
+    id="MCP/2026-07-28/SHOULD/list-changed-advertised-truthfully",
+    title="A declared listChanged capability is backed by subscriptions/listen",
+    severity=Severity.SHOULD,
+    citation=f"{CHANGELOG}#major-changes",
+    verifiability=Verifiability.BLACK_BOX,
+    remediation=(
+        "Advertise listChanged: false unless subscriptions/listen is implemented. A client "
+        "that trusts the declaration will wait for change notifications that never arrive, "
+        "and will serve stale tools indefinitely."
+    ),
+    introduced_in="0.4.0",
 )
 def list_changed_is_truthful(probe: Probe) -> RuleResult:
     result = probe.discover().result()
@@ -239,18 +286,20 @@ def list_changed_is_truthful(probe: Probe) -> RuleResult:
         return RuleResult.passed("listChanged is not advertised on any capability")
 
     listen = probe.call("subscriptions/listen", {})
-    if not listen.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {listen.transport_error}")
+    if listen.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {listen.unusable_reason()}")
 
     # ANY error means the method is not there. Checking specifically for -32601
     # would miss a server that returns its own house error for everything it
     # does not implement, which is common and is exactly what the fixture does.
+    #
+    # INDETERMINATE, not FAIL: the probe sends no notification filter, so a
+    # server that implements the method may refuse the call as malformed.
     if listen.result() is None:
-        return RuleResult.failed(
-            f"{claims} advertise listChanged: true, but subscriptions/listen does not "
-            f"answer (error {listen.error_code()}). A client will wait for notifications "
-            "that never arrive and serve a stale manifest indefinitely.",
-            evidence=str(listen.error()),
+        return RuleResult.indeterminate(
+            f"{claims} advertise listChanged: true, and subscriptions/listen was refused "
+            f"(error {listen.error_code()}) -- which may mean it is not implemented, or only "
+            "that this probe's empty request was malformed. Not settled from the wire."
         )
 
     # A server that answers EVERYTHING answers this too, which is not evidence
@@ -285,11 +334,16 @@ def list_changed_is_truthful(probe: Probe) -> RuleResult:
         "stateless: a handshake that appears to succeed leaves the client believing it "
         "holds a session that does not exist."
     ),
+    # Withdrawn: a dual-era server MAY serve initialize (versioning, "Backward
+    # Compatibility with Initialization-Based Versions"), so serving it is not a
+    # violation. Still worth reporting for a server meant to be modern-only.
+    deprecated_in="0.4.0",
+    superseded_by="SENTINEL/STYLE/initialize-removed",
 )
 def initialize_removed(probe: Probe) -> RuleResult:
     resp = probe.call("initialize", {"protocolVersion": "2025-11-25", "capabilities": {}})
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     if resp.result() is not None:
         return RuleResult.failed(
@@ -302,7 +356,30 @@ def initialize_removed(probe: Probe) -> RuleResult:
     return RuleResult.passed(f"initialize is refused (code {resp.error_code()})")
 
 
-def _removed_method_rule(method: str, slug: str, why: str, replacement: str) -> BaseRule:
+@rule(
+    id="SENTINEL/STYLE/initialize-removed",
+    title="A modern-only server does not offer the initialize handshake",
+    severity=Severity.SHOULD,
+    rationale=(
+        "The 2026-07-28 revision removed the handshake, but a dual-era server MAY keep "
+        "serving it for legacy clients, so this is not a specification requirement. A "
+        "server that intends to be modern-only should not offer it: a client that sees "
+        "it succeed believes it holds a session that does not exist."
+    ),
+    verifiability=Verifiability.BLACK_BOX,
+    remediation=(
+        "If this server is meant to be modern-only, remove initialize and answer "
+        "method-not-found. If it deliberately serves legacy clients too, waive this rule."
+    ),
+    introduced_in="0.4.0",
+)
+def initialize_not_offered(probe: Probe) -> RuleResult:
+    return initialize_removed.check(probe)
+
+
+def _removed_method_rule(
+    method: str, slug: str, why: str, replacement: str, *, client_method: bool = False
+) -> BaseRule:
     """Build a rule for a method this revision deleted.
 
     §9.1: removed methods must answer method-not-found rather than being
@@ -321,11 +398,20 @@ def _removed_method_rule(method: str, slug: str, why: str, replacement: str) -> 
             f"Answer method-not-found, ideally naming {replacement} as the replacement, so a "
             "migrating client is told what to use instead."
         ),
+        # Withdrawn: the changelog records the removal but no sentence requires a
+        # server to refuse the method (a dual-era server MAY serve it), and
+        # sampling/roots remain fully functional during their deprecation window.
+        deprecated_in="0.4.0",
+        superseded_by=(
+            "MCP/2026-07-28/MUST/unknown-method-is-method-not-found"
+            if client_method
+            else f"SENTINEL/STYLE/{slug}"
+        ),
     )
     def check(probe: Probe, _method: str = method) -> RuleResult:
         resp = probe.call(_method, {})
-        if not resp.reached_server:
-            return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+        if resp.unusable_reason() is not None:
+            return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
         if resp.result() is not None:
             return RuleResult.failed(
                 f"{_method} was served; it was removed in 2026-07-28",
@@ -334,6 +420,25 @@ def _removed_method_rule(method: str, slug: str, why: str, replacement: str) -> 
         if resp.error_code() == -32601:
             return RuleResult.passed(f"{_method} returns method-not-found")
         return RuleResult.passed(f"{_method} is refused (code {resp.error_code()})")
+
+    if not client_method:
+        rule(
+            id=f"SENTINEL/STYLE/{slug}",
+            title=f"A modern-only server does not serve {method}",
+            severity=Severity.SHOULD,
+            rationale=(
+                f"{method} was removed in 2026-07-28. The specification records the removal "
+                "but does not forbid a dual-era server from still serving it, so this is a "
+                "migration check, not a requirement."
+            ),
+            verifiability=Verifiability.BLACK_BOX,
+            remediation=(
+                f"If this server is meant to be modern-only, stop serving {method} ({why}) "
+                f"and answer method-not-found, ideally naming {replacement}. If it "
+                "deliberately serves legacy clients too, waive this rule."
+            ),
+            introduced_in="0.4.0",
+        )(check.check)
 
     return check
 
@@ -371,6 +476,7 @@ sampling_removed = _removed_method_rule(
     "sampling-create-message-removed",
     "The server never calls the client in this revision.",
     "multi round-trip requests",
+    client_method=True,
 )
 
 roots_list_removed = _removed_method_rule(
@@ -378,4 +484,5 @@ roots_list_removed = _removed_method_rule(
     "roots-list-removed",
     "Roots were deprecated under SEP-2577.",
     "explicit tool arguments",
+    client_method=True,
 )
