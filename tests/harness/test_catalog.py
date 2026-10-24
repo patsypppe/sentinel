@@ -185,7 +185,6 @@ def test_legacy_range_rule_passes_the_conformant_fixture(conformant_endpoint: st
 #: would be asserting something no fixture exercises.
 META_RULES = [
     "MCP/2026-07-28/MUST/missing-client-capabilities-rejected",
-    "MCP/2026-07-28/MUST/missing-protocol-version-rejected",
 ]
 
 
@@ -250,14 +249,21 @@ def test_http_rules_fail_the_nonconformant_fixture(
     assert result.outcome is Outcome.FAIL, f"{rule_id}: {result.detail}"
 
 
-def test_a_served_headerless_request_is_not_proof_of_a_violation(
-    nonconformant_endpoint: str,
+@pytest.mark.parametrize(
+    "rule_id",
+    [
+        "MCP/2026-07-28/MUST/protocol-version-header-required",
+        "MCP/2026-07-28/MUST/missing-protocol-version-rejected",
+    ],
+)
+def test_a_served_unversioned_request_is_not_proof_of_a_violation(
+    rule_id: str, nonconformant_endpoint: str
 ) -> None:
     """A server MAY serve a request with no MCP-Protocol-Version header if it supports
     clients older than 2025-06-18, so the wire alone cannot call it a violation."""
     from sentinel.probe.client import Probe
 
-    rule = {r.id: r for r in REGISTRY.all()}["MCP/2026-07-28/MUST/protocol-version-header-required"]
+    rule = {r.id: r for r in REGISTRY.all()}[rule_id]
     with Probe(nonconformant_endpoint) as probe:
         result = rule.evaluate(probe)
     assert result.outcome is Outcome.INDETERMINATE, result.detail

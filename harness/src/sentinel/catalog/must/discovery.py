@@ -36,8 +36,8 @@ LIFECYCLE = f"{SPEC_BASE}/basic/versioning"
 )
 def discover_implemented(probe: Probe) -> RuleResult:
     resp = probe.discover()
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     result = resp.result()
     if result is not None:
@@ -77,8 +77,8 @@ def discover_implemented(probe: Probe) -> RuleResult:
 )
 def discover_without_version(probe: Probe) -> RuleResult:
     absent = probe.discover(version=None)
-    if not absent.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {absent.transport_error}")
+    if absent.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {absent.unusable_reason()}")
 
     if absent.result() is None:
         return RuleResult.failed(
@@ -218,8 +218,8 @@ def discover_reports_capabilities(probe: Probe) -> RuleResult:
 )
 def unsupported_version_rejected(probe: Probe) -> RuleResult:
     resp = probe.tools_list(version="2099-01-01")
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     code = resp.error_code()
     if code == -32022:
@@ -286,8 +286,8 @@ def list_changed_is_truthful(probe: Probe) -> RuleResult:
         return RuleResult.passed("listChanged is not advertised on any capability")
 
     listen = probe.call("subscriptions/listen", {})
-    if not listen.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {listen.transport_error}")
+    if listen.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {listen.unusable_reason()}")
 
     # ANY error means the method is not there. Checking specifically for -32601
     # would miss a server that returns its own house error for everything it
@@ -342,8 +342,8 @@ def list_changed_is_truthful(probe: Probe) -> RuleResult:
 )
 def initialize_removed(probe: Probe) -> RuleResult:
     resp = probe.call("initialize", {"protocolVersion": "2025-11-25", "capabilities": {}})
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     if resp.result() is not None:
         return RuleResult.failed(
@@ -410,8 +410,8 @@ def _removed_method_rule(
     )
     def check(probe: Probe, _method: str = method) -> RuleResult:
         resp = probe.call(_method, {})
-        if not resp.reached_server:
-            return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+        if resp.unusable_reason() is not None:
+            return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
         if resp.result() is not None:
             return RuleResult.failed(
                 f"{_method} was served; it was removed in 2026-07-28",

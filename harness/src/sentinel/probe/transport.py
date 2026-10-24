@@ -117,6 +117,19 @@ class RawResponse:
     def reached_server(self) -> bool:
         return self.transport_error is None
 
+    #: Statuses that say the request was refused or dropped for a reason unrelated to the rule
+    #: being tested: a rate limit, a gateway failure, a credential demand. Reading them as the
+    #: server's answer turns a busy or protected server into a conformance failure.
+    UNRELATED_STATUSES = frozenset({401, 407, 429, 502, 503, 504})
+
+    def unusable_reason(self) -> str | None:
+        """Why this response cannot be judged by a conformance rule, or None if it can."""
+        if self.transport_error is not None:
+            return self.transport_error
+        if self.status in self.UNRELATED_STATUSES:
+            return f"HTTP {self.status} (refused or dropped for a reason unrelated to this rule)"
+        return None
+
     def json(self) -> Any:
         """Parse the body, or raise. Rules call `.envelope()` instead."""
         return json.loads(self.body)

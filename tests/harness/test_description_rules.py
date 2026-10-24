@@ -87,3 +87,13 @@ def test_observed_wire_behaviour_is_extracted_for_aggregation() -> None:
     assert _observed(None, both) == "HTTP 200, code -32601"
     assert _observed(None, "tools/list was SERVED with no header") == "request was served"
     assert _observed(None, "something else entirely") == "other"
+
+
+def test_a_rate_limited_or_unauthorised_answer_is_never_judged_as_a_finding() -> None:
+    from sentinel.probe.transport import RawResponse
+
+    for status in (401, 407, 429, 502, 503, 504):
+        assert RawResponse(status, {}, b"", 0.0).unusable_reason() is not None
+    assert RawResponse(400, {}, b"", 0.0).unusable_reason() is None
+    assert RawResponse(403, {}, b"", 0.0).unusable_reason() is None  # Origin rules expect this
+    assert RawResponse(0, {}, b"", 0.0, transport_error="boom").unusable_reason() == "boom"

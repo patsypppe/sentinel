@@ -34,8 +34,8 @@ _HEADER_TYPES = frozenset({"string", "integer", "boolean"})
 
 def _tools(probe: Probe) -> tuple[list[dict[str, Any]] | None, str]:
     response = probe.tools_list()
-    if not response.reached_server:
-        return None, f"the server was unreachable: {response.transport_error}"
+    if response.unusable_reason() is not None:
+        return None, f"the server was unreachable: {response.unusable_reason()}"
     result = response.result()
     if result is None:
         return None, "tools/list did not return a result"

@@ -54,8 +54,8 @@ def _named_tool(probe: Probe) -> str | None:
 )
 def mcp_method_required(probe: Probe) -> RuleResult:
     resp = probe.tools_list(omit_mcp_method=True)
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     if resp.result() is not None:
         return RuleResult.failed(
@@ -110,8 +110,8 @@ def mcp_name_required(probe: Probe) -> RuleResult:
         )
 
     resp = probe.tools_call(name, {}, omit_mcp_name=True)
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     if resp.result() is not None:
         return RuleResult.failed(
@@ -169,8 +169,8 @@ def mcp_name_not_required_where_undefined(probe: Probe) -> RuleResult:
 
     for method in NO_NAME_METHODS:
         resp = probe.call(method)
-        if not resp.reached_server:
-            return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+        if resp.unusable_reason() is not None:
+            return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
         if resp.result() is not None:
             checked += 1
             continue
@@ -223,8 +223,8 @@ def header_mismatch_rejected(probe: Probe) -> RuleResult:
     # The header claims tools/list; the body calls tools/call. This is the exact
     # shape of a request trying to slip past a header-based policy.
     resp = probe.tools_call("any.tool", {}, mcp_method="tools/list", mcp_name="tools/list")
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     if resp.result() is not None:
         return RuleResult.failed(
@@ -270,8 +270,8 @@ def header_mismatch_rejected(probe: Probe) -> RuleResult:
 )
 def resource_not_found_code(probe: Probe) -> RuleResult:
     resp = probe.resources_read("sentinel://does-not-exist/probe")
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     code = resp.error_code()
     if code == -32601:
@@ -368,8 +368,8 @@ def no_reserved_range_errors(probe: Probe) -> RuleResult:
 )
 def unknown_method(probe: Probe) -> RuleResult:
     resp = probe.call("sentinel/definitely-not-a-real-method", {})
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     if resp.result() is not None:
         return RuleResult.failed(
@@ -431,8 +431,8 @@ def malformed_json(probe: Probe) -> RuleResult:
             headers={HEADER_MCP_METHOD: "tools/list"},
         )
     )
-    if not resp.reached_server:
-        return RuleResult.indeterminate(f"the server was unreachable: {resp.transport_error}")
+    if resp.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"the server was unreachable: {resp.unusable_reason()}")
 
     code = resp.error_code()
     if code == -32700:

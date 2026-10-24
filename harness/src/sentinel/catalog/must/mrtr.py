@@ -68,10 +68,10 @@ def collect_input_required(
     reached = False
     for name in _tool_names(probe):
         response = probe.tools_call(name, {}, client_capabilities=declared)
-        if not response.reached_server:
+        if response.unusable_reason() is not None:
             if "safe mode" in (response.transport_error or ""):
                 continue
-            return [], f"the server was unreachable: {response.transport_error}"
+            return [], f"the server was unreachable: {response.unusable_reason()}"
         reached = True
         result = response.result()
         if result is not None and result.get("resultType") == "input_required":
@@ -125,8 +125,8 @@ def tampered_requeststate_rejected(probe: Probe) -> RuleResult:
         extra_params={"requestState": forged, "inputResponses": {}},
         client_capabilities={"elicitation": {}},
     )
-    if not retry.reached_server:
-        return RuleResult.indeterminate(f"unreachable on the retry: {retry.transport_error}")
+    if retry.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"unreachable on the retry: {retry.unusable_reason()}")
     if _rejected(retry):
         return RuleResult.passed(
             f"{found.tool} rejected a requestState altered by one character "

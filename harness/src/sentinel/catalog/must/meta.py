@@ -16,7 +16,11 @@ BASIC = f"{SPEC_BASE}/basic/index"
 
 
 def _rejected_as_invalid_params(
-    response: RawResponse, what: str, *, also_accept: frozenset[int] = frozenset()
+    response: RawResponse,
+    what: str,
+    *,
+    also_accept: frozenset[int] = frozenset(),
+    served_is_indeterminate: bool = False,
 ) -> RuleResult:
     """The shared verdict: -32602 AND HTTP 400, both required.
 
@@ -24,11 +28,19 @@ def _rejected_as_invalid_params(
     request, which is the case when the omission also leaves a required HTTP
     header missing (-32020).
     """
-    if not response.reached_server:
+    if response.unusable_reason() is not None:
         return RuleResult.indeterminate(
-            f"the target was unreachable while testing {what}: {response.transport_error}"
+            f"the target was unreachable while testing {what}: {response.unusable_reason()}"
         )
     code = response.error_code()
+    if code is None and served_is_indeterminate and response.result() is not None:
+        # A server that also serves clients of the previous revision treats a request with no
+        # version as one of those, which the specification allows, so serving it proves nothing.
+        return RuleResult.indeterminate(
+            f"a request omitting {what} was served. That violates the requirement unless this "
+            "server deliberately also serves previous-revision clients, which treat an "
+            "unversioned request as legacy; the wire cannot tell the two apart"
+        )
     if code is None:
         return RuleResult.failed(
             f"a request omitting {what} was SERVED; a required field was inferred "
@@ -97,6 +109,7 @@ def missing_protocol_version_rejected(probe: Probe) -> RuleResult:
         # HeaderMismatch (-32020) under the transport's validation rules, so a
         # server that reports that instead is conformant.
         also_accept=frozenset({-32020}),
+        served_is_indeterminate=True,
     )
 
 

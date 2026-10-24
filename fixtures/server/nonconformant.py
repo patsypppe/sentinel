@@ -72,7 +72,6 @@ SEEDED_VIOLATIONS: list[str] = [
     "MCP/2026-07-28/MUST/mcp-name-not-required-where-undefined",
     "MCP/2026-07-28/MUST/header-body-mismatch-rejected",
     "MCP/2026-07-28/MUST/missing-client-capabilities-rejected",
-    "MCP/2026-07-28/MUST/missing-protocol-version-rejected",
     "MCP/2026-07-28/MUST/resource-not-found-is-invalid-params",
     "MCP/2026-07-28/MUST/no-errors-in-reserved-range",
     "MCP/2026-07-28/SHOULD/no-errors-in-legacy-range",
@@ -320,7 +319,7 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
     # not help -- that is the address the browser is on.
 
     # VIOLATES: MCP/2026-07-28/MUST/missing-client-capabilities-rejected
-    # VIOLATES: MCP/2026-07-28/MUST/missing-protocol-version-rejected
+    # WITHDRAWN rule, not seeded: MCP/2026-07-28/MUST/missing-protocol-version-rejected
     #
     # `_meta` is never checked for the two fields this revision grades
     # Required: Yes. Client capabilities are not read at all — under 2025-11-25
