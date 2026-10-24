@@ -6,8 +6,10 @@ The harness stops being a one-shot grader and becomes something a team runs.
 
 ### Measured: the whole MCP registry
 
-`registry-scan` run on GitHub Actions: 15,451 endpoints, 14.6% on the new revision, 13 servers pass every
-verifiable required rule. Aggregate in `benchmarks/REGISTRY_SCAN.md`. The workflow also prints the
+`registry-scan` run on GitHub Actions: 15,451 endpoints, 14.6% on the new revision. A 4,000-endpoint
+sample with corrected rules: 16% of new-revision servers pass every verifiable required rule (the first
+run's 13 of 2,263 was inflated by two false-positive classes, since fixed). Aggregate in
+`benchmarks/REGISTRY_SCAN.md`. The workflow also prints the
 aggregate as an annotation so it can be read without downloading an artifact.
 
 ### Fixed: the parameter-documentation rule over-reported

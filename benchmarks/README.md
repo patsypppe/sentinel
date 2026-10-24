@@ -64,12 +64,13 @@ tool-text injection, Origin, header rules). Use both.
 ## The whole registry
 
 [`REGISTRY_SCAN.md`](REGISTRY_SCAN.md): every remote server in the official MCP registry (15,451
-endpoints) graded against the current revision, from the `registry-scan` workflow. 14.6% speak the new
-revision, 35.7% only the previous one, 39.1% need credentials. Aggregate only, never per server.
+endpoints) classified, plus a 4,000-endpoint sample graded with corrected rules, from the
+`registry-scan` workflow. 14.6% speak the new revision, 35.7% only the previous one, 39.1% need
+credentials; 16% of the new-revision servers in the sample pass every verifiable required rule. Aggregate
+only, never per server.
 The workflow runs on GitHub's runners because the environment these benchmarks were developed in
-cannot reach the public internet. Caveat: a server counts as failing a rule on the exact error code, and
-the Python SDK's code differs from the spec text, so the rule-level percentages partly reflect SDK
-defaults, not independent server bugs.
+cannot reach the public internet. The first full run overstated failures (an allowed behaviour and rate-limit answers were read as
+findings); the page records how that was found and fixed.
 
 ## Published servers: the larger sample
 

@@ -62,7 +62,7 @@ permission to test.
 ## What I found scanning the whole MCP registry
 
 I ran Sentinel against **every remote server in the official MCP registry: 15,451 endpoints** (safe mode,
-one connection per host, no tool invoked unless read-only; run on GitHub Actions, 2026-10-23).
+one connection per host, no tool invoked unless read-only; GitHub Actions, October 2026).
 
 | Where the registry is today | Endpoints |
 |---|---:|
@@ -71,14 +71,15 @@ one connection per host, no tool invoked unless read-only; run on GitHub Actions
 | Require credentials before answering | 6,044 (39.1%) |
 | Unreachable, erroring, or neither handshake | 1,622 (10.5%) |
 
-Of the 2,263 that speak the new revision, **13 (0.6%) pass every required rule Sentinel can verify from
-the wire**; the median server fails 3. Read that with care: the most-failed rules are mostly about the
-*exact error code* a server returns when it rejects a bad request (the top one, 97% of servers, is the
-code for a request with no protocol version). The official Python SDK answers a different code from
-the one the spec text names, and servers inherit what their SDK does. So this measures how closely the
-ecosystem tracks the spec text today, and says less about servers being broken. Aggregate only, by
-design: per-server findings go to each maintainer first. Detail:
-[`benchmarks/REGISTRY_SCAN.md`](benchmarks/REGISTRY_SCAN.md).
+On a 4,000-endpoint sample of the servers that speak the new revision, **16% pass every required rule
+Sentinel can verify from the wire** and the median server fails one. The biggest gap is `Origin`
+validation: about half serve a request from an impossible origin, which the spec says to reject (though a
+public, browser-callable server may allow it deliberately).
+
+I got this wrong first. The initial full scan said 13 of 2,263 passed; reading what the failing servers
+actually answered showed a false-positive class (servers that also serve older clients may accept an
+unversioned request, and rate-limit or auth answers were counted as findings). Both are fixed and the
+sample rerun. Details, and the caveats, in [`benchmarks/REGISTRY_SCAN.md`](benchmarks/REGISTRY_SCAN.md).
 
 ## What I found linting 28 real MCP servers
 
