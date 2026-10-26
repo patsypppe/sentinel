@@ -43,7 +43,9 @@ def get_delete_405(probe: Probe) -> RuleResult:
     # client keeps the proxy, the TLS verification and the client certificate
     # identical to every other request in the scan, so a refusal here is about
     # the method and not about how the connection was made.
-    client = probe._transport._client
+    if probe.command is not None:
+        return RuleResult.not_applicable("a stdio server has no HTTP endpoint")
+    client = probe._transport._client  # type: ignore[union-attr]
 
     observed: list[str] = []
     offenders: list[str] = []

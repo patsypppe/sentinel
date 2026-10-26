@@ -56,10 +56,8 @@ BEHAVIOUR: dict[str, Any] = {
 #: retired code "SHOULD NOT", so a harness that failed it as a MUST would be
 #: demanding more than the specification does.
 SEEDED_VIOLATIONS: list[str] = [
-    "MCP/2026-07-28/MUST/discover-without-negotiated-version",
     "MCP/2026-07-28/MUST/discover-reports-supported-versions",
-    "MCP/2026-07-28/MUST/discover-reports-server-info",
-    "MCP/2026-07-28/MUST/list-changed-advertised-truthfully",
+    "MCP/2026-07-28/SHOULD/discover-reports-server-info",
     "MCP/2026-07-28/MUST/result-type-present",
     "MCP/2026-07-28/SHOULD/server-info-echoed",
     "MCP/2026-07-28/MUST/cacheable-results-carry-ttl",
@@ -74,27 +72,23 @@ SEEDED_VIOLATIONS: list[str] = [
     "MCP/2026-07-28/MUST/mcp-name-not-required-where-undefined",
     "MCP/2026-07-28/MUST/header-body-mismatch-rejected",
     "MCP/2026-07-28/MUST/missing-client-capabilities-rejected",
-    "MCP/2026-07-28/MUST/missing-protocol-version-rejected",
     "MCP/2026-07-28/MUST/resource-not-found-is-invalid-params",
     "MCP/2026-07-28/MUST/no-errors-in-reserved-range",
     "MCP/2026-07-28/SHOULD/no-errors-in-legacy-range",
     "MCP/2026-07-28/MUST/unknown-method-is-method-not-found",
     "MCP/2026-07-28/MUST/unknown-method-http-404",
-    "MCP/2026-07-28/MUST/malformed-json-is-parse-error",
-    "MCP/2026-07-28/MUST/protocol-version-header-required",
+    "MCP/2026-07-28/SHOULD/malformed-json-is-parse-error",
     "MCP/2026-07-28/MUST/protocol-version-header-body-mismatch-rejected",
     "MCP/2026-07-28/MUST/invalid-origin-rejected",
     "MCP/2026-07-28/MUST/response-content-type-valid",
     "MCP/2026-07-28/MUST/notification-not-answered-with-a-result",
     "MCP/2026-07-28/SHOULD/get-delete-405",
     "MCP/2026-07-28/MUST/unsupported-version-rejected",
-    "MCP/2026-07-28/MUST/initialize-removed",
-    "MCP/2026-07-28/MUST/ping-removed",
-    "MCP/2026-07-28/MUST/logging-set-level-removed",
-    "MCP/2026-07-28/MUST/resources-subscribe-removed",
-    "MCP/2026-07-28/MUST/resources-unsubscribe-removed",
-    "MCP/2026-07-28/MUST/sampling-create-message-removed",
-    "MCP/2026-07-28/MUST/roots-list-removed",
+    "SENTINEL/STYLE/initialize-removed",
+    "SENTINEL/STYLE/ping-removed",
+    "SENTINEL/STYLE/logging-set-level-removed",
+    "SENTINEL/STYLE/resources-subscribe-removed",
+    "SENTINEL/STYLE/resources-unsubscribe-removed",
     "MCP/2026-07-28/SHOULD/tool-names-well-formed",
     "MCP/2026-07-28/SHOULD/tool-names-unique-within-server",
     "MCP/2026-07-28/MUST/tools-declare-valid-input-schema",
@@ -154,7 +148,7 @@ _CONNECTION_ID = "_sentinel_connection_id"
 TOOLS: list[dict[str, Any]] = [
     {
         "name": "warehouse.query",
-        "description": "Run a query.",
+        "description": "Query.",
         "inputSchema": {"type": "object", "properties": {"sql": {"type": "string"}}},
     },
     {
@@ -283,7 +277,7 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
     payload = parse(body)
 
     if payload is None:
-        # VIOLATES MCP/2026-07-28/MUST/malformed-json-is-parse-error
+        # VIOLATES MCP/2026-07-28/SHOULD/malformed-json-is-parse-error
         #
         # A bare HTTP 400 with no JSON-RPC error. The client cannot tell a
         # malformed request from a proxy fault and will retry it forever.
@@ -306,7 +300,7 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
     # VIOLATES MCP/2026-07-28/MUST/mcp-method-header-required
     # VIOLATES MCP/2026-07-28/MUST/mcp-name-header-required
     # VIOLATES MCP/2026-07-28/MUST/header-body-mismatch-rejected
-    # VIOLATES MCP/2026-07-28/MUST/protocol-version-header-required
+    # WITHDRAWN rule, not seeded: MCP/2026-07-28/MUST/protocol-version-header-required
     # VIOLATES MCP/2026-07-28/MUST/protocol-version-header-body-mismatch-rejected
     # VIOLATES MCP/2026-07-28/MUST/invalid-origin-rejected
     #
@@ -325,7 +319,7 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
     # not help -- that is the address the browser is on.
 
     # VIOLATES: MCP/2026-07-28/MUST/missing-client-capabilities-rejected
-    # VIOLATES: MCP/2026-07-28/MUST/missing-protocol-version-rejected
+    # WITHDRAWN rule, not seeded: MCP/2026-07-28/MUST/missing-protocol-version-rejected
     #
     # `_meta` is never checked for the two fields this revision grades
     # Required: Yes. Client capabilities are not read at all — under 2025-11-25
@@ -338,7 +332,7 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
 
     if method == "server/discover":
         version = declared_version(payload)
-        # VIOLATES MCP/2026-07-28/MUST/discover-without-negotiated-version
+        # WITHDRAWN rule, not seeded: MCP/2026-07-28/MUST/discover-without-negotiated-version
         #
         # The one method that must answer without a negotiated version refuses
         # to, which makes this server undiscoverable to any client that has not
@@ -352,12 +346,12 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
                 # VIOLATES MCP/2026-07-28/MUST/result-type-present
                 # VIOLATES MCP/2026-07-28/SHOULD/server-info-echoed
                 # VIOLATES MCP/2026-07-28/MUST/discover-reports-supported-versions
-                # VIOLATES MCP/2026-07-28/MUST/discover-reports-server-info
+                # VIOLATES MCP/2026-07-28/SHOULD/discover-reports-server-info
                 #
                 # The 2025-11-25 shape, unchanged: a single protocolVersion
                 # instead of supportedVersions, no resultType, no serverInfo.
                 "protocolVersion": PROTOCOL,
-                # VIOLATES MCP/2026-07-28/MUST/list-changed-advertised-truthfully
+                # WITHDRAWN rule, not seeded: MCP/2026-07-28/MUST/list-changed-advertised-truthfully
                 #
                 # listChanged was true in 2025-11-25 and backed by
                 # resources/subscribe. That method is gone, this server never
@@ -489,30 +483,30 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
 
     # Methods this revision REMOVED, all still served.
     if method == "initialize":
-        # VIOLATES MCP/2026-07-28/MUST/initialize-removed
+        # VIOLATES SENTINEL/STYLE/initialize-removed
         return 200, result(
             request_id,
             {"protocolVersion": LEGACY, "capabilities": {}, "serverInfo": {"name": "legacy"}},
         )
 
     if method == "ping":
-        # VIOLATES MCP/2026-07-28/MUST/ping-removed
+        # VIOLATES SENTINEL/STYLE/ping-removed
         return 200, result(request_id, {})
 
     if method == "logging/setLevel":
-        # VIOLATES MCP/2026-07-28/MUST/logging-set-level-removed
+        # VIOLATES SENTINEL/STYLE/logging-set-level-removed
         return 200, result(request_id, {})
 
     if method == "resources/subscribe":
-        # VIOLATES MCP/2026-07-28/MUST/resources-subscribe-removed
+        # VIOLATES SENTINEL/STYLE/resources-subscribe-removed
         return 200, result(request_id, {})
 
     if method == "resources/unsubscribe":
-        # VIOLATES MCP/2026-07-28/MUST/resources-unsubscribe-removed
+        # VIOLATES SENTINEL/STYLE/resources-unsubscribe-removed
         return 200, result(request_id, {})
 
     if method == "sampling/createMessage":
-        # VIOLATES MCP/2026-07-28/MUST/sampling-create-message-removed
+        # WITHDRAWN rule, not seeded: MCP/2026-07-28/MUST/sampling-create-message-removed
         #
         # The server calling the client, which this revision removed outright.
         return 200, result(
@@ -521,7 +515,7 @@ def dispatch(handler: Any, body: bytes) -> tuple[int, dict[str, Any] | None]:
         )
 
     if method == "roots/list":
-        # VIOLATES MCP/2026-07-28/MUST/roots-list-removed
+        # WITHDRAWN rule, not seeded: MCP/2026-07-28/MUST/roots-list-removed
         return 200, result(request_id, {"roots": []})
 
     # VIOLATES MCP/2026-07-28/MUST/unknown-method-is-method-not-found

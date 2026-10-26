@@ -997,3 +997,41 @@ func TestUnversionedRequestIsRefusedWithTheFallbackOff(t *testing.T) {
 			"the server is undiscoverable", r.Error.Code, r.Error.Message)
 	}
 }
+
+// TestEveryDispatchedRequestIsReportedAsASpan. Tracing is wired as a recorder the
+// server calls, so what matters is that it is called once per request, carries the
+// client's traceparent, names a tool call by its tool, and carries no argument values.
+func TestEveryDispatchedRequestIsReportedAsASpan(t *testing.T) {
+	var spans []Span
+	srv := scopeDeniedServer(t, WithSpanRecorder(func(s Span) { spans = append(spans, s) }))
+
+	const tp = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"
+	body := `{"jsonrpc":"2.0","id":"1","method":"tools/call","params":{"name":"warehouse.query",` +
+		`"arguments":{"sql":"SELECT secret FROM t"},"_meta":{` +
+		`"io.modelcontextprotocol/clientCapabilities":{},"traceparent":"` + tp + `"}}}`
+	postRaw(t, srv, body, map[string]string{
+		HeaderMcpMethod: envelope.MethodToolsCall,
+		HeaderMcpName:   "warehouse.query",
+		HeaderPrincipal: "alice",
+	})
+
+	if len(spans) != 1 {
+		t.Fatalf("%d spans, want exactly one", len(spans))
+	}
+	s := spans[0]
+	if s.Method != "tools/call" || s.Tool != "warehouse.query" || s.Name != "mcp tools/call warehouse.query" {
+		t.Errorf("span = %+v", s)
+	}
+	if s.Traceparent != tp {
+		t.Errorf("traceparent = %q", s.Traceparent)
+	}
+	if s.ErrorCode == 0 {
+		t.Errorf("a denied call should carry its error code: %+v", s)
+	}
+	if strings.Contains(s.Name+s.ErrorMessage, "SELECT secret") {
+		t.Errorf("an argument value reached the span: %+v", s)
+	}
+	if s.End.Before(s.Start) {
+		t.Errorf("end %v before start %v", s.End, s.Start)
+	}
+}

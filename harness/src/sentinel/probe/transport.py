@@ -14,7 +14,10 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
+import queue
 import ssl
+import subprocess
 import threading
 import time
 from dataclasses import dataclass, field
@@ -113,6 +116,19 @@ class RawResponse:
     @property
     def reached_server(self) -> bool:
         return self.transport_error is None
+
+    #: Statuses that say the request was refused or dropped for a reason unrelated to the rule
+    #: being tested: a rate limit, a gateway failure, a credential demand. Reading them as the
+    #: server's answer turns a busy or protected server into a conformance failure.
+    UNRELATED_STATUSES = frozenset({401, 407, 429, 502, 503, 504})
+
+    def unusable_reason(self) -> str | None:
+        """Why this response cannot be judged by a conformance rule, or None if it can."""
+        if self.transport_error is not None:
+            return self.transport_error
+        if self.status in self.UNRELATED_STATUSES:
+            return f"HTTP {self.status} (refused or dropped for a reason unrelated to this rule)"
+        return None
 
     def json(self) -> Any:
         """Parse the body, or raise. Rules call `.envelope()` instead."""
@@ -282,3 +298,150 @@ class Transport:
                 elapsed_s=time.perf_counter() - started,
             )
         raise AssertionError("unreachable: the loop returns on every path")
+
+
+class StdioTransport:
+    """Sends requests to a server run as a child process, one JSON message per line.
+
+    Most published MCP servers are stdio programs, not HTTP endpoints. This speaks their
+    transport with the same interface as `Transport`, so every rule that only reads a
+    server's answers works unchanged. The command comes from the person running the scan
+    and is run without a shell. HTTP headers mean nothing here and are ignored.
+    """
+
+    #: What a stdio server inherits: enough to find its interpreter, nothing from the
+    #: scanner's own environment such as tokens.
+    _ENV_KEYS = (
+        "PATH",
+        "HOME",
+        "USER",
+        "LANG",
+        "TMPDIR",
+        "SYSTEMROOT",
+        "NODE_PATH",
+        # So `npx` / `uvx` can fetch a package through the operator's proxy and CA bundle.
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "NO_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "no_proxy",
+        "NODE_EXTRA_CA_CERTS",
+        "SSL_CERT_FILE",
+        "REQUESTS_CA_BUNDLE",
+        "XDG_CACHE_HOME",
+        "NPM_CONFIG_CACHE",
+        "UV_CACHE_DIR",
+    )
+
+    def __init__(
+        self,
+        command: list[str],
+        *,
+        timeout: float = DEFAULT_TIMEOUT,
+        env: dict[str, str] | None = None,
+        cwd: str | None = None,
+    ) -> None:
+        self.endpoint = "stdio:" + " ".join(command)
+        self.command = command
+        self.timeout = timeout
+        self.env = env or {}
+        self.cwd = cwd
+        # Attributes `Probe` copies when it makes a sibling probe; none apply to a pipe.
+        self.bearer_token: str | None = None
+        self.verify: bool | str = True
+        self.proxy: str | None = None
+        self.client_cert: str | tuple[str, str] | None = None
+        self.retries = 0
+        self._proc: subprocess.Popen[bytes] | None = None
+        self._lines: queue.Queue[bytes | None] = queue.Queue()
+        # One request at a time: replies are matched by id off a single pipe, so two
+        # threads sharing a process must not both be reading it.
+        self._lock = threading.Lock()
+
+    def _start(self) -> str | None:
+        if self._proc is not None:
+            return None
+        env = {k: os.environ[k] for k in self._ENV_KEYS if k in os.environ}
+        env.update(self.env)
+        try:
+            self._proc = subprocess.Popen(
+                self.command,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                env=env,
+                cwd=self.cwd,
+            )
+        except OSError as exc:
+            return f"{type(exc).__name__}: {exc}"
+        threading.Thread(target=self._pump, args=(self._proc,), daemon=True).start()
+        return None
+
+    def _pump(self, proc: subprocess.Popen[bytes]) -> None:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            self._lines.put(line)
+        self._lines.put(None)
+
+    def send(self, request: Request) -> RawResponse:
+        with self._lock:
+            return self._send(request)
+
+    def _send(self, request: Request) -> RawResponse:
+        started = time.perf_counter()
+
+        def failed(reason: str) -> RawResponse:
+            return RawResponse(
+                status=0,
+                headers={},
+                body=b"",
+                elapsed_s=time.perf_counter() - started,
+                transport_error=reason,
+            )
+
+        if (error := self._start()) is not None:
+            return failed(error)
+        assert self._proc is not None and self._proc.stdin is not None
+        try:
+            self._proc.stdin.write(request.body().replace(b"\n", b" ") + b"\n")
+            self._proc.stdin.flush()
+        except (BrokenPipeError, OSError) as exc:
+            return failed(f"the server process closed its input: {exc}")
+        if request.request_id is None:
+            return RawResponse(202, {}, b"", time.perf_counter() - started)
+
+        deadline = time.monotonic() + self.timeout
+        while True:
+            try:
+                line = self._lines.get(timeout=max(0.0, deadline - time.monotonic()))
+            except queue.Empty:
+                return failed(f"no reply within {self.timeout:g}s")
+            if line is None:
+                return failed("the server process exited before replying")
+            try:
+                message = json.loads(line)
+            except json.JSONDecodeError:
+                continue  # a banner or log line on stdout is not a reply
+            # Skip server-initiated messages and answers to other requests.
+            if isinstance(message, dict) and message.get("id") == request.request_id:
+                return RawResponse(
+                    status=200,
+                    headers={"content-type": "application/json"},
+                    body=line.strip(),
+                    elapsed_s=time.perf_counter() - started,
+                )
+
+    def close(self) -> None:
+        proc, self._proc = self._proc, None
+        if proc is None:
+            return
+        with contextlib.suppress(OSError):
+            if proc.stdin:
+                proc.stdin.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=3)

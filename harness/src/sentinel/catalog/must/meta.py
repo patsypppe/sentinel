@@ -15,13 +15,32 @@ from sentinel.probe.transport import RawResponse
 BASIC = f"{SPEC_BASE}/basic/index"
 
 
-def _rejected_as_invalid_params(response: RawResponse, what: str) -> RuleResult:
-    """The shared verdict: -32602 AND HTTP 400, both required."""
-    if not response.reached_server:
+def _rejected_as_invalid_params(
+    response: RawResponse,
+    what: str,
+    *,
+    also_accept: frozenset[int] = frozenset(),
+    served_is_indeterminate: bool = False,
+) -> RuleResult:
+    """The shared verdict: -32602 AND HTTP 400, both required.
+
+    `also_accept` names further codes the specification allows for the same
+    request, which is the case when the omission also leaves a required HTTP
+    header missing (-32020).
+    """
+    if response.unusable_reason() is not None:
         return RuleResult.indeterminate(
-            f"the target was unreachable while testing {what}: {response.transport_error}"
+            f"the target was unreachable while testing {what}: {response.unusable_reason()}"
         )
     code = response.error_code()
+    if code is None and served_is_indeterminate and response.result() is not None:
+        # A server that also serves clients of the previous revision treats a request with no
+        # version as one of those, which the specification allows, so serving it proves nothing.
+        return RuleResult.indeterminate(
+            f"a request omitting {what} was served. That violates the requirement unless this "
+            "server deliberately also serves previous-revision clients, which treat an "
+            "unversioned request as legacy; the wire cannot tell the two apart"
+        )
     if code is None:
         return RuleResult.failed(
             f"a request omitting {what} was SERVED; a required field was inferred "
@@ -29,7 +48,7 @@ def _rejected_as_invalid_params(response: RawResponse, what: str) -> RuleResult:
             evidence=f"HTTP {response.status}, no JSON-RPC error in the body",
         )
     problems: list[str] = []
-    if code != -32602:
+    if code != -32602 and code not in also_accept:
         problems.append(f"error code was {code}, not -32602")
     if response.status != 400:
         problems.append(f"HTTP status was {response.status}, not 400")
@@ -72,7 +91,8 @@ def missing_client_capabilities_rejected(probe: Probe) -> RuleResult:
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Reject a request whose _meta omits io.modelcontextprotocol/protocolVersion with "
-        "-32602 and HTTP 400. Serving it means the version came from somewhere other than "
+        "-32602 (or -32020, since the header is missing too) and HTTP 400. Serving it "
+        "means the version came from somewhere other than "
         "the request, and in a protocol with no handshake there is nowhere else it can "
         "legitimately come from."
     ),
@@ -85,6 +105,11 @@ def missing_protocol_version_rejected(probe: Probe) -> RuleResult:
     return _rejected_as_invalid_params(
         probe.tools_list(version=None, omit_protocol_version_header=True),
         "io.modelcontextprotocol/protocolVersion",
+        # The header is missing too, and a missing required header is a
+        # HeaderMismatch (-32020) under the transport's validation rules, so a
+        # server that reports that instead is conformant.
+        also_accept=frozenset({-32020}),
+        served_is_indeterminate=True,
     )
 
 
@@ -96,7 +121,8 @@ def missing_protocol_version_rejected(probe: Probe) -> RuleResult:
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "When returning -32021 MissingRequiredClientCapability, populate "
-        "data.requiredCapabilities with the capabilities the request needed and HTTP "
+        "data.requiredCapabilities (a ClientCapabilities object) with the capabilities the "
+        "request needed and HTTP "
         "400. Without the list the client cannot know what to declare, so the error "
         "tells it that it failed but not how to succeed."
     ),
@@ -121,8 +147,9 @@ def missing_capability_error_shape(probe: Probe) -> RuleResult:
         data = error.get("data")
         required = data.get("requiredCapabilities") if isinstance(data, dict) else None
         problems: list[str] = []
-        if not isinstance(required, list) or not required:
-            problems.append(f"data.requiredCapabilities is {required!r}, not a non-empty array")
+        # The schema types requiredCapabilities as a ClientCapabilities object.
+        if not isinstance(required, dict) or not required:
+            problems.append(f"data.requiredCapabilities is {required!r}, not a non-empty object")
         if response.status != 400:
             problems.append(f"HTTP status was {response.status}, not 400")
         if problems:

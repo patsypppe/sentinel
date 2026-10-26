@@ -146,6 +146,10 @@ class ScanReport:
     waiver_notes: list[str] = field(default_factory=list)
     #: Canonical SHA-256 of the target's tool manifest at scan time.
     manifest_hash: str | None = None
+    #: Which protocol generation answered: "current", "legacy", "auth", "other" or
+    #: "unreachable" (see `population.classify`), and a human sentence about it.
+    generation: str = ""
+    generation_detail: str = ""
 
     @property
     def target(self) -> str:
@@ -237,6 +241,7 @@ def run_scan(
     skip: frozenset[str] = frozenset(),
     probe_factory: Callable[[], Probe] | None = None,
     context: dict[str, object] | None = None,
+    detect_generation: bool = True,
 ) -> ScanReport:
     """Evaluate every rule against one endpoint.
 
@@ -265,7 +270,7 @@ def run_scan(
     rules = [r for r in rules if r.id not in skip]
     identity = report.target
 
-    def make_probe() -> Probe:
+    def make_probe(*, legacy: bool = False) -> Probe:
         if probe_factory is not None:
             return probe_factory()
         return Probe(
@@ -279,12 +284,20 @@ def run_scan(
             budgets=budgets,
             safe=safe,
             context=context,
+            legacy=legacy,
         )
+
+    if detect_generation:
+        report.generation, report.generation_detail = _generation(make_probe)
 
     def run_one(r: BaseRule) -> Finding:
         rule_started = time.perf_counter()
         try:
-            with make_probe() as probe:
+            # A server that has not migrated cannot answer the current wire at all, so the
+            # rules that only read its tool manifest speak the previous revision to it.
+            # Every other rule still tests the current one, and fails honestly.
+            use_legacy = report.generation == "legacy" and r.id in ERA_INDEPENDENT
+            with make_probe(legacy=use_legacy) as probe:
                 result = r.evaluate(probe)
         except Exception as exc:
             # A rule that raises is a HARNESS defect, and saying so is more
@@ -318,7 +331,42 @@ def run_scan(
     return report
 
 
-def _manifest_hash(make_probe: Callable[[], Probe]) -> str | None:
+#: Rules whose verdict depends only on what a server says in tools/list (or on one HTTP header),
+#: not on which protocol revision carries it. Against a server that has not migrated they run
+#: over a legacy session instead of reporting "unreachable".
+#: What `sentinel lint` runs: ERA_INDEPENDENT minus the one rule that needs an HTTP endpoint.
+ERA_INDEPENDENT = frozenset(
+    {
+        "MCP/2026-07-28/SHOULD/tool-names-well-formed",
+        "MCP/2026-07-28/SHOULD/tool-names-unique-within-server",
+        "MCP/2026-07-28/SHOULD/tools-list-is-deterministic",
+        "MCP/2026-07-28/MUST/tools-declare-input-schema",
+        "MCP/2026-07-28/MUST/tools-declare-valid-input-schema",
+        "MCP/2026-07-28/MUST/tools-are-named",
+        "MCP/2026-07-28/MUST/invalid-origin-rejected",
+        "SENTINEL/STYLE/description-states-purpose",
+        "SENTINEL/STYLE/parameters-are-described",
+        "SENTINEL/STYLE/tools-have-descriptions",
+        "SENTINEL/STYLE/tools-sorted-by-name",
+        "SENTINEL/SECURITY/tool-description-injection",
+        "SENTINEL/OPS/tool-descriptions-are-distinct",
+    }
+)
+
+
+def _generation(make_probe: Callable[..., Probe]) -> tuple[str, str]:
+    """Which protocol generation the target speaks. Best effort, never a finding."""
+    from sentinel.population import classify
+
+    try:
+        with make_probe() as probe:
+            klass, _status, detail, _framing = classify(probe)
+    except Exception:
+        return "", ""
+    return klass, detail
+
+
+def _manifest_hash(make_probe: Callable[..., Probe]) -> str | None:
     """The canonical hash of the target's tool manifest, or None if unreadable.
 
     Best effort and never a finding: a target whose manifest cannot be read has
@@ -359,3 +407,8 @@ def unverifiable_rules(registry: Registry | None = None) -> list[BaseRule]:
     """
     reg = registry if registry is not None else REGISTRY
     return [r for r in reg.all() if r.verifiability is Verifiability.UNVERIFIABLE]
+
+
+#: The rules `sentinel lint` runs. They read only a server's tool manifest, so they work over
+#: any transport, including a stdio child process.
+LINT_RULES = ERA_INDEPENDENT - {"MCP/2026-07-28/MUST/invalid-origin-rejected"}

@@ -22,6 +22,7 @@ import typer
 from sentinel import SPEC_REVISION, __version__
 from sentinel.budget import BudgetPolicy
 from sentinel.catalog.base import REGISTRY, Severity, validate_registry
+from sentinel.fixtures_path import fixtures_dir
 from sentinel.grade import (
     EXIT_GATE_FAILED,
     EXIT_HARNESS_ERROR,
@@ -246,6 +247,19 @@ def scan(
             ),
         ),
     ] = None,
+    probe_rate_limit: Annotated[
+        int | None,
+        typer.Option(
+            "--probe-rate-limit",
+            min=1,
+            help=(
+                "Send a burst of this many calls to one tool to see whether the server "
+                "throttles. Off by default: flooding a server you were asked to grade is "
+                "opt-in. It can pass the rule but never fail it, because the specification "
+                "names no threshold."
+            ),
+        ),
+    ] = None,
     publish_to: Annotated[
         str | None,
         typer.Option(
@@ -381,6 +395,7 @@ def scan(
                 snapshot=loaded_snapshot,
                 target_name=target_name,
                 allow_exec=not no_exec,
+                rate_limit_probe=probe_rate_limit,
             )
         )
     except Exception as exc:
@@ -685,7 +700,7 @@ def migrate(
         str | None, typer.Option(help="Bearer token to present to the target.")
     ] = None,
 ) -> None:
-    """Size the migration to 2026-07-28 for a server built against an older revision.
+    """Size the migration to the current spec for a server built against an older revision.
 
     Always exits 0 unless the harness itself broke. A migration report describes
     work, and work is not a verdict: a team should be able to run this against a
@@ -828,6 +843,82 @@ def catalog_list(
     raise typer.Exit(EXIT_OK)
 
 
+@app.command()
+def lint(
+    command: Annotated[
+        str | None,
+        typer.Option(
+            help=(
+                'A stdio server to start, e.g. "npx -y @modelcontextprotocol/server-memory". '
+                "Run without a shell, with a minimal environment."
+            )
+        ),
+    ] = None,
+    endpoint: Annotated[
+        str | None, typer.Option(help="An HTTP MCP endpoint, instead of --command.")
+    ] = None,
+    fmt: Annotated[str, typer.Option("--format", help="text | json | markdown")] = "text",
+    timeout: Annotated[float, typer.Option(help="Seconds to wait for each reply.")] = 30.0,
+    env: Annotated[
+        list[str] | None,
+        typer.Option("--env", help="KEY=VALUE passed to the server process. Repeatable."),
+    ] = None,
+) -> None:
+    """Lint a server's tool manifest: names, descriptions, parameters, schemas, injection.
+
+    Works on any MCP server, stdio or HTTP, old protocol or new. Exit 1 if a rule failed.
+    """
+    import shlex
+
+    from sentinel.catalog.base import Outcome
+    from sentinel.grade import LINT_RULES, run_scan
+    from sentinel.probe.client import Probe
+    from sentinel.report import render_report
+
+    if (command is None) == (endpoint is None):
+        typer.echo("sentinel: give exactly one of --command or --endpoint", err=True)
+        raise typer.Exit(EXIT_HARNESS_ERROR)
+    if command is not None:
+        argv = shlex.split(command)
+        extra = dict(item.split("=", 1) for item in (env or []) if "=" in item)
+
+        # The lint rules only read, so they share ONE server process instead of starting
+        # the server once per rule (a dozen times).
+        shared = Probe(
+            "stdio:" + command,
+            timeout=timeout,
+            legacy=True,
+            command=argv,
+            command_env=extra,
+            borrowed=True,
+        )
+        try:
+            report = run_scan(
+                "stdio:" + command,
+                only=set(LINT_RULES),
+                probe_factory=lambda: shared,
+                concurrency=4,
+                detect_generation=False,
+            )
+        finally:
+            shared.release()
+        report.generation, report.generation_detail = "stdio", "run as a child process"
+    else:
+        assert endpoint is not None
+        report = run_scan(endpoint, only=set(LINT_RULES), timeout=timeout)
+    failed = any(f.outcome is Outcome.FAIL and not f.rule.is_deprecated for f in report.findings)
+    typer.echo(render_report(fmt, report, color=False, gate_failed=failed, gate="lint"))
+    raise typer.Exit(1 if failed else 0)
+
+
+@app.command()
+def demo() -> None:
+    """Scan two built-in practice servers, one broken and one correct. No setup needed."""
+    from sentinel.demo import run_demo
+
+    raise typer.Exit(run_demo())
+
+
 @fixture_app.command("serve")
 def fixture_serve(
     profile: Annotated[str, typer.Option(help="nonconformant | conformant | partial")],
@@ -840,7 +931,7 @@ def fixture_serve(
         )
         raise typer.Exit(EXIT_HARNESS_ERROR)
 
-    fixtures = REPO_ROOT / "fixtures"
+    fixtures = fixtures_dir()
     if not (fixtures / "server" / f"{profile}.py").exists():
         typer.echo(f"sentinel: cannot find the fixtures at {fixtures}", err=True)
         raise typer.Exit(EXIT_HARNESS_ERROR)

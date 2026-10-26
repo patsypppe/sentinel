@@ -51,8 +51,8 @@ FOREIGN_ORIGIN = "https://sentinel-rebinding-probe.invalid"
 )
 def unknown_method_http_404(probe: Probe) -> RuleResult:
     response = probe.call("sentinel/definitely-not-a-real-method")
-    if not response.reached_server:
-        return RuleResult.indeterminate(f"unreachable: {response.transport_error}")
+    if response.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"unreachable: {response.unusable_reason()}")
     if response.result() is not None:
         return RuleResult.failed(
             f"an invented method name was SERVED (HTTP {response.status})",
@@ -93,14 +93,16 @@ def protocol_version_header_required(probe: Probe) -> RuleResult:
     # separates this rule from missing-protocol-version-rejected, which omits
     # the _meta field as well and is answered -32602 for the absent field.
     response = probe.tools_list(omit_protocol_version_header=True)
-    if not response.reached_server:
-        return RuleResult.indeterminate(f"unreachable: {response.transport_error}")
+    if response.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"unreachable: {response.unusable_reason()}")
     if response.result() is not None:
-        return RuleResult.failed(
-            f"tools/list was SERVED with no MCP-Protocol-Version header (HTTP "
-            f"{response.status}); any revision-aware policy in front of this server can "
-            "be bypassed by omitting the header",
-            evidence=str(response.result())[:300],
+        # A server that supports clients older than 2025-06-18 MAY treat a request
+        # with no header as an earlier version, so serving it is not provably wrong.
+        return RuleResult.indeterminate(
+            f"tools/list was served with no MCP-Protocol-Version header (HTTP "
+            f"{response.status}). That is a violation unless this server deliberately supports "
+            "clients older than 2025-06-18, which the specification lets it treat as "
+            "2025-03-26; the wire cannot tell the two apart."
         )
 
     code = response.error_code()
@@ -137,8 +139,8 @@ def protocol_version_header_required(probe: Probe) -> RuleResult:
 )
 def protocol_version_header_body_mismatch_rejected(probe: Probe) -> RuleResult:
     response = probe.tools_list(protocol_version_header=MISMATCHED_HEADER_VERSION)
-    if not response.reached_server:
-        return RuleResult.indeterminate(f"unreachable: {response.transport_error}")
+    if response.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"unreachable: {response.unusable_reason()}")
     if response.result() is not None:
         return RuleResult.failed(
             f"a request whose MCP-Protocol-Version header said "
@@ -179,8 +181,8 @@ def protocol_version_header_body_mismatch_rejected(probe: Probe) -> RuleResult:
 )
 def invalid_origin_rejected(probe: Probe) -> RuleResult:
     response = probe.tools_list(headers={"Origin": FOREIGN_ORIGIN})
-    if not response.reached_server:
-        return RuleResult.indeterminate(f"unreachable: {response.transport_error}")
+    if response.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"unreachable: {response.unusable_reason()}")
     if response.status == 403:
         return RuleResult.passed(f"Origin {FOREIGN_ORIGIN} was refused with 403")
     if 200 <= response.status < 300:
@@ -213,8 +215,8 @@ def invalid_origin_rejected(probe: Probe) -> RuleResult:
 )
 def response_content_type_valid(probe: Probe) -> RuleResult:
     response = probe.tools_list()
-    if not response.reached_server:
-        return RuleResult.indeterminate(f"unreachable: {response.transport_error}")
+    if response.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"unreachable: {response.unusable_reason()}")
 
     raw = response.headers.get("content-type")
     if raw is None:
@@ -257,8 +259,8 @@ def notification_not_answered_with_a_result(probe: Probe) -> RuleResult:
     # specification spells out what it owes the client in that case. Demanding
     # 202 outright would fail a server for refusing something nothing sends.
     response = probe.notify("notifications/sentinel-probe")
-    if not response.reached_server:
-        return RuleResult.indeterminate(f"unreachable: {response.transport_error}")
+    if response.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"unreachable: {response.unusable_reason()}")
     if response.status == 202:
         if response.body.strip():
             return RuleResult.failed(

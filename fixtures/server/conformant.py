@@ -68,9 +68,13 @@ TOOLS: list[dict[str, Any]] = sorted(
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "text": {"type": "string"},
+                    "text": {"type": "string", "description": "The text to reverse."},
                     # One valid header annotation: a token, a string parameter.
-                    "region": {"type": "string", "x-mcp-header": "Region"},
+                    "region": {
+                        "type": "string",
+                        "description": "Region the request is routed to, such as eu-west.",
+                        "x-mcp-header": "Region",
+                    },
                 },
                 "required": ["text"],
             },
@@ -80,7 +84,7 @@ TOOLS: list[dict[str, Any]] = sorted(
             "description": "Return the given text in upper case.",
             "inputSchema": {
                 "type": "object",
-                "properties": {"text": {"type": "string"}},
+                "properties": {"text": {"type": "string", "description": "The text to convert."}},
                 "required": ["text"],
             },
         },

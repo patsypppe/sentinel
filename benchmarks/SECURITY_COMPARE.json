@@ -1,0 +1,66 @@
+{
+ "poisoned": {
+  "Sentinel (all categories)": [
+   "conceal-shell",
+   "html-comment",
+   "ignore-previous",
+   "imp-block-read-ssh",
+   "param-description-injection",
+   "system-prompt-leak",
+   "unicode-tag-smuggling",
+   "zero-width"
+  ],
+  "Sentinel (without credential-path mentions)": [
+   "conceal-shell",
+   "html-comment",
+   "ignore-previous",
+   "imp-block-read-ssh",
+   "system-prompt-leak",
+   "unicode-tag-smuggling",
+   "zero-width"
+  ],
+  "Cisco mcp-scanner (YARA, offline)": [
+   "evasive-split",
+   "imp-block-read-ssh"
+  ]
+ },
+ "hard": {
+  "Sentinel (all categories)": [
+   "deletes-ssh-key",
+   "reads-env-file"
+  ],
+  "Sentinel (without credential-path mentions)": [],
+  "Cisco mcp-scanner (YARA, offline)": [
+   "defensive-warning",
+   "deletes-ssh-key",
+   "reads-env-file"
+  ]
+ },
+ "real": {
+  "Sentinel (all categories)": [
+   "aws-documentation::read_documentation",
+   "aws-documentation::read_sections",
+   "aws-documentation::search_table",
+   "desktop-commander::start_search"
+  ],
+  "Sentinel (without credential-path mentions)": [],
+  "Cisco mcp-scanner (YARA, offline)": [
+   "arxiv::export_citations",
+   "arxiv::semantic_search",
+   "chrome-devtools::list_console_messages",
+   "context7::query-docs",
+   "context7::resolve-library-id",
+   "desktop-commander::start_process",
+   "desktop-commander::start_search",
+   "duckduckgo::fetch_content",
+   "duckduckgo::search",
+   "figma-developer::download_figma_images",
+   "firecrawl::firecrawl_scrape",
+   "mcp-server-kubernetes::kubectl_apply",
+   "mcp-server-kubernetes::kubectl_create",
+   "mcp-server-kubernetes::kubectl_patch",
+   "playwright-executeautomation::playwright_assert_response",
+   "playwright-executeautomation::playwright_get_visible_html"
+  ]
+ }
+}

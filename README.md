@@ -1,309 +1,211 @@
 # Sentinel
 
-**A stateless MCP server, and the conformance harness that grades it.**
+**Sentinel checks whether an MCP server follows the MCP specification.**
 
-[![ci](https://github.com/patsypppe/sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/patsypppe/sentinel/actions/workflows/ci.yml)
-[![conformance](https://github.com/patsypppe/sentinel/actions/workflows/conformance.yml/badge.svg)](https://github.com/patsypppe/sentinel/actions/workflows/conformance.yml)
+[MCP](https://modelcontextprotocol.io) (Model Context Protocol) is how AI apps such as Claude
+connect to tools. A tool is exposed by an *MCP server*, and the server has to follow a rulebook, the
+MCP specification. Servers often get parts of it wrong, and then they break or misbehave with some
+clients. Sentinel finds those mistakes.
 
-**[Live showcase → patsypppe.github.io/sentinel](https://patsypppe.github.io/sentinel/)**: an interactive
-viewer over real `sentinel` output, with rule-by-rule findings, the deprecation timeline and the
-INDETERMINATE design. The data comes from the scans in [`site/data/`](site/data/).
+You give it a server's URL. It sends the server test requests, checks each answer against the
+rulebook, and prints a pass/fail list. Every failure says what it saw, what to change, and which
+page of the spec the rule comes from.
 
-[![Three scans side by side: the unmigrated server fails the MUST gate, the broker and the conformant fixture pass it](site/assets/img/showcase.png)](https://patsypppe.github.io/sentinel/)
+## Try it in 30 seconds
 
-On **28 July 2026** the Model Context Protocol shipped the largest breaking revision in its
-history: it converted MCP from a stateful, session-based, bidirectional protocol into a
-**stateless request/response protocol**. Sessions are gone. The `initialize` handshake is gone.
-`server/discover` is mandatory. Server-initiated requests were replaced wholesale by Multi
-Round-Trip Requests. `CacheableResult` became required. Sampling, Roots, Logging, HTTP+SSE
-transport and OAuth Dynamic Client Registration were all deprecated on a twelve-month clock.
-
-Every MCP server in the wild was written against the old idioms.
-
-| | |
-|---|---|
-| **`harness/`** | **`sentinel`**, a conformance harness that scans *any* MCP server, grades it against the normative requirements with a spec citation per rule, and inventories its deprecated-feature debt. Waivers, baselines, drift detection, fleets, six report formats. |
-| **`mcp/`** | The Go **server kit**: the packages that make a server native to `2026-07-28`, importable, with `server.New` and a one-tool example that the build scans on every commit. |
-| **`broker/`** | A Go MCP server built **natively** on `2026-07-28` with that kit — stateless, handle-based, MRTR-only, audited. The reference application. |
-| **`fleet/`** | **`sentinel-server`**: ingests scan reports, keeps their history, and answers what one scan cannot — how long a finding has been open, what drifted, which waivers are about to lapse. |
-
-They are coupled deliberately: the harness's credibility comes from grading a server that is not
-its own, and the server's credibility comes from being graded. The harness never imports server
-internals and runs against any endpoint URL.
-
----
-
-## The two scans
-
-```console
-$ sentinel scan --endpoint http://localhost:9000/mcp --gate must     # an unmigrated server
-MUST: 2 pass, 25 fail, 5 indeterminate, 0 n/a
-SHOULD: 1 pass, 3 fail, 0 n/a
-exit 1
-
-$ sentinel scan --endpoint http://localhost:8080/mcp --gate must --token "$TOKEN"   # broker
-MUST: 27 pass, 0 fail, 5 indeterminate, 0 n/a
-SHOULD: 4 pass, 0 fail, 0 n/a
-exit 0
-```
-
-The broker's resource and tool methods are authenticated, so its scan carries a token — minted with
-`broker mint-token`, as [`docs/runbook.md`](docs/runbook.md) shows and as CI does. The fixture needs
-none, which is part of what makes it unmigrated.
-
-A failure names the rule, what was observed, what to change, and the clause it comes from:
-
-```
-FAIL  MCP/2026-07-28/MUST/header-body-mismatch-rejected
-      A header disagreeing with the body is rejected with -32020
-      observed:    a request whose Mcp-Method header said tools/list while its body
-                   called tools/call was SERVED; a gateway routing on the header
-                   authorized a different request than the one that ran
-      remediation: Compare Mcp-Method and Mcp-Name against the JSON-RPC body and return
-                   -32020 HeaderMismatch when they disagree. This is what makes the
-                   headers BINDING…
-      spec:        https://modelcontextprotocol.io/specification/2026-07-28/…
-```
-
-And the deprecation debt, with removal windows:
-
-```console
-$ sentinel deprecations --endpoint http://localhost:9000/mcp
-6 deprecated feature(s) in use
-
-  IN USE  Roots  (SEP-2577)
-          deprecated:  2026-07-28
-          removable on or after 2027-07-28 (10 month(s) from now)
-          replace with: explicit tool arguments naming the paths a tool may touch
-```
-
----
-
-## Day to day
-
-A scan is a verdict. Running it every commit, against servers you do and do not own, takes a few
-more things, all in [`docs/USING.md`](docs/USING.md):
+No clone, no setup, nothing to configure. This starts two practice servers on your machine (one
+with deliberate mistakes, one correct), scans both, and shows you the difference:
 
 ```bash
-sentinel baseline create --endpoint $URL --out sentinel-baseline.json   # adopt it without fixing everything first
-sentinel scan --baseline sentinel-baseline.json --gate must              # the gate fires only on what is new
-sentinel snapshot --endpoint $VENDOR --out vendor.json                   # then, on a schedule:
-sentinel diff vendor.json --gate                                         #   a rewritten tool description is the rug pull
-sentinel scan --targets sentinel-fleet.yaml                              # many servers, each with its own gate
-sentinel scan --publish https://sentinel.internal                        # keep the history (docs/FLEET.md)
+uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" sentinel demo
 ```
 
-`sentinel.toml` holds the endpoint, the gate, rule toggles, severity overrides that can only be
-*stricter*, and **waivers whose expiry is required** (a malformed date is an error, never "ignore
-forever"; an expired waiver fails again, labelled). Precedence is CLI, environment, file, `extends`,
-default, and every resolved value records where it came from.
+```
+=== Server A: has deliberate mistakes ===
+  required rules (MUST):  4 pass, 33 fail, 7 could not be checked from outside
+  FAIL  MUST/cacheable-results-carry-ttl
+        4 of 4 list results omit ttlMs: ['server/discover', 'tools/list', ...]
+  ... and 29 more
+  verdict: FAIL (exit code 1)
 
----
+=== Server B: follows the rules ===
+  required rules (MUST):  36 pass, 0 fail, 6 could not be checked from outside
+  verdict: PASS (exit code 0)
+```
 
-## Limitations, stated plainly
+Prefer a clone? `git clone https://github.com/patsypppe/sentinel && cd sentinel && uv run sentinel demo`.
 
-**Four MUST requirements, and one beyond-spec rule, cannot be verified black-box.** `sentinel` reports them as
-`INDETERMINATE` — never as passes — excludes them from the gate, and prints them on every scan.
-**Give it the evidence and each returns a real verdict** (see [Gray-box evidence](docs/USING.md#settling-the-five-rules-a-scan-cannot));
-without it, absence of evidence is never a pass:
+## Lint any server, including stdio ones
 
-| Rule | Why a scan cannot settle it | What would |
+Most published MCP servers run as a local program, not at a URL. Point Sentinel at the command:
+
+```bash
+sentinel lint --command "npx -y @modelcontextprotocol/server-filesystem /tmp"
+```
+
+It starts the server, reads its tool list, and checks names, descriptions, undocumented parameters,
+schema validity and hidden instructions. It works for old and new protocol versions and exits 1 if a
+rule fails, so it drops straight into CI.
+
+## Scan your own server
+
+No clone needed:
+
+```bash
+uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" \
+  sentinel scan --endpoint https://your-server.example/mcp --gate must
+```
+
+If the server needs a login token, add `--token "$TOKEN"`. Only scan servers you own or have
+permission to test.
+
+## What I found scanning the whole MCP registry
+
+I ran Sentinel against **every remote server in the official MCP registry: 15,451 endpoints** (safe mode,
+one connection per host, no tool invoked unless read-only; GitHub Actions, October 2026).
+
+| Where the registry is today | Endpoints |
+|---|---:|
+| Already speak the new protocol revision | 2,263 (14.6%) |
+| Only speak the previous revision | 5,522 (35.7%) |
+| Require credentials before answering | 6,044 (39.1%) |
+| Unreachable, erroring, or neither handshake | 1,622 (10.5%) |
+
+On a 4,000-endpoint sample of the servers that speak the new revision, **16% pass every required rule
+Sentinel can verify from the wire** and the median server fails one. The biggest gap is `Origin`
+validation: about half serve a request from an impossible origin, which the spec says to reject (though a
+public, browser-callable server may allow it deliberately).
+
+I got this wrong first. The initial full scan said 13 of 2,263 passed; reading what the failing servers
+actually answered showed a false-positive class (servers that also serve older clients may accept an
+unversioned request, and rate-limit or auth answers were counted as findings). Both are fixed and the
+sample rerun. Details, and the caveats, in [`benchmarks/REGISTRY_SCAN.md`](benchmarks/REGISTRY_SCAN.md).
+
+## What I found linting 28 real MCP servers
+
+![Where each parameter is documented, per published MCP server](benchmarks/popular_servers.svg)
+
+I ran `sentinel lint` on 28 widely used servers from npm and PyPI, the official filesystem,
+GitHub and Playwright servers among them: 362 tools, 1,349 parameters. **22 of the 28 leave nothing a
+model needs undocumented.** In the other 6 the gaps are concentrated: `firecrawl` has 71 of 194
+parameters documented nowhere, `github` 31 of 130, `notion` 27 of 71, `desktop-commander` 20 of 72 (plus
+29 documented only in prose), and the official `server-filesystem` 5 of 25 (`excludePatterns`, `pattern`,
+`source`, `destination`).
+
+Counting is not the same as being right, so I checked: a hand-judged random sample found about 6 in 10
+flagged parameters are real gaps, which puts the genuinely under-documented share at **roughly 6 to 7% of
+parameters**, not the 28% my first version reported. The rule was tightened twice as samples showed it was
+pedantic ([`benchmarks/PRECISION.md`](benchmarks/PRECISION.md) has every sample and verdict).
+
+That matters because the description is all a model has to decide how to call a tool. Two 2026 studies
+([856 tools](https://arxiv.org/html/2602.14878v1), [10,831 servers](https://arxiv.org/html/2602.18914v1))
+found these gaps are common and that fixing them measurably changes which tool an LLM picks.
+
+## Against a production scanner
+
+I ran Cisco's open-source [`mcp-scanner`](https://github.com/cisco-ai-defense/mcp-scanner) (its offline
+YARA rules; its cloud and LLM analyzers need keys) and Sentinel on the same tool definitions: 15 poisoned
+tools written after published attack patterns, 6 honest-but-scary ones, and the 362 real tools.
+
+| | Poisoned caught | Honest-but-scary wrongly flagged | Real tools flagged |
+|---|---|---|---|
+| Sentinel | 7 of 15 (all 3 hidden-character ones) | 0 of 6 | 0 of 362 |
+| Cisco mcp-scanner, offline | 2 of 15 | 3 of 6 | 16 of 362: none an attack, 3 debatable |
+
+Sentinel's separate credential-path mention check also flags 2 of the 6 and 4 of the 362, reported on its own.
+Neither catches the evasive variants (paraphrase, base64, other languages), and a regex or YARA rule never
+will, which is said plainly in the rule. I wrote the corpus, so it favours the tool whose patterns I know;
+that bias, the offline-only limit and the small sample are in
+[`benchmarks/SECURITY_COMPARE.md`](benchmarks/SECURITY_COMPARE.md). The tools check different things too:
+Cisco's `protocol` scan runs about ten security-posture checks (plain HTTP, unauthenticated discovery,
+fail-open), while Sentinel grades 68 specification rules.
+
+On the protocol side, Sentinel catches every violation it has a rule for in the MCP maintainers' own
+deliberately broken servers, and says "can't tell" where it can't. Methodology, per-server numbers,
+the comparison with the official suite and the limits are in [`benchmarks/`](benchmarks/README.md);
+each result reproduces with one command.
+
+## What it checks
+
+```mermaid
+flowchart LR
+    A[Your MCP server<br/>any language] -->|"plain HTTP requests<br/>(no MCP library)"| B[Sentinel probe]
+    B --> C{68 rules}
+    C --> D[Spec rules<br/>MUST / SHOULD]
+    C --> E[Tool-description quality<br/>stubs, undocumented parameters]
+    C --> F[Security basics<br/>prompt injection in tool text,<br/>origin checks, token rules]
+    D --> G[Report<br/>text, JSON, SARIF, HTML]
+    E --> G
+    F --> G
+    G --> H[Exit code 0 / 1<br/>gate your CI on it]
+```
+
+The description checks come from research, not taste: a 2026 study of 856 tools found
+[97% of tool descriptions have at least one flaw](https://arxiv.org/html/2602.14878v1), and a study
+of 10,831 servers showed those flaws [change which tool an LLM picks](https://arxiv.org/html/2602.18914v1).
+
+## How it works
+
+1. **It speaks plain HTTP.** Sentinel sends raw JSON-RPC requests itself and uses no MCP library. A
+   library would quietly fix a server's mistakes, such as adding a missing header, and hide them.
+   It works on a server written in any language.
+2. **Each rule is a small test.** A rule sends one or more requests, reads the answer, and decides
+   PASS, FAIL or something else. The rules live in
+   [`harness/src/sentinel/catalog/`](harness/src/sentinel/catalog/), and each one names the spec
+   sentence it comes from.
+3. **It never guesses.** Some requirements cannot be checked from outside, for example "does the
+   server write an audit log?". Those are reported as `INDETERMINATE` and are never counted as a pass.
+4. **The exit code is the verdict.** `0` means no MUST rule failed and `1` means at least one did,
+   so CI can fail a build on it.
+
+Terms: **MUST** rules are required, and a failure fails the gate. **SHOULD** rules are
+recommendations, so they are reported but never fail the gate. The rule names carry a date,
+`2026-07-28`, because that is the spec revision they were written against.
+
+## Engineering notes
+
+- **A literal client, on purpose.** Sentinel sends raw HTTP and uses no MCP library: a library quietly
+  fixes the mistakes you are trying to find.
+- **"Can't tell" is a real answer.** A requirement that cannot be checked from outside is reported as
+  `INDETERMINATE` and is never counted as a pass.
+- **Two transports behind one interface.** HTTP, and stdio (a child process speaking newline-delimited
+  JSON), so every rule works on the majority of servers that only run locally. A server that has not
+  migrated to the current protocol is linted over a previous-revision session instead of failing every rule.
+- **Measured, not assumed, performance.** The first stdio version restarted the server once per rule.
+  Sharing one process across the read-only rules made a lint **4 to 7 times faster** (filesystem
+  server 6.8 s to 1.0 s; Playwright 6.1 s to 1.2 s) with identical results, and a test pins the start count.
+- **It audited itself, twice.** Every rule was checked against the specification text and the official
+  conformance suite. One rule had invented a requirement the spec does not make, so it was withdrawn,
+  and 11 more were withdrawn or demoted to advisory, with about ten loosened. Rule ids are permanent, so each
+  retired rule is deprecated and points at its replacement.
+- **Quality gates.** `mypy --strict`, ruff, 394 tests (including an oracle that measures recall against
+  a deliberately broken server), CI on every push, SARIF output for GitHub code scanning.
+
+## What is in this repo
+
+| Part | What it is | Tech |
 |---|---|---|
-| `token-audience-validated` | The harness cannot mint a token signed by your issuer, and a forged one is rejected for its signature — which proves nothing about the audience check. | Mint one with your issuer and a different audience; confirm the refusal. |
-| `no-token-passthrough` | What a server sends to its own dependencies is invisible from the client side. | Capture the server's egress during an authenticated call. |
-| `handle-possession-is-not-authentication` | Needs **two** authenticated principals; a scan has one. | Mint a handle as one, present it as the other. |
-| `mrtr-retries-are-idempotent` | A duplicate retry that returns the right answer is indistinguishable from one that performed the effect twice *and* returned the right answer. | Count the effect at its source, not in the reply. |
-| `SENTINEL/SECURITY/invocations-are-audited` *(beyond-spec: the security page has no audit-logging requirement)* | An audit log is not exposed over MCP; a server claiming to keep one would be believed on its own word. | Read the log and verify its chain. |
+| [`harness/`](harness/) | **Sentinel**, the checker described above | Python 3.12, httpx, typer, pytest, mypy `--strict`, ruff |
+| [`broker/`](broker/) and [`mcp/`](mcp/) | A reference MCP server and the reusable server kit it is built on; both pass Sentinel | Go, Postgres, JWT auth, OpenTelemetry (hand-written OTLP exporter) |
+| [`fleet/`](fleet/) | A service that stores scan history for many servers | Go, Postgres (pgx), HTTP API |
+| `.github/`, [`action.yml`](action.yml) | CI, a reusable GitHub Action, and a pre-commit hook | GitHub Actions, Docker, SARIF to GitHub code scanning |
 
-**A clean scan is not a clean bill of health.** A harness that scored these as passes would be
-lying, and a tool that implied otherwise would be worse than no tool.
+Sentinel never imports the server code. It only talks HTTP, so it can be pointed at anything.
 
-**Eleven rules cite a specification page rather than a heading.** Their anchors could not be
-confirmed when they were written, so they point at the page and nothing finer; the list, and how
-to promote each to an anchor, is [`docs/CITATIONS.md`](docs/CITATIONS.md). A test keeps that list
-equal to the catalog.
-
-The broker implements all five properties, and proves it with tests that *do* have the access a scan lacks —
-`TestTokenForAnotherAudienceRejected`, `TestInboundTokenNeverForwarded`,
-`TestCrossPrincipalHandleRefused`, `TestDuplicateRetryIsIdempotent`, `TestChainDetectsTampering`.
-That is the point of shipping both: the scan says what it can see, and the server's own suite
-covers what it cannot.
-
-### Rule lifecycle
-
-**A rule ID never changes meaning.** A report from six months ago names rules by ID and nothing
-else, so redefining one silently rewrites what that report said. When a rule turns out to be wrong,
-it is deprecated and a successor is published under a new ID.
-
-Three rules were corrected in **0.2.0**, all in the same direction — `sentinel` was demanding more
-than the specification does, which is the false positive `MEASUREMENTS.md` publishes as zero:
-
-| Deprecated | Successor | Why |
-|---|---|---|
-| `MUST/server-info-echoed` | `SHOULD/server-info-echoed` | The spec marks `serverInfo` *Required: No*. Omitting it costs you cache keys and attribution; it does not make you non-conformant. |
-| `MUST/tools-list-is-deterministic` | `SHOULD/tools-list-is-deterministic` | "Servers **SHOULD** return tools in a deterministic order." The MUST in the same paragraph is a different property — the set MUST NOT vary per-connection — now checked by `MUST/tools-list-connection-independent`, which opens a second connection because twenty calls on one could never have seen it. |
-| `SHOULD/tools-sorted-by-name` | `SENTINEL/STYLE/tools-sorted-by-name` | The specification asks for a deterministic order and never for a sorted one, so a stable unsorted manifest conforms fully. It is still a good idea, so it moved to the beyond-spec namespace rather than being deleted. A `SENTINEL/` rule carries a rationale instead of a citation and can never fail a spec gate. |
-
-Deprecated rules are excluded from a scan by default and never deleted. Pass
-`--include-deprecated-rules` to evaluate them as well, which is how you reproduce a report written
-before the correction and see what changed.
-
----
-
-## Measurements
-
-Regenerated by `make measure`; see [`MEASUREMENTS.md`](MEASUREMENTS.md) for the method behind each.
-
-| Measurement | Result |
-|---|---|
-| Recall against the non-conformant fixture | **100%** (52 of 52 seeded violations; MUST 43 of 43) |
-| False positives against the conformant fixture | **0** |
-| `tools/list` determinism | **1** distinct SHA-256 across 100 calls and 5 cold rebuilds |
-| Manifest token count | 2,032 tokens across 4 tools |
-| `concise` vs `detailed` responses | up to **49.3%** fewer tokens |
-| Scan wall-clock, 68 rules | p50 ~260 ms, p95 ~275 ms (fixture in its own process, rules concurrent) |
-
-Recall's denominator comes from the fixture's own `SEEDED_VIOLATIONS` list, not from anything in
-the harness — a scanner supplying its own denominator would be grading its own homework — and a
-test asserts that list matches the violations tagged in the fixture's source, so it cannot quietly
-shrink.
-
----
-
-## Quick start
+## Test Sentinel itself
 
 ```bash
-make up                      # postgres + broker + envoy + smokescreen + otel-collector
-make check                   # golangci-lint, go test -race, ruff, mypy, pytest
-make scan-broker             # grade the broker against its own harness
-make scan-fixture            # grade an unmigrated server; expected to exit 1
-make demo                    # the nine-step demo
-go run ./mcp/example/cmd     # the smallest conformant server, built from the kit (docs/KIT.md)
+make check     # lint, type-check and the test suite (needs Go 1.23+, Python 3.12+, uv)
 ```
 
-Requires Go 1.23+, Python 3.12+, uv ≥ 0.5 and Docker. **No model API key is required anywhere** —
-the broker serves tools, it does not call models, which is why CI is fast, free, and never flaky
-for a reason outside this repository.
+The tests scan the two practice servers and expect the bad one to fail and the good one to pass, so
+a rule that stops catching its mistake fails the build.
 
-### Scanning your own server
+## Going further
 
-No clone needed: every GitHub release publishes the harness to PyPI as
-`sentinel-mcp-conformance` (the `release` workflow).
-
-```bash
-uvx sentinel-mcp-conformance scan --endpoint https://your-server.example/mcp --gate must
-pipx install sentinel-mcp-conformance   # then: sentinel scan ...
-```
-
-From a clone:
-
-```bash
-uv run sentinel scan --endpoint https://your-server.example/mcp --gate must \
-  --token "$TOKEN" --format sarif --out scan.sarif
-uv run sentinel deprecations --endpoint https://your-server.example/mcp
-```
-
-### In CI, as a GitHub Action
-
-```yaml
-permissions:
-  security-events: write      # only needed for the code-scanning upload
-steps:
-  - run: ./start-my-server.sh &
-  - uses: patsypppe/sentinel@v0.4.0
-    with:
-      endpoint: http://localhost:3000/mcp
-      gate: must              # fail the job on any MUST violation
-      # baseline: sentinel-baseline.json   # gate only on what is new
-      # config: sentinel.toml              # rule toggles, waivers, evidence
-```
-
-The job fails on a MUST violation, writes a Markdown summary to the run page, and uploads the
-findings to code scanning. The action's own CI runs it against both fixtures and asserts it passes
-one and fails the other, and a test executes its scan step as the bash it is.
-
-Elsewhere: `docker run ghcr.io/patsypppe/sentinel scan ...`, a [GitLab template](ci/gitlab/sentinel.gitlab-ci.yml)
-that publishes JUnit, and a `pre-commit` hook. Releases are signed with cosign (keyless) and carry
-a CycloneDX SBOM.
-
-### Scanning a server you do not own: `--safe`
-
-Three rules prove a MUST by calling one of the server's own tools with empty arguments. On your
-server that is fine; on someone else's, a tool call can still do something. With `--safe`, Sentinel
-only invokes a tool the server has annotated `readOnlyHint: true`. Every rule that needed any other
-call reports `INDETERMINATE (skipped in safe mode)` — never a pass, never a fail.
-
-### Scanning the whole registry
-
-```bash
-sentinel registry-scan --out-dir scan     # every remote server in the official MCP registry
-```
-
-Classifies each endpoint (speaks `2026-07-28`, legacy `2025-11-25` only, needs credentials,
-unreachable), grades the ones on the current revision in safe mode with one connection per host
-and no retries, and writes an aggregate summary that names no server. Per-server results stay
-local, so a finding can reach its maintainer first. The `registry-scan` workflow runs it on
-demand.
-
-Exit codes are a contract: **0** passed, **1** the *target* failed the gate, **2** the *scanner*
-could not run. CI needs to tell "the server is wrong" from "the scanner broke", so those are never
-conflated.
-
-The SARIF renders natively in GitHub code scanning. Because a conformance finding is about a
-service rather than a file, pass `--sarif-anchor <path>` to choose the repo file annotations attach
-to; a scan of a third-party server has no such file and should use `--format json`.
-
----
-
-## What the broker demonstrates
-
-- **Stateless.** No session, nothing keyed by connection. Cross-call state is a server-minted
-  handle bound to its principal, re-verified on **every** resolution — `handles/resolve.go` is the
-  only place a handle becomes usable, and it returns one indistinguishable error for "does not
-  exist", "not yours", "expired" and "revoked".
-- **MRTR with exactly-once effects.** `requestState` is AEAD-sealed with the tool name as
-  additional authenticated data; the effect and its recorded result commit in one transaction; a
-  duplicate retry replays the recorded result **verbatim** and performs zero further effects.
-- **Deterministic manifest.** Built once, sorted byte-wise, served as precomputed bytes.
-- **The header contract, demonstrated rather than asserted.** Envoy routes and authorizes on
-  `Mcp-Method` / `Mcp-Name` with **no body-parsing filter anywhere** — a test parses the config and
-  checks — and the broker rejects a body that disagrees with the headers. Routed by header,
-  rejected by body check.
-- **Audience validation.** Exact-membership `aud` check; the inbound token is never carried onto
-  the principal, so there is nothing to forward downstream even by accident.
-- **An append-only, hash-chained audit log.** Immutability is enforced by database grants rather
-  than convention, and `broker audit verify` walks the chain and names the first break.
-
----
-
-## Documentation
-
-- **[`docs/MIGRATION.md`](docs/MIGRATION.md)** — what changed in `2026-07-28` and what it costs
-  you, with the mistakes worth avoiding and a migration order that works.
-- **[`docs/USING.md`](docs/USING.md)** — baselines, waivers, severity overrides, drift, gray-box evidence, output formats, wiring into CI.
-- **[`docs/FLEET.md`](docs/FLEET.md)** — scanning many servers, and `sentinel-server`: ingest, history, the dashboard, the API.
-- **[`docs/KIT.md`](docs/KIT.md)** — building a conformant server with `mcp/`.
-- [`docs/CITATIONS.md`](docs/CITATIONS.md) — which rule citations still need an anchor.
-- [`docs/examples/`](docs/examples/) — a complete `sentinel.toml` and fleet file; tests load them.
+- [`docs/USING.md`](docs/USING.md): waivers, baselines, CI setup, report formats, many servers at once
+- [`docs/OVERVIEW.md`](docs/OVERVIEW.md): the full project overview, including the reference server (`broker/`), the Go server kit (`mcp/`) and the history service (`fleet/`)
+- [`docs/MIGRATION.md`](docs/MIGRATION.md): what changed in the current MCP spec
 - [`CHANGELOG.md`](CHANGELOG.md)
-- [`docs/HANDOFF.md`](docs/HANDOFF.md) — the implementation specification (SN-HND-001).
-- [`docs/runbook.md`](docs/runbook.md) — running, operating and debugging the stack.
-- [`docs/demo/README.md`](docs/demo/README.md) — the nine-step demo.
-- [`CLAUDE.md`](CLAUDE.md) — the four rules and the single-source-file constraints.
 
-## Precedence
-
-Where this repository and the
-[MCP specification](https://modelcontextprotocol.io/specification/2026-07-28/) disagree,
-**the specification wins and this repository is wrong.**
-
-## Scope
-
-This is the v1 tier of `SN-PRD-001`. Deliberately **not** here: OAuth beyond audience validation
-(CIMD, consent registry, scope step-up), `subscriptions/listen`, the tasks extension, MCP Apps, and
-rate limiting or tenant-isolation *enforcement* — the `tenant_id` columns exist throughout, the
-policy does not. See `docs/HANDOFF.md` §3.2 for why each is out and when it returns.
-
-## License
-
-MIT — see [`LICENSE`](LICENSE).
+MIT licensed.

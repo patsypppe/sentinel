@@ -68,10 +68,10 @@ def collect_input_required(
     reached = False
     for name in _tool_names(probe):
         response = probe.tools_call(name, {}, client_capabilities=declared)
-        if not response.reached_server:
+        if response.unusable_reason() is not None:
             if "safe mode" in (response.transport_error or ""):
                 continue
-            return [], f"the server was unreachable: {response.transport_error}"
+            return [], f"the server was unreachable: {response.unusable_reason()}"
         reached = True
         result = response.result()
         if result is not None and result.get("resultType") == "input_required":
@@ -97,7 +97,7 @@ def _rejected(response: RawResponse) -> bool:
     id="MCP/2026-07-28/MUST/tampered-requeststate-rejected",
     title="A requestState altered by one character is rejected, not honoured",
     severity=Severity.MUST,
-    citation=MRTR,
+    citation=f"{MRTR}#server-requirements-basic-workflow",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Treat requestState as attacker-controlled input: seal it (an AEAD, or an HMAC "
@@ -125,14 +125,23 @@ def tampered_requeststate_rejected(probe: Probe) -> RuleResult:
         extra_params={"requestState": forged, "inputResponses": {}},
         client_capabilities={"elicitation": {}},
     )
-    if not retry.reached_server:
-        return RuleResult.indeterminate(f"unreachable on the retry: {retry.transport_error}")
+    if retry.unusable_reason() is not None:
+        return RuleResult.indeterminate(f"unreachable on the retry: {retry.unusable_reason()}")
     if _rejected(retry):
         return RuleResult.passed(
             f"{found.tool} rejected a requestState altered by one character "
             f"(HTTP {retry.status}, code {retry.error_code()})"
         )
     outcome = (retry.result() or {}).get("resultType")
+    if outcome == "input_required":
+        # Asking again is an allowed reply to a retry with missing input, and the
+        # MUST only applies when the state influences behaviour, so a fresh
+        # input_required does not show that the forged state was honoured.
+        return RuleResult.indeterminate(
+            f"{found.tool} answered an altered requestState with a new input_required "
+            "rather than an error. That may be a rejection in disguise or a state read back "
+            "unverified; the wire cannot tell which."
+        )
     return RuleResult.failed(
         f"{found.tool} accepted a requestState altered by one character and answered "
         f"with resultType {outcome!r}. The state is being read back without being "
@@ -145,7 +154,7 @@ def tampered_requeststate_rejected(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/input-required-carries-requests-or-state",
     title="An input_required result carries inputRequests or a requestState",
     severity=Severity.MUST,
-    citation=MRTR,
+    citation=f"{MRTR}#server-requirements-basic-workflow",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Return at least one of inputRequests (what you need) or requestState (how to "
@@ -174,7 +183,7 @@ def input_required_carries_requests_or_state(probe: Probe) -> RuleResult:
     id="MCP/2026-07-28/MUST/input-requests-respect-declared-capabilities",
     title="A client that declared no capabilities is not asked for any",
     severity=Severity.MUST,
-    citation=MRTR,
+    citation=f"{MRTR}#server-requirements-basic-workflow",
     verifiability=Verifiability.BLACK_BOX,
     remediation=(
         "Read clientCapabilities on every request and do not return inputRequests "

@@ -49,6 +49,7 @@ def _render_v2(report: ScanReport) -> dict[str, Any]:
         "name": report.target_name,
         "identity": report.target,
         "manifestHash": report.manifest_hash,
+        "generation": report.generation,
     }
     payload["policy"] = report.policy
     suppressed = [f for f in report.findings if f.suppressed]
