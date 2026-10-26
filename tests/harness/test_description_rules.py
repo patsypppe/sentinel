@@ -66,8 +66,17 @@ def test_parameter_documentation_is_judged_the_way_a_model_reads_it() -> None:
     assert documented(tool, "query", {"type": "string"}) == "prose"
     assert documented(tool, "max_results", {"type": "integer"}) == "prose"
     assert documented(tool, "x", {"type": "string", "description": "hi"}) == "schema"
+    assert documented({"description": "Use the 'depth' parameter."}, "depth", {}) == "prose"
+    assert (
+        documented({"description": "x"}, "state", {"type": "string", "enum": ["a", "b"]})
+        == "obvious"
+    )
+    assert documented({"description": "x"}, "includeHidden", {"type": "boolean"}) == "obvious"
+    assert documented({"description": "x"}, "lockdown", {"type": "boolean"}) is None
     # A sentence that merely contains the word does not document the parameter.
-    assert documented({"description": "Read a file at path."}, "limit", {"type": "integer"}) is None
+    assert (
+        documented({"description": "Read a file at path."}, "weight", {"type": "integer"}) is None
+    )
     # Self-evident only for a plain string; a structured `path` is not.
     assert documented({"description": "x"}, "path", {"type": "string"}) == "obvious"
     assert documented({"description": "x"}, "path", {"type": "array"}) is None

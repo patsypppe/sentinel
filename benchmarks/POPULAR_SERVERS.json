@@ -40,12 +40,11 @@
     "params": 16,
     "params_schema": 15,
     "params_prose": 0,
-    "params_obvious": 0,
-    "params_undocumented": 1,
+    "params_obvious": 1,
+    "params_undocumented": 0,
     "tools_described": 13,
     "injection_kinds": [],
     "failed_rules": [
-      "parameters-are-described",
       "tools-sorted-by-name"
     ]
   },
@@ -87,8 +86,8 @@
     "params": 130,
     "params_schema": 79,
     "params_prose": 0,
-    "params_obvious": 2,
-    "params_undocumented": 49,
+    "params_obvious": 20,
+    "params_undocumented": 31,
     "tools_described": 26,
     "injection_kinds": [],
     "failed_rules": [
@@ -184,8 +183,8 @@
     "params": 71,
     "params_schema": 40,
     "params_prose": 0,
-    "params_obvious": 0,
-    "params_undocumented": 31,
+    "params_obvious": 4,
+    "params_undocumented": 27,
     "tools_described": 24,
     "injection_kinds": [],
     "failed_rules": [
@@ -201,8 +200,8 @@
     "params": 194,
     "params_schema": 55,
     "params_prose": 24,
-    "params_obvious": 13,
-    "params_undocumented": 102,
+    "params_obvious": 44,
+    "params_undocumented": 71,
     "tools_described": 28,
     "injection_kinds": [],
     "failed_rules": [
@@ -231,9 +230,9 @@
     "tools": 25,
     "params": 72,
     "params_schema": 0,
-    "params_prose": 26,
-    "params_obvious": 8,
-    "params_undocumented": 38,
+    "params_prose": 29,
+    "params_obvious": 23,
+    "params_undocumented": 20,
     "tools_described": 25,
     "injection_kinds": [
       "sensitive-path"
@@ -430,12 +429,11 @@
     "params": 165,
     "params_schema": 162,
     "params_prose": 0,
-    "params_obvious": 0,
-    "params_undocumented": 3,
+    "params_obvious": 3,
+    "params_undocumented": 0,
     "tools_described": 27,
     "injection_kinds": [],
     "failed_rules": [
-      "parameters-are-described",
       "tools-sorted-by-name"
     ]
   },

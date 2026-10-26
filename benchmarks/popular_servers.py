@@ -89,7 +89,9 @@ SERVERS = [
 ]
 
 
-def lint(server: Server, timeout: float) -> dict[str, object]:
+def lint(
+    server: Server, timeout: float, dump_tools: pathlib.Path | None = None
+) -> dict[str, object]:
     argv = shlex.split(server.command)
     key = "stdio:" + server.command
 
@@ -108,6 +110,9 @@ def lint(server: Server, timeout: float) -> dict[str, object]:
         row["status"] = "no tools listed (did not start, or listed none)"
         return row
 
+    if dump_tools is not None:
+        dump_tools.mkdir(parents=True, exist_ok=True)
+        (dump_tools / f"{server.name}.json").write_text(json.dumps({"tools": tools}))
     kinds = [
         parameter_documented(t, p, d)
         for t in tools
@@ -180,7 +185,7 @@ def render(rows: list[dict[str, object]]) -> str:
         f"| {nowhere} of {params} parameters ({pct}%) |",
         f"| Parameters documented only in the description text, not the schema | "
         f"{sum(1 for r in ok if r['params_prose'])} of {n} | {in_prose} of {params} parameters |",
-        f"| Self-evident plain-string parameters (`path`, `url`, ...) | | {obvious} of {params} |",
+        f"| Self-explanatory parameters (`path`, enums, `limit`, ...) | | {obvious} of {params} |",
         f"| Parameters documented in the schema | | {in_schema} of {params} parameters |",
         f"| Stub or missing tool description | **{share('description-states-purpose')} of {n}** "
         f"| {undescribed_tools} tools have no description at all |",
@@ -214,9 +219,12 @@ def main() -> int:
     ap.add_argument("--timeout", type=float, default=90.0)
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--out", type=pathlib.Path, default=HERE / "POPULAR_SERVERS.md")
+    ap.add_argument(
+        "--dump-tools", type=pathlib.Path, help="also write each server's tools/list here"
+    )
     args = ap.parse_args()
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        rows = list(pool.map(lambda s: lint(s, args.timeout), SERVERS))
+        rows = list(pool.map(lambda s: lint(s, args.timeout, args.dump_tools), SERVERS))
     args.out.write_text(render(rows))
     args.out.with_suffix(".json").write_text(json.dumps(rows, indent=2) + "\n")
     print(render(rows))

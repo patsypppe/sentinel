@@ -86,19 +86,39 @@ sample rerun. Details, and the caveats, in [`benchmarks/REGISTRY_SCAN.md`](bench
 ![Where each parameter is documented, per published MCP server](benchmarks/popular_servers.svg)
 
 I ran `sentinel lint` on 28 widely used servers from npm and PyPI, the official filesystem,
-GitHub and Playwright servers among them: 362 tools, 1,349 parameters. **20 of the 28 leave nothing a
-model needs undocumented. 8 do**, and the gaps are concentrated: `firecrawl` leaves 102 of its 194
-parameters documented nowhere, `notion` 31 of 71, `desktop-commander` 38 of 72, and the official
-`server-filesystem` 5 of 25 (`edits`, `excludePatterns` and other structured arguments).
+GitHub and Playwright servers among them: 362 tools, 1,349 parameters. **22 of the 28 leave nothing a
+model needs undocumented.** In the other 6 the gaps are concentrated: `firecrawl` has 71 of 194
+parameters documented nowhere, `github` 31 of 130, `notion` 27 of 71, `desktop-commander` 20 of 72 (plus
+29 documented only in prose), and the official `server-filesystem` 5 of 25 (`excludePatterns`, `pattern`,
+`source`, `destination`).
 
-"Documented" is judged the way a model would read it: in the schema, or in the tool description in
-the usual `name: ...` shape, or a self-evident name like `path`. The first version of this rule counted
-only schema descriptions and over-reported; two false-positive classes were found by reading the
-servers' source and fixed (see [`benchmarks/`](benchmarks/README.md)).
+Counting is not the same as being right, so I checked: a hand-judged random sample found about 6 in 10
+flagged parameters are real gaps, which puts the genuinely under-documented share at **roughly 6 to 7% of
+parameters**, not the 28% my first version reported. The rule was tightened twice as samples showed it was
+pedantic ([`benchmarks/PRECISION.md`](benchmarks/PRECISION.md) has every sample and verdict).
 
 That matters because the description is all a model has to decide how to call a tool. Two 2026 studies
 ([856 tools](https://arxiv.org/html/2602.14878v1), [10,831 servers](https://arxiv.org/html/2602.18914v1))
 found these gaps are common and that fixing them measurably changes which tool an LLM picks.
+
+## Against a production scanner
+
+I ran Cisco's open-source [`mcp-scanner`](https://github.com/cisco-ai-defense/mcp-scanner) (its offline
+YARA rules; its cloud and LLM analyzers need keys) and Sentinel on the same tool definitions: 15 poisoned
+tools written after published attack patterns, 6 honest-but-scary ones, and the 362 real tools.
+
+| | Poisoned caught | Honest-but-scary wrongly flagged | Real tools flagged |
+|---|---|---|---|
+| Sentinel | 7 of 15 (all 3 hidden-character ones) | 0 of 6 | 0 of 362 |
+| Cisco mcp-scanner, offline | 2 of 15 | 3 of 6 | 16 of 362: none an attack, 3 debatable |
+
+Sentinel's separate credential-path mention check also flags 2 of the 6 and 4 of the 362, reported on its own.
+Neither catches the evasive variants (paraphrase, base64, other languages), and a regex or YARA rule never
+will, which is said plainly in the rule. I wrote the corpus, so it favours the tool whose patterns I know;
+that bias, the offline-only limit and the small sample are in
+[`benchmarks/SECURITY_COMPARE.md`](benchmarks/SECURITY_COMPARE.md). The tools check different things too:
+Cisco's `protocol` scan runs about ten security-posture checks (plain HTTP, unauthenticated discovery,
+fail-open), while Sentinel grades 68 specification rules.
 
 On the protocol side, Sentinel catches every violation it has a rule for in the MCP maintainers' own
 deliberately broken servers, and says "can't tell" where it can't. Methodology, per-server numbers,

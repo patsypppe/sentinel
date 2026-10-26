@@ -72,6 +72,46 @@ SELF_EVIDENT = frozenset(
 )
 
 
+#: Names every API uses the same way for paging; a description would only repeat the name.
+_PAGING = frozenset(
+    {
+        "limit",
+        "offset",
+        "cursor",
+        "start_cursor",
+        "next_cursor",
+        "page",
+        "page_size",
+        "pagesize",
+        "per_page",
+        "skip",
+        "top",
+        "after",
+        "before",
+    }
+)
+_FLAG_PREFIXES = ("include", "exclude", "is", "has", "enable", "allow", "only", "skip")
+_UNIT_SUFFIXES = ("_ms", "_seconds", "_secs", "ms", "seconds")
+
+
+def self_documenting(name: str, definition: dict[str, object]) -> bool:
+    """A parameter whose name or type already says everything a description would.
+
+    An enum lists its own values, a paging parameter means the same thing everywhere, a boolean
+    called `includeHidden` says what it switches, and a number called `timeout_ms` says its unit.
+    Flagging these is technically right and practically useless, so they are not flagged.
+    """
+    lowered = name.lower()
+    kind = definition.get("type")
+    if isinstance(definition.get("enum"), list) and len(definition["enum"]) >= 2:  # type: ignore[arg-type]
+        return True
+    if lowered in _PAGING and kind in ("integer", "number", "string"):
+        return True
+    if kind == "boolean" and lowered.startswith(_FLAG_PREFIXES):
+        return True
+    return kind in ("integer", "number") and lowered.endswith(_UNIT_SUFFIXES)
+
+
 def _nested_described(definition: dict[str, object]) -> bool:
     """An object (or array of objects) whose every field carries its own description."""
     node = definition.get("items") if definition.get("type") == "array" else definition
@@ -91,7 +131,8 @@ def parameter_documented(tool: dict[str, object], name: str, definition: object)
     `name (type): ...`, `name - ...` or a backticked `name`), which is where many servers put
     it, for example a docstring `Args:` block that the SDK copies into the description but not
     into the schema. A bare mention of a common word like "path" in a sentence does NOT count.
-    "obvious": a plain string whose name says what it is (see SELF_EVIDENT).
+    "obvious": a parameter whose name or type says what it is (see SELF_EVIDENT and
+    `self_documenting`).
     """
     if isinstance(definition, dict) and (
         str(definition.get("description") or "").strip() or _nested_described(definition)
@@ -100,10 +141,14 @@ def parameter_documented(tool: dict[str, object], name: str, definition: object)
     text = str(tool.get("description") or "")
     escaped = re.escape(name)
     shaped = rf"(?<![A-Za-z0-9_])[`*]*{escaped}[`*]*\s*(?:\([^)\n]*\))?\s*[:\-\u2013\u2014]\s*\S"
-    if re.search(shaped, text) or re.search(rf"`{escaped}`", text):
+    if re.search(shaped, text) or re.search(rf"[`'\"]{escaped}[`'\"]", text):
         return "prose"
-    plain_string = isinstance(definition, dict) and definition.get("type") == "string"
-    if plain_string and name.lower() in SELF_EVIDENT and "enum" not in definition:  # type: ignore[operator]
+    if not isinstance(definition, dict):
+        return None
+    plain_string = definition.get("type") == "string"
+    if plain_string and name.lower() in SELF_EVIDENT and "enum" not in definition:
+        return "obvious"
+    if self_documenting(name, definition):
         return "obvious"
     return None
 

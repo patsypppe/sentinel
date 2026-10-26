@@ -12,6 +12,14 @@ run's 13 of 2,263 was inflated by two false-positive classes, since fixed). Aggr
 `benchmarks/REGISTRY_SCAN.md`. The workflow also prints the
 aggregate as an annotation so it can be read without downloading an artifact.
 
+### Measured: precision and a production comparison
+
+`benchmarks/PRECISION.md`: hand-checked random samples (parameters: 3 of 12 real gaps before the rule was
+refined, 7 of 12 after, on a fresh draw; specification findings: 15 of 15 correct). The rule now treats
+enums, paging names, flag booleans and unit-suffixed numbers as self-explanatory and accepts quoted
+parameter names in prose. Headline: 11% of parameters flagged, an estimated 6 to 7% genuinely missing.
+`benchmarks/compare_cisco.py`: Sentinel against Cisco's `mcp-scanner` on a labelled poisoning corpus.
+
 ### Fixed: the parameter-documentation rule over-reported
 
 `SENTINEL/STYLE/parameters-are-described` counted only schema descriptions. It now also accepts a

@@ -4,13 +4,13 @@
 your own account. I did not read this server's source, only its published tool list, so the issue is
 limited to what that shows.
 
-**Title:** Tool input schemas: most parameters have no description (102 of 194 in v3.34.1)
+**Title:** Tool input schemas: most parameters have no description (71 of 194 in v3.34.1)
 
 **Body:**
 
 Hi, thanks for the MCP server. I ran [Sentinel](https://github.com/patsypppe/sentinel), a linter for MCP
 servers, on `firecrawl-mcp` 3.34.1 over stdio. Tool descriptions are detailed (they explain when to use
-each tool), but in the `inputSchema` of the tools 102 of 194 parameters have no `description`, and they
+each tool), but in the `inputSchema` of the tools 71 of 194 parameters have no `description`, and they
 are not documented in the tool description text either. A model choosing arguments from the schema sees only a name and a type.
 
 The most ambiguous are numeric parameters, where units and bounds matter:

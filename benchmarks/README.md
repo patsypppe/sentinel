@@ -8,6 +8,8 @@ a table and writes it next to the script.
 | Does Sentinel catch violations that the MCP maintainers labelled? | `official_negatives.py` | [`RESULTS.md`](RESULTS.md) |
 | What does Sentinel report on servers built with the official SDKs? | `sdk_readiness.py` | [`SDK_RESULTS.md`](SDK_RESULTS.md) |
 | How do 28 widely used published servers fare? | `popular_servers.py` | [`POPULAR_SERVERS.md`](POPULAR_SERVERS.md) |
+| How often is Sentinel right? (hand-checked samples) | by hand, see the file | [`PRECISION.md`](PRECISION.md) |
+| Sentinel vs Cisco's mcp-scanner on tool poisoning | `compare_cisco.py` | [`SECURITY_COMPARE.md`](SECURITY_COMPARE.md) |
 
 ```bash
 git clone https://github.com/modelcontextprotocol/conformance && cd conformance
