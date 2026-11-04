@@ -7,7 +7,7 @@ import pathlib
 
 import pytest
 
-from sentinel.catalog.base import (
+from toolgauge.catalog.base import (
     REGISTRY,
     RULE_ID_PATTERN,
     Namespace,
@@ -49,7 +49,7 @@ def test_rule_ids_carry_their_severity() -> None:
     the catalog that produced it."""
     for r in REGISTRY:
         if r.namespace is not Namespace.MCP:
-            # A SENTINEL/ id is namespaced by category, not severity, because a
+            # A TOOLGAUGE/ id is namespaced by category, not severity, because a
             # beyond-spec rule's severity is this project's opinion rather than
             # something the specification assigned it.
             continue
@@ -70,7 +70,7 @@ def test_unverifiable_rules_cannot_report_a_pass() -> None:
     `BaseRule.evaluate` coerces a non-INDETERMINATE result from an UNVERIFIABLE
     rule, so this holds even if a future edit makes one of them return PASS.
     """
-    from sentinel.catalog.base import BaseRule, RuleResult
+    from toolgauge.catalog.base import BaseRule, RuleResult
 
     lying = BaseRule(
         id="MCP/2026-07-28/MUST/pretend",
@@ -87,7 +87,7 @@ def test_unverifiable_rules_cannot_report_a_pass() -> None:
 def test_unverifiable_rules_explain_what_would_settle_them() -> None:
     """A limitation nobody can act on is a shrug. Each unverifiable rule says
     what evidence WOULD settle it."""
-    from sentinel.grade import unverifiable_rules
+    from toolgauge.grade import unverifiable_rules
 
     rules = unverifiable_rules()
     assert rules, "no rules are marked unverifiable, which is implausible"
@@ -115,7 +115,7 @@ def test_harness_never_imports_broker() -> None:
                 names = [node.module]
             for name in names:
                 root = name.split(".")[0]
-                if root in ("broker", "sentinel_broker"):
+                if root in ("broker", "toolgauge_broker"):
                     offenders.append(f"{path.name}: imports {name}")
 
     assert not offenders, "\n".join(offenders)
@@ -127,7 +127,7 @@ def test_probe_does_not_use_an_mcp_sdk() -> None:
     banned = {"mcp", "modelcontextprotocol", "fastmcp", "mcp_sdk"}
     offenders: list[str] = []
 
-    for path in (HARNESS_SRC / "sentinel" / "probe").rglob("*.py"):
+    for path in (HARNESS_SRC / "toolgauge" / "probe").rglob("*.py"):
         tree = ast.parse(path.read_text())
         for node in ast.walk(tree):
             names: list[str] = []
@@ -150,7 +150,7 @@ def test_connection_independence_rule_exists_and_passes_the_conformant_fixture(
     "MUST NOT vary per-connection" needs two connections to observe; twenty
     calls on one connection cannot see it.
     """
-    from sentinel.probe.client import Probe
+    from toolgauge.probe.client import Probe
 
     by_id = {r.id: r for r in REGISTRY.all()}
     rule = by_id["MCP/2026-07-28/MUST/tools-list-connection-independent"]
@@ -164,7 +164,7 @@ def test_connection_independence_rule_exists_and_passes_the_conformant_fixture(
 def test_legacy_range_rule_fires_on_the_nonconformant_fixture(
     nonconformant_endpoint: str,
 ) -> None:
-    from sentinel.probe.client import Probe
+    from toolgauge.probe.client import Probe
 
     rule = {r.id: r for r in REGISTRY.all()}["MCP/2026-07-28/SHOULD/no-errors-in-legacy-range"]
     with Probe(nonconformant_endpoint) as probe:
@@ -172,7 +172,7 @@ def test_legacy_range_rule_fires_on_the_nonconformant_fixture(
 
 
 def test_legacy_range_rule_passes_the_conformant_fixture(conformant_endpoint: str) -> None:
-    from sentinel.probe.client import Probe
+    from toolgauge.probe.client import Probe
 
     rule = {r.id: r for r in REGISTRY.all()}["MCP/2026-07-28/SHOULD/no-errors-in-legacy-range"]
     with Probe(conformant_endpoint) as probe:
@@ -190,7 +190,7 @@ META_RULES = [
 
 @pytest.mark.parametrize("rule_id", META_RULES)
 def test_meta_rules_pass_the_conformant_fixture(rule_id: str, conformant_endpoint: str) -> None:
-    from sentinel.probe.client import Probe
+    from toolgauge.probe.client import Probe
 
     rule = {r.id: r for r in REGISTRY.all()}[rule_id]
     with Probe(conformant_endpoint) as probe:
@@ -202,7 +202,7 @@ def test_meta_rules_pass_the_conformant_fixture(rule_id: str, conformant_endpoin
 def test_meta_rules_fail_the_nonconformant_fixture(
     rule_id: str, nonconformant_endpoint: str
 ) -> None:
-    from sentinel.probe.client import Probe
+    from toolgauge.probe.client import Probe
 
     rule = {r.id: r for r in REGISTRY.all()}[rule_id]
     with Probe(nonconformant_endpoint) as probe:
@@ -229,7 +229,7 @@ HTTP_RULES = [
 
 @pytest.mark.parametrize("rule_id", HTTP_RULES)
 def test_http_rules_pass_the_conformant_fixture(rule_id: str, conformant_endpoint: str) -> None:
-    from sentinel.probe.client import Probe
+    from toolgauge.probe.client import Probe
 
     rule = {r.id: r for r in REGISTRY.all()}[rule_id]
     with Probe(conformant_endpoint) as probe:
@@ -241,7 +241,7 @@ def test_http_rules_pass_the_conformant_fixture(rule_id: str, conformant_endpoin
 def test_http_rules_fail_the_nonconformant_fixture(
     rule_id: str, nonconformant_endpoint: str
 ) -> None:
-    from sentinel.probe.client import Probe
+    from toolgauge.probe.client import Probe
 
     rule = {r.id: r for r in REGISTRY.all()}[rule_id]
     with Probe(nonconformant_endpoint) as probe:
@@ -261,7 +261,7 @@ def test_a_served_unversioned_request_is_not_proof_of_a_violation(
 ) -> None:
     """A server MAY serve a request with no MCP-Protocol-Version header if it supports
     clients older than 2025-06-18, so the wire alone cannot call it a violation."""
-    from sentinel.probe.client import Probe
+    from toolgauge.probe.client import Probe
 
     rule = {r.id: r for r in REGISTRY.all()}[rule_id]
     with Probe(nonconformant_endpoint) as probe:
@@ -279,7 +279,7 @@ def test_notification_rule_passes_the_conformant_fixture(conformant_endpoint: st
     names the branch the fixture actually exercises — otherwise the harder half
     of the requirement, "202 Accepted with no body", would never be tested.
     """
-    from sentinel.probe.client import Probe
+    from toolgauge.probe.client import Probe
 
     rule = {r.id: r for r in REGISTRY.all()}[NOTIFICATION_RULE]
     with Probe(conformant_endpoint) as probe:
@@ -289,7 +289,7 @@ def test_notification_rule_passes_the_conformant_fixture(conformant_endpoint: st
 
 
 def test_notification_rule_fails_the_nonconformant_fixture(nonconformant_endpoint: str) -> None:
-    from sentinel.probe.client import Probe
+    from toolgauge.probe.client import Probe
 
     rule = {r.id: r for r in REGISTRY.all()}[NOTIFICATION_RULE]
     with Probe(nonconformant_endpoint) as probe:
@@ -301,7 +301,7 @@ GET_DELETE_RULE = "MCP/2026-07-28/SHOULD/get-delete-405"
 
 
 def test_get_delete_rule_passes_the_conformant_fixture(conformant_endpoint: str) -> None:
-    from sentinel.probe.client import Probe
+    from toolgauge.probe.client import Probe
 
     rule = {r.id: r for r in REGISTRY.all()}[GET_DELETE_RULE]
     with Probe(conformant_endpoint) as probe:
@@ -310,7 +310,7 @@ def test_get_delete_rule_passes_the_conformant_fixture(conformant_endpoint: str)
 
 
 def test_get_delete_rule_fails_the_nonconformant_fixture(nonconformant_endpoint: str) -> None:
-    from sentinel.probe.client import Probe
+    from toolgauge.probe.client import Probe
 
     rule = {r.id: r for r in REGISTRY.all()}[GET_DELETE_RULE]
     with Probe(nonconformant_endpoint) as probe:

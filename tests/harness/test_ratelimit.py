@@ -9,11 +9,11 @@ from typing import Any
 import pytest
 from tests.harness.conftest import free_port
 
-from sentinel.catalog.base import REGISTRY, Outcome
-from sentinel.grade import run_scan
-from sentinel.probe.client import Probe
 from server import conformant
 from server.common import error, parse, result, serve_background
+from toolgauge.catalog.base import REGISTRY, Outcome
+from toolgauge.grade import run_scan
+from toolgauge.probe.client import Probe
 
 pytestmark = pytest.mark.unit
 
@@ -96,7 +96,7 @@ def test_safe_mode_will_not_flood_a_tool_that_is_not_read_only(
 def test_the_burst_is_capped_whatever_is_asked(
     limited_server: tuple[dict[str, Any], str],
 ) -> None:
-    from sentinel.catalog.must.ratelimit import MAX_BURST
+    from toolgauge.catalog.must.ratelimit import MAX_BURST
 
     knobs, endpoint = limited_server
     knobs["limit"] = 10**9

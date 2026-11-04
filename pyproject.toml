@@ -1,13 +1,13 @@
-# Workspace root. The shippable Python package is `harness/` (the `sentinel`
+# Workspace root. The shippable Python package is `harness/` (the `toolgauge`
 # conformance CLI); this file exists so `uv run pytest tests/...` and
-# `uv run sentinel ...` both work from the repository root, and so the dev
+# `uv run toolgauge ...` both work from the repository root, and so the dev
 # toolchain is declared in exactly one place.
 [project]
-name = "sentinel-workspace"
+name = "toolgauge-workspace"
 version = "0.0.0"
-description = "Workspace root for the Sentinel conformance harness."
+description = "Workspace root for the toolgauge conformance harness."
 requires-python = ">=3.12,<3.13"
-dependencies = ["sentinel-mcp-conformance"]
+dependencies = ["toolgauge"]
 
 [tool.uv]
 package = false
@@ -16,7 +16,7 @@ package = false
 members = ["harness"]
 
 [tool.uv.sources]
-sentinel-mcp-conformance = { workspace = true }
+toolgauge = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -58,4 +58,4 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 python_version = "3.12"
 strict = true
 mypy_path = "harness/src"
-packages = ["sentinel"]
+packages = ["toolgauge"]

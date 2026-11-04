@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 import pytest
 
-from sentinel.catalog.base import DOCS_BASE, REGISTRY, SPEC_BASE, Namespace
+from toolgauge.catalog.base import DOCS_BASE, REGISTRY, SPEC_BASE, Namespace
 
 pytestmark = pytest.mark.unit
 

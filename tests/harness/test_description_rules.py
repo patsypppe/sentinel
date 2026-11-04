@@ -7,14 +7,14 @@ import sys
 
 import pytest
 
-from sentinel.catalog.base import REGISTRY, Outcome
-from sentinel.probe.client import Probe
+from toolgauge.catalog.base import REGISTRY, Outcome
+from toolgauge.probe.client import Probe
 
 pytestmark = pytest.mark.unit
 
 RULES = [
-    "SENTINEL/STYLE/description-states-purpose",
-    "SENTINEL/STYLE/parameters-are-described",
+    "TOOLGAUGE/STYLE/description-states-purpose",
+    "TOOLGAUGE/STYLE/parameters-are-described",
 ]
 
 
@@ -34,7 +34,7 @@ def test_the_broken_server_fails_and_the_correct_one_passes(
 
 def test_demo_runs_end_to_end_and_shows_both_verdicts() -> None:
     done = subprocess.run(
-        [sys.executable, "-m", "sentinel.cli", "demo"],
+        [sys.executable, "-m", "toolgauge.cli", "demo"],
         capture_output=True,
         text=True,
         timeout=120,
@@ -46,8 +46,8 @@ def test_demo_runs_end_to_end_and_shows_both_verdicts() -> None:
 
 
 def test_a_legacy_only_server_is_called_out_at_the_top_of_the_report() -> None:
-    from sentinel.grade import ScanReport
-    from sentinel.report import text
+    from toolgauge.grade import ScanReport
+    from toolgauge.report import text
 
     report = ScanReport(endpoint="http://x/mcp", spec_revision="2026-07-28")
     report.generation, report.generation_detail = "legacy", "negotiated '2025-11-25'"
@@ -55,7 +55,7 @@ def test_a_legacy_only_server_is_called_out_at_the_top_of_the_report() -> None:
 
 
 def test_parameter_documentation_is_judged_the_way_a_model_reads_it() -> None:
-    from sentinel.catalog.beyond.style import parameter_documented as documented
+    from toolgauge.catalog.beyond.style import parameter_documented as documented
 
     tool = {
         "description": (
@@ -89,7 +89,7 @@ def test_parameter_documentation_is_judged_the_way_a_model_reads_it() -> None:
 
 
 def test_observed_wire_behaviour_is_extracted_for_aggregation() -> None:
-    from sentinel.population import _observed
+    from toolgauge.population import _observed
 
     assert _observed("HTTP 400, code -32600", "") == "HTTP 400, code -32600"
     both = "rejected: error code was -32601, not -32602; HTTP status was 200, not 400"
@@ -99,7 +99,7 @@ def test_observed_wire_behaviour_is_extracted_for_aggregation() -> None:
 
 
 def test_a_rate_limited_or_unauthorised_answer_is_never_judged_as_a_finding() -> None:
-    from sentinel.probe.transport import RawResponse
+    from toolgauge.probe.transport import RawResponse
 
     for status in (401, 407, 429, 502, 503, 504):
         assert RawResponse(status, {}, b"", 0.0).unusable_reason() is not None

@@ -1,4 +1,4 @@
-/** §4.1: `sentinel migrate` output for the unmigrated server. */
+/** §4.1: `toolgauge migrate` output for the unmigrated server. */
 import { h, mount, replaceContent } from "./dom.js";
 import { shortRuleId } from "./model.js";
 
@@ -32,6 +32,6 @@ export function renderMigration(data) {
       h("div", {}, h("dt", { text: "not checkable from the wire" }), h("dd", { text: m.undetectable_count })),
     ),
     h("ol", { class: "changes" }, m.changes.map(change)),
-    h("p", { class: "cite", text: "Source: data/nonconformant.migrate.json. sentinel migrate describes work, not a verdict, and never fails a gate." }),
+    h("p", { class: "cite", text: "Source: data/nonconformant.migrate.json. toolgauge migrate describes work, not a verdict, and never fails a gate." }),
   );
 }

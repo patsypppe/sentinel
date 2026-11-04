@@ -1,8 +1,8 @@
 # Benchmark: violations labelled by the MCP maintainers
 
-Each server below is a deliberately broken fixture from the official `modelcontextprotocol/conformance` repo. The violation column is that fixture's own description. Sentinel is run unmodified; a rule counts as *caught* only if it FAILed.
+Each server below is a deliberately broken fixture from the official `modelcontextprotocol/conformance` repo. The violation column is that fixture's own description. toolgauge is run unmodified; a rule counts as *caught* only if it FAILed.
 
-| Broken server | What the maintainers say is wrong | Sentinel | Why not |
+| Broken server | What the maintainers say is wrong | toolgauge | Why not |
 |---|---|---|---|
 | `sep-2549-no-caching-hints` | omits ttlMs and cacheScope from list/read results | 2/2 caught |  |
 | `sep-2322-mrtr-broken-server` | omits resultType; accepts a tampered requestState | 2/2 caught |  |

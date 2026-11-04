@@ -18,11 +18,11 @@ from typing import Any
 import pytest
 from conftest import _wait, free_port
 
-from sentinel.catalog.base import Outcome
-from sentinel.grade import SAFE_MODE_DETAIL, run_scan
-from sentinel.probe.client import is_read_only
 from server import conformant
 from server.common import serve_background
+from toolgauge.catalog.base import Outcome
+from toolgauge.grade import SAFE_MODE_DETAIL, run_scan
+from toolgauge.probe.client import is_read_only
 
 pytestmark = pytest.mark.unit
 

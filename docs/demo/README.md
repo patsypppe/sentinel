@@ -21,8 +21,8 @@ command before its output.
 ### 1. Scan an unmigrated server
 
 ```bash
-uv run sentinel fixture serve --profile nonconformant &
-uv run sentinel scan --endpoint http://127.0.0.1:9000/mcp --gate must
+uv run toolgauge fixture serve --profile nonconformant &
+uv run toolgauge scan --endpoint http://127.0.0.1:9000/mcp --gate must
 ```
 
 **25 MUST failures**, each with a spec citation and a remediation, plus three SHOULDs and one
@@ -31,7 +31,7 @@ beyond-spec finding that do not affect the gate. Exit **1**.
 ### 2. Scan the broker
 
 ```bash
-uv run sentinel scan --endpoint http://localhost:8080/mcp --gate must --token "$TOKEN"
+uv run toolgauge scan --endpoint http://localhost:8080/mcp --gate must --token "$TOKEN"
 ```
 
 **Zero.** Exit **0**. Five MUSTs report `INDETERMINATE` and are named — a clean scan is not a clean
@@ -40,7 +40,7 @@ bill of health, and the tool says so.
 ### 3. The deprecation inventory
 
 ```bash
-uv run sentinel deprecations --endpoint http://127.0.0.1:9000/mcp
+uv run toolgauge deprecations --endpoint http://127.0.0.1:9000/mcp
 ```
 
 Six deprecated features, each with the date it was deprecated and the date it becomes removable
@@ -49,7 +49,7 @@ Six deprecated features, each with the date it was deprecated and the date it be
 ### 4. `concise` versus `detailed`
 
 ```bash
-uv run sentinel scan --endpoint … # or call warehouse.query directly, both ways
+uv run toolgauge scan --endpoint … # or call warehouse.query directly, both ways
 ```
 
 Up to **49.3%** fewer tokens in `concise`, because it names each column once instead of once per
@@ -123,7 +123,7 @@ psql -U broker_app -c "UPDATE tool_invocations SET outcome='ok';"
 broker audit verify --from 2026-08-01 --to 2026-09-30
 # verified 25 row(s) … chain intact       exit 0
 
-psql -U sentinel  -c "UPDATE tool_invocations SET outcome='denied' WHERE seq = 5;"   # superuser
+psql -U toolgauge  -c "UPDATE tool_invocations SET outcome='denied' WHERE seq = 5;"   # superuser
 broker audit verify --from 2026-08-01 --to 2026-09-30
 # chain break at seq 5 … the row's contents do not match its own hash — it was rewritten
 # exit 1

@@ -1,10 +1,10 @@
-"""Benchmark: does Sentinel catch violations that someone else labelled?
+"""Benchmark: does toolgauge catch violations that someone else labelled?
 
 The MCP project's conformance repo ships deliberately broken servers, each with a header
 comment naming the one thing it gets wrong. Those labels were written by the MCP maintainers
 for their own test suite, not by this project, so they are an independent answer key.
 
-For each broken server this runs a Sentinel scan and checks whether the rule that should catch
+For each broken server this runs a toolgauge scan and checks whether the rule that should catch
 the labelled violation FAILed. It also reports every case the scan could not reach.
 
     uv run python benchmarks/official_negatives.py --conformance ~/src/conformance
@@ -27,7 +27,7 @@ import time
 REV = "MCP/2026-07-28"
 
 # fixture file -> (what the fixture's own header says is wrong, rules that should FAIL for it,
-#                  or [] when Sentinel has no rule for it, which is reported as a coverage gap)
+#                  or [] when toolgauge has no rule for it, which is reported as a coverage gap)
 LABELS: dict[str, tuple[str, list[str]]] = {
     "sep-2549-no-caching-hints": (
         "omits ttlMs and cacheScope from list/read results",
@@ -81,7 +81,7 @@ def _scan(port: int) -> dict[str, object]:
         [
             sys.executable,
             "-m",
-            "sentinel.cli",
+            "toolgauge.cli",
             "scan",
             "--endpoint",
             f"http://127.0.0.1:{port}/mcp",
@@ -139,9 +139,9 @@ def render(rows: list[dict[str, object]]) -> str:
         "",
         "Each server below is a deliberately broken fixture from the official "
         "`modelcontextprotocol/conformance` repo. The violation column is that fixture's own "
-        "description. Sentinel is run unmodified; a rule counts as *caught* only if it FAILed.",
+        "description. toolgauge is run unmodified; a rule counts as *caught* only if it FAILed.",
         "",
-        "| Broken server | What the maintainers say is wrong | Sentinel | Why not |",
+        "| Broken server | What the maintainers say is wrong | toolgauge | Why not |",
         "|---|---|---|---|",
     ]
     caught = total = 0
@@ -172,8 +172,8 @@ def render(rows: list[dict[str, object]]) -> str:
                 else:
                     seen = ", ".join(str(v) for v in dict(r["missed_outcomes"]).values())  # type: ignore[call-overload]
                     why = (
-                        f"Sentinel reported {seen}, not FAIL: the server refused the probe "
-                        "for an unrelated reason, and Sentinel does not guess"
+                        f"toolgauge reported {seen}, not FAIL: the server refused the probe "
+                        "for an unrelated reason, and toolgauge does not guess"
                     )
         out.append(f"| `{r['fixture']}` | {r['labelled_violation']} | {verdict} | {why} |")
     out += [

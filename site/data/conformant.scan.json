@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "tool": "sentinel",
+  "tool": "toolgauge",
   "specRevision": "2026-07-28",
   "endpoint": "http://127.0.0.1:9001/mcp",
   "startedAt": 1790711544.140724,
@@ -96,7 +96,7 @@
       "deprecated": false,
       "supersededBy": null,
       "outcome": "pass",
-      "detail": "serverInfo.name = 'sentinel-conformant-fixture'",
+      "detail": "serverInfo.name = 'toolgauge-conformant-fixture'",
       "evidence": "",
       "remediation": "Report serverInfo with at least a name from server/discover. Clients key cache entries on the server's identity, so a server that will not name itself cannot be cached against.",
       "elapsedSeconds": 0.0006
@@ -186,7 +186,7 @@
       "deprecated": false,
       "supersededBy": null,
       "outcome": "pass",
-      "detail": "Origin https://sentinel-rebinding-probe.invalid was refused with 403",
+      "detail": "Origin https://toolgauge-rebinding-probe.invalid was refused with 403",
       "evidence": "",
       "remediation": "Validate the Origin header on every request and answer 403 Forbidden when it is present and not allowed. Without it a page the user visits can drive this server through the user's own browser -- which is the DNS rebinding attack the requirement exists for, and it does not care that the endpoint is internal.",
       "elapsedSeconds": 0.0005
@@ -732,12 +732,12 @@
       "elapsedSeconds": 0.0096
     },
     {
-      "ruleId": "SENTINEL/OPS/manifest-token-budget",
+      "ruleId": "TOOLGAUGE/OPS/manifest-token-budget",
       "title": "the whole tool manifest fits the operator's token budget",
       "severity": "must",
       "verifiability": "black_box",
       "citation": "",
-      "namespace": "SENTINEL",
+      "namespace": "TOOLGAUGE",
       "deprecated": false,
       "supersededBy": null,
       "outcome": "not_applicable",
@@ -747,12 +747,12 @@
       "elapsedSeconds": 0.0
     },
     {
-      "ruleId": "SENTINEL/OPS/per-tool-token-budget",
+      "ruleId": "TOOLGAUGE/OPS/per-tool-token-budget",
       "title": "no single tool exceeds the operator's per-tool token budget",
       "severity": "must",
       "verifiability": "black_box",
       "citation": "",
-      "namespace": "SENTINEL",
+      "namespace": "TOOLGAUGE",
       "deprecated": false,
       "supersededBy": null,
       "outcome": "not_applicable",
@@ -762,12 +762,12 @@
       "elapsedSeconds": 0.0
     },
     {
-      "ruleId": "SENTINEL/OPS/schema-depth-budget",
+      "ruleId": "TOOLGAUGE/OPS/schema-depth-budget",
       "title": "no tool schema nests deeper than the operator's budget",
       "severity": "must",
       "verifiability": "black_box",
       "citation": "",
-      "namespace": "SENTINEL",
+      "namespace": "TOOLGAUGE",
       "deprecated": false,
       "supersededBy": null,
       "outcome": "not_applicable",
@@ -777,12 +777,12 @@
       "elapsedSeconds": 0.0
     },
     {
-      "ruleId": "SENTINEL/OPS/tool-descriptions-are-distinct",
+      "ruleId": "TOOLGAUGE/OPS/tool-descriptions-are-distinct",
       "title": "no two tools share an identical description",
       "severity": "must",
       "verifiability": "black_box",
       "citation": "",
-      "namespace": "SENTINEL",
+      "namespace": "TOOLGAUGE",
       "deprecated": false,
       "supersededBy": null,
       "outcome": "pass",
@@ -792,12 +792,12 @@
       "elapsedSeconds": 0.0006
     },
     {
-      "ruleId": "SENTINEL/STYLE/tools-sorted-by-name",
+      "ruleId": "TOOLGAUGE/STYLE/tools-sorted-by-name",
       "title": "tools/list returns tools in byte-wise name order",
       "severity": "should",
       "verifiability": "black_box",
       "citation": "",
-      "namespace": "SENTINEL",
+      "namespace": "TOOLGAUGE",
       "deprecated": false,
       "supersededBy": null,
       "outcome": "pass",

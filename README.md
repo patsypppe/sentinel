@@ -1,11 +1,11 @@
-# Sentinel
+# toolgauge
 
-**Sentinel checks whether an MCP server follows the MCP specification.**
+**toolgauge checks whether an MCP server follows the MCP specification.**
 
 [MCP](https://modelcontextprotocol.io) (Model Context Protocol) is how AI apps such as Claude
 connect to tools. A tool is exposed by an *MCP server*, and the server has to follow a rulebook, the
 MCP specification. Servers often get parts of it wrong, and then they break or misbehave with some
-clients. Sentinel finds those mistakes.
+clients. toolgauge finds those mistakes.
 
 You give it a server's URL. It sends the server test requests, checks each answer against the
 rulebook, and prints a pass/fail list. Every failure says what it saw, what to change, and which
@@ -17,7 +17,7 @@ No clone, no setup, nothing to configure. This starts two practice servers on yo
 with deliberate mistakes, one correct), scans both, and shows you the difference:
 
 ```bash
-uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" sentinel demo
+uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" toolgauge demo
 ```
 
 ```
@@ -33,14 +33,14 @@ uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness"
   verdict: PASS (exit code 0)
 ```
 
-Prefer a clone? `git clone https://github.com/patsypppe/sentinel && cd sentinel && uv run sentinel demo`.
+Prefer a clone? `git clone https://github.com/patsypppe/sentinel && cd sentinel && uv run toolgauge demo`.
 
 ## Lint any server, including stdio ones
 
-Most published MCP servers run as a local program, not at a URL. Point Sentinel at the command:
+Most published MCP servers run as a local program, not at a URL. Point toolgauge at the command:
 
 ```bash
-sentinel lint --command "npx -y @modelcontextprotocol/server-filesystem /tmp"
+toolgauge lint --command "npx -y @modelcontextprotocol/server-filesystem /tmp"
 ```
 
 It starts the server, reads its tool list, and checks names, descriptions, undocumented parameters,
@@ -53,7 +53,7 @@ No clone needed:
 
 ```bash
 uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" \
-  sentinel scan --endpoint https://your-server.example/mcp --gate must
+  toolgauge scan --endpoint https://your-server.example/mcp --gate must
 ```
 
 If the server needs a login token, add `--token "$TOKEN"`. Only scan servers you own or have
@@ -61,7 +61,7 @@ permission to test.
 
 ## What I found scanning the whole MCP registry
 
-I ran Sentinel against **every remote server in the official MCP registry: 15,451 endpoints** (safe mode,
+I ran toolgauge against **every remote server in the official MCP registry: 15,451 endpoints** (safe mode,
 one connection per host, no tool invoked unless read-only; GitHub Actions, October 2026).
 
 | Where the registry is today | Endpoints |
@@ -72,7 +72,7 @@ one connection per host, no tool invoked unless read-only; GitHub Actions, Octob
 | Unreachable, erroring, or neither handshake | 1,622 (10.5%) |
 
 On a 4,000-endpoint sample of the servers that speak the new revision, **16% pass every required rule
-Sentinel can verify from the wire** and the median server fails one. The biggest gap is `Origin`
+toolgauge can verify from the wire** and the median server fails one. The biggest gap is `Origin`
 validation: about half serve a request from an impossible origin, which the spec says to reject (though a
 public, browser-callable server may allow it deliberately).
 
@@ -85,7 +85,7 @@ sample rerun. Details, and the caveats, in [`benchmarks/REGISTRY_SCAN.md`](bench
 
 ![Where each parameter is documented, per published MCP server](benchmarks/popular_servers.svg)
 
-I ran `sentinel lint` on 28 widely used servers from npm and PyPI, the official filesystem,
+I ran `toolgauge lint` on 28 widely used servers from npm and PyPI, the official filesystem,
 GitHub and Playwright servers among them: 362 tools, 1,349 parameters. **22 of the 28 leave nothing a
 model needs undocumented.** In the other 6 the gaps are concentrated: `firecrawl` has 71 of 194
 parameters documented nowhere, `github` 31 of 130, `notion` 27 of 71, `desktop-commander` 20 of 72 (plus
@@ -104,23 +104,23 @@ found these gaps are common and that fixing them measurably changes which tool a
 ## Against a production scanner
 
 I ran Cisco's open-source [`mcp-scanner`](https://github.com/cisco-ai-defense/mcp-scanner) (its offline
-YARA rules; its cloud and LLM analyzers need keys) and Sentinel on the same tool definitions: 15 poisoned
+YARA rules; its cloud and LLM analyzers need keys) and toolgauge on the same tool definitions: 15 poisoned
 tools written after published attack patterns, 6 honest-but-scary ones, and the 362 real tools.
 
 | | Poisoned caught | Honest-but-scary wrongly flagged | Real tools flagged |
 |---|---|---|---|
-| Sentinel | 7 of 15 (all 3 hidden-character ones) | 0 of 6 | 0 of 362 |
+| toolgauge | 7 of 15 (all 3 hidden-character ones) | 0 of 6 | 0 of 362 |
 | Cisco mcp-scanner, offline | 2 of 15 | 3 of 6 | 16 of 362: none an attack, 3 debatable |
 
-Sentinel's separate credential-path mention check also flags 2 of the 6 and 4 of the 362, reported on its own.
+toolgauge's separate credential-path mention check also flags 2 of the 6 and 4 of the 362, reported on its own.
 Neither catches the evasive variants (paraphrase, base64, other languages), and a regex or YARA rule never
 will, which is said plainly in the rule. I wrote the corpus, so it favours the tool whose patterns I know;
 that bias, the offline-only limit and the small sample are in
 [`benchmarks/SECURITY_COMPARE.md`](benchmarks/SECURITY_COMPARE.md). The tools check different things too:
 Cisco's `protocol` scan runs about ten security-posture checks (plain HTTP, unauthenticated discovery,
-fail-open), while Sentinel grades 68 specification rules.
+fail-open), while toolgauge grades 68 specification rules.
 
-On the protocol side, Sentinel catches every violation it has a rule for in the MCP maintainers' own
+On the protocol side, toolgauge catches every violation it has a rule for in the MCP maintainers' own
 deliberately broken servers, and says "can't tell" where it can't. Methodology, per-server numbers,
 the comparison with the official suite and the limits are in [`benchmarks/`](benchmarks/README.md);
 each result reproduces with one command.
@@ -129,7 +129,7 @@ each result reproduces with one command.
 
 ```mermaid
 flowchart LR
-    A[Your MCP server<br/>any language] -->|"plain HTTP requests<br/>(no MCP library)"| B[Sentinel probe]
+    A[Your MCP server<br/>any language] -->|"plain HTTP requests<br/>(no MCP library)"| B[toolgauge probe]
     B --> C{68 rules}
     C --> D[Spec rules<br/>MUST / SHOULD]
     C --> E[Tool-description quality<br/>stubs, undocumented parameters]
@@ -146,12 +146,12 @@ of 10,831 servers showed those flaws [change which tool an LLM picks](https://ar
 
 ## How it works
 
-1. **It speaks plain HTTP.** Sentinel sends raw JSON-RPC requests itself and uses no MCP library. A
+1. **It speaks plain HTTP.** toolgauge sends raw JSON-RPC requests itself and uses no MCP library. A
    library would quietly fix a server's mistakes, such as adding a missing header, and hide them.
    It works on a server written in any language.
 2. **Each rule is a small test.** A rule sends one or more requests, reads the answer, and decides
    PASS, FAIL or something else. The rules live in
-   [`harness/src/sentinel/catalog/`](harness/src/sentinel/catalog/), and each one names the spec
+   [`harness/src/toolgauge/catalog/`](harness/src/toolgauge/catalog/), and each one names the spec
    sentence it comes from.
 3. **It never guesses.** Some requirements cannot be checked from outside, for example "does the
    server write an audit log?". Those are reported as `INDETERMINATE` and are never counted as a pass.
@@ -164,7 +164,7 @@ recommendations, so they are reported but never fail the gate. The rule names ca
 
 ## Engineering notes
 
-- **A literal client, on purpose.** Sentinel sends raw HTTP and uses no MCP library: a library quietly
+- **A literal client, on purpose.** toolgauge sends raw HTTP and uses no MCP library: a library quietly
   fixes the mistakes you are trying to find.
 - **"Can't tell" is a real answer.** A requirement that cannot be checked from outside is reported as
   `INDETERMINATE` and is never counted as a pass.
@@ -185,14 +185,14 @@ recommendations, so they are reported but never fail the gate. The rule names ca
 
 | Part | What it is | Tech |
 |---|---|---|
-| [`harness/`](harness/) | **Sentinel**, the checker described above | Python 3.12, httpx, typer, pytest, mypy `--strict`, ruff |
-| [`broker/`](broker/) and [`mcp/`](mcp/) | A reference MCP server and the reusable server kit it is built on; both pass Sentinel | Go, Postgres, JWT auth, OpenTelemetry (hand-written OTLP exporter) |
+| [`harness/`](harness/) | **toolgauge**, the checker described above | Python 3.12, httpx, typer, pytest, mypy `--strict`, ruff |
+| [`broker/`](broker/) and [`mcp/`](mcp/) | A reference MCP server and the reusable server kit it is built on; both pass toolgauge | Go, Postgres, JWT auth, OpenTelemetry (hand-written OTLP exporter) |
 | [`fleet/`](fleet/) | A service that stores scan history for many servers | Go, Postgres (pgx), HTTP API |
 | `.github/`, [`action.yml`](action.yml) | CI, a reusable GitHub Action, and a pre-commit hook | GitHub Actions, Docker, SARIF to GitHub code scanning |
 
-Sentinel never imports the server code. It only talks HTTP, so it can be pointed at anything.
+toolgauge never imports the server code. It only talks HTTP, so it can be pointed at anything.
 
-## Test Sentinel itself
+## Test toolgauge itself
 
 ```bash
 make check     # lint, type-check and the test suite (needs Go 1.23+, Python 3.12+, uv)

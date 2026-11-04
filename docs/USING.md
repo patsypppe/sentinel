@@ -1,6 +1,6 @@
-# Using Sentinel on a real server
+# Using toolgauge on a real server
 
-`sentinel scan --gate must` answers one question: is this server conformant right now? Everything
+`toolgauge scan --gate must` answers one question: is this server conformant right now? Everything
 below is what turns that into something a team can run on every commit, against servers it does
 and does not own, without the gate being ignored.
 
@@ -9,8 +9,8 @@ and does not own, without the gate being ignored.
 Fixing everything before turning the gate on means the gate never gets turned on.
 
 ```bash
-sentinel baseline create --endpoint https://mcp.internal/mcp --out sentinel-baseline.json
-sentinel scan --endpoint https://mcp.internal/mcp --baseline sentinel-baseline.json --gate must
+toolgauge baseline create --endpoint https://mcp.internal/mcp --out toolgauge-baseline.json
+toolgauge scan --endpoint https://mcp.internal/mcp --baseline toolgauge-baseline.json --gate must
 ```
 
 With a baseline the gate fires **only on findings it has not seen**. The report always shows all
@@ -19,7 +19,7 @@ around:
 
 - **new**: not in the baseline. These gate.
 - **baselined**: in the baseline and still failing. Listed under *ACCEPTED*, never hidden.
-- **fixed**: in the baseline and now passing. Run `sentinel baseline prune` to drop them.
+- **fixed**: in the baseline and now passing. Run `toolgauge baseline prune` to drop them.
 
 A baseline records the catalog it was taken against. A rule that did not exist then and fails now
 is **new by construction**, and the report says so. A baseline cannot carry across a spec revision
@@ -66,29 +66,29 @@ every report) or a waiver (which expires). A rule id that does not exist is an e
 
 ## Where each setting comes from
 
-CLI flag **>** `SENTINEL_*` environment variable **>** `sentinel.toml` **>** the file it `extends`
-**>** built-in default. Discovery: `--config`, else `./sentinel.toml`, else `./.sentinel.toml`.
+CLI flag **>** `TOOLGAUGE_*` environment variable **>** `toolgauge.toml` **>** the file it `extends`
+**>** built-in default. Discovery: `--config`, else `./toolgauge.toml`, else `./.toolgauge.toml`.
 Every resolved value carries its source into the report's `policy` block, and a test asserts the
 whole matrix. Secrets are never in the file: `token_env` names the variable that holds one.
 
 | Setting | File key | Environment | Default |
 |---|---|---|---|
-| endpoint | `scan.endpoint` | `SENTINEL_ENDPOINT` | none |
-| gate | `scan.gate` | `SENTINEL_GATE` | none (report only) |
-| timeout | `scan.timeout` | `SENTINEL_TIMEOUT` | 10 s |
-| concurrency | `scan.concurrency` | `SENTINEL_CONCURRENCY` | 8 |
-| retries | `scan.retries` | `SENTINEL_RETRIES` | 2 |
-| safe mode | `scan.safe` | `SENTINEL_SAFE` | false |
-| bearer token | `scan.token_env` names it | `SENTINEL_TOKEN` | none |
-| deprecated rules | `rules.include_deprecated` | `SENTINEL_INCLUDE_DEPRECATED` | false |
+| endpoint | `scan.endpoint` | `TOOLGAUGE_ENDPOINT` | none |
+| gate | `scan.gate` | `TOOLGAUGE_GATE` | none (report only) |
+| timeout | `scan.timeout` | `TOOLGAUGE_TIMEOUT` | 10 s |
+| concurrency | `scan.concurrency` | `TOOLGAUGE_CONCURRENCY` | 8 |
+| retries | `scan.retries` | `TOOLGAUGE_RETRIES` | 2 |
+| safe mode | `scan.safe` | `TOOLGAUGE_SAFE` | false |
+| bearer token | `scan.token_env` names it | `TOOLGAUGE_TOKEN` | none |
+| deprecated rules | `rules.include_deprecated` | `TOOLGAUGE_INCLUDE_DEPRECATED` | false |
 
-A complete, tested example is [`examples/sentinel.toml`](examples/sentinel.toml).
+A complete, tested example is [`examples/toolgauge.toml`](examples/toolgauge.toml).
 
 ## Watching a server you depend on and do not control
 
 ```bash
-sentinel snapshot --endpoint https://vendor.example/mcp --out snapshots/vendor.json
-sentinel diff snapshots/vendor.json --gate        # on a schedule
+toolgauge snapshot --endpoint https://vendor.example/mcp --out snapshots/vendor.json
+toolgauge diff snapshots/vendor.json --gate        # on a schedule
 ```
 
 A tool description is text an LLM is steered by. A server can rewrite one after you approved it,
@@ -106,7 +106,7 @@ classifies every difference by severity and `--gate` exits 1 only on the **high*
 
 A snapshot is checked on load: edit one by hand and it is refused, because it is a record of what
 a server said. `scan --snapshot` runs the same comparison as the beyond-spec rule
-`SENTINEL/SECURITY/manifest-drift`. Combine it with `--safe` for a server you do not own.
+`TOOLGAUGE/SECURITY/manifest-drift`. Combine it with `--safe` for a server you do not own.
 
 ## Settling the five rules a scan cannot
 
@@ -119,7 +119,7 @@ scanner the evidence and each returns a real verdict, recorded in the report as 
 | `handle-possession-is-not-authentication` | `second_principal_token_env`, `[graybox.handle]` | mint as A, present as B. Served: FAIL. |
 | `no-token-passthrough` | `egress_capture` command, `egress_token_env`, `egress_tool` | the caller's token appears in the capture: FAIL. An empty capture proves nothing: INDETERMINATE. |
 | `mrtr-retries-are-idempotent` | `effect_counter` command, `[graybox.mrtr]` | the counter moves on a replay of a consumed flow: FAIL. A counter that does not move proves nothing. |
-| `SENTINEL/SECURITY/invocations-are-audited` | `audit_verify` command, `audit_tool` | three invocations must add exactly three rows and the verifier must exit 0. |
+| `TOOLGAUGE/SECURITY/invocations-are-audited` | `audit_verify` command, `audit_tool` | three invocations must add exactly three rows and the verifier must exit 0. |
 
 **Absence of evidence is never a pass.** Evidence that is started and not finished (an environment
 variable that is not set) says exactly what is missing instead of silently falling back.
@@ -132,7 +132,7 @@ and keeps the token-shaped ones.
 ## Probing for rate limiting
 
 `MCP/2026-07-28/MUST/tool-invocations-rate-limited` needs traffic, so it is off unless you opt in:
-`sentinel scan URL --probe-rate-limit N` sends up to N rapid `tools/call` requests (capped at
+`toolgauge scan URL --probe-rate-limit N` sends up to N rapid `tools/call` requests (capped at
 2000) to the first callable tool. A 429, or a refusal that says so, is a PASS. A server that
 serves them all is INDETERMINATE, never a FAIL, because the limit may sit above N or be keyed to
 something the probe does not present. Do not point it at a server you do not own.
@@ -157,13 +157,13 @@ than one from a single scan.
 | Where | How |
 |---|---|
 | GitHub | `uses: patsypppe/sentinel@v0.4.0`. Inputs: `endpoint`, `gate`, `config`, `baseline`, `snapshot`, `targets`, `safe`, `no-exec`, `token`. Writes a Markdown job summary, uploads SARIF. |
-| GitLab | `include:` [`ci/gitlab/sentinel.gitlab-ci.yml`](../ci/gitlab/sentinel.gitlab-ci.yml) and `extends: .sentinel-scan`. Publishes JUnit. |
-| Any CI | `docker run ghcr.io/patsypppe/sentinel scan --endpoint ...` |
-| pre-commit | the `sentinel-scan` hook (`pre-push`, so a few hundred requests do not run on every commit) |
-| PyPI | `uvx sentinel-mcp-conformance scan --endpoint ...` |
+| GitLab | `include:` [`ci/gitlab/toolgauge.gitlab-ci.yml`](../ci/gitlab/toolgauge.gitlab-ci.yml) and `extends: .toolgauge-scan`. Publishes JUnit. |
+| Any CI | `docker run ghcr.io/patsypppe/toolgauge scan --endpoint ...` |
+| pre-commit | the `toolgauge-scan` hook (`pre-push`, so a few hundred requests do not run on every commit) |
+| PyPI | `uvx toolgauge scan --endpoint ...` |
 
 Releases are signed with cosign (keyless, from the release workflow's own identity, so there is no
-key to leak) and ship a CycloneDX SBOM. `sentinel` makes no network call except to the endpoint you
+key to leak) and ship a CycloneDX SBOM. `toolgauge` makes no network call except to the endpoint you
 give it, and sends no telemetry. `--publish` sends a report only to a service you named.
 
 ## Exit codes

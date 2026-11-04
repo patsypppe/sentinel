@@ -15,7 +15,7 @@ import pathlib
 
 import pytest
 
-from sentinel.catalog.deprecations import (
+from toolgauge.catalog.deprecations import (
     FEATURES_BY_ID,
     AfterEvent,
     Confidence,
@@ -82,7 +82,7 @@ def test_months_remaining_is_computed_for_a_fixed_window() -> None:
 
 def test_the_twelve_month_policy_and_the_registry_agree_for_sep_2577() -> None:
     """Not arithmetic we rely on -- a cross-check that the registry is consistent."""
-    from sentinel.catalog.deprecations import earliest_removal
+    from toolgauge.catalog.deprecations import earliest_removal
 
     for fid in ("roots", "sampling", "logging"):
         feature = FEATURES_BY_ID[fid]

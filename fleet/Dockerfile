@@ -13,14 +13,14 @@ RUN go mod download
 COPY . .
 ARG VERSION=0.1.0-dev
 RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
-      -o /out/sentinel-server ./cmd/sentinel-server
+      -o /out/toolgauge-server ./cmd/toolgauge-server
 
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 sentinel
-COPY --from=build /out/sentinel-server /usr/local/bin/sentinel-server
-USER sentinel
+RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 toolgauge
+COPY --from=build /out/toolgauge-server /usr/local/bin/toolgauge-server
+USER toolgauge
 EXPOSE 8088
 # The default address binds loopback inside the container, which is unreachable from
-# outside it. Set SENTINEL_SERVER_ADDR=0.0.0.0:8088 deliberately, and set both tokens.
-ENTRYPOINT ["/usr/local/bin/sentinel-server"]
+# outside it. Set TOOLGAUGE_SERVER_ADDR=0.0.0.0:8088 deliberately, and set both tokens.
+ENTRYPOINT ["/usr/local/bin/toolgauge-server"]
 CMD ["serve"]

@@ -20,8 +20,9 @@ from typing import Any
 import pytest
 from conftest import _wait, free_port
 
-from sentinel import population
-from sentinel.population import (
+from server.common import error, parse, result, serve_background
+from toolgauge import population
+from toolgauge.population import (
     CLASS_AUTH,
     CLASS_CURRENT,
     CLASS_LEGACY,
@@ -29,7 +30,6 @@ from sentinel.population import (
     Result,
     Target,
 )
-from server.common import error, parse, result, serve_background
 
 pytestmark = pytest.mark.unit
 
@@ -253,7 +253,7 @@ def test_registry_scan_command_end_to_end(
         [
             sys.executable,
             "-m",
-            "sentinel.cli",
+            "toolgauge.cli",
             "registry-scan",
             "--listing",
             str(listing),

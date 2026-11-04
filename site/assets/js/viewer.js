@@ -5,7 +5,7 @@ import { OUTCOMES, TARGETS, outcomeLabel, sortFindings, splitRuleId } from "./mo
 const FACETS = {
   outcome: [{ key: "all", label: "All" }, ...OUTCOMES],
   severity: [{ key: "all", label: "All" }, { key: "must", label: "MUST" }, { key: "should", label: "SHOULD" }],
-  namespace: [{ key: "all", label: "All" }, { key: "MCP", label: "MCP spec" }, { key: "SENTINEL", label: "Beyond spec" }],
+  namespace: [{ key: "all", label: "All" }, { key: "MCP", label: "MCP spec" }, { key: "TOOLGAUGE", label: "Beyond spec" }],
 };
 const DEFAULTS = { target: "nonconformant", outcome: "all", severity: "all", namespace: "all", q: "" };
 const PARAM = { target: "target", outcome: "outcome", severity: "severity", namespace: "ns", q: "q" };

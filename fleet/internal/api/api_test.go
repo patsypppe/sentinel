@@ -419,7 +419,7 @@ func TestAHostileTargetNameIsEscapedNotExecuted(t *testing.T) {
 func TestTheFleetPageShowsTheTargetAndAnEmptyFleetSaysHowToPublish(t *testing.T) {
 	srv, _ := newServer(t, "")
 	_, empty := do(t, "GET", srv.URL+"/", "", nil)
-	if !strings.Contains(string(empty), "sentinel scan --publish") {
+	if !strings.Contains(string(empty), "toolgauge scan --publish") {
 		t.Error("an empty fleet should say how to publish")
 	}
 	publish(t, srv, report("broker-prod", clock.Add(-3*time.Hour), "h", true, "r1"))

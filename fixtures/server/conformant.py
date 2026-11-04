@@ -29,7 +29,7 @@ from .common import (
 
 PORT = 9001
 
-SERVER_INFO = {"name": "sentinel-conformant-fixture", "version": "0.1.0"}
+SERVER_INFO = {"name": "toolgauge-conformant-fixture", "version": "0.1.0"}
 
 #: The HTTP-layer answers `dispatch` cannot give, because they are decided
 #: before or outside a JSON-RPC body. Both are `common`'s defaults and are
@@ -123,7 +123,7 @@ KEY_CLIENT_CAPABILITIES = "io.modelcontextprotocol/clientCapabilities"
 #: client that was never issued one. A real server would also bind it to the
 #: principal and expire it; the fixture needs only to refuse a state it did not
 #: mint, which is the property `tampered-requeststate-rejected` grades.
-_STATE_KEY = b"sentinel-conformant-fixture"
+_STATE_KEY = b"toolgauge-conformant-fixture"
 
 
 def seal_state(tool: str) -> str:

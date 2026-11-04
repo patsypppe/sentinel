@@ -27,7 +27,7 @@ without a build going red. Run it yourself:
 
 ```bash
 go run ./mcp/example/cmd -addr :8080 &
-sentinel scan --endpoint http://localhost:8080/mcp --gate must
+toolgauge scan --endpoint http://localhost:8080/mcp --gate must
 ```
 
 ## What `server.New` decides for you

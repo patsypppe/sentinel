@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from sentinel import baseline as baseline_mod
-from sentinel.catalog.base import Outcome, Severity
-from sentinel.config import load_policy
-from sentinel.fingerprint import fingerprint, target_identity
-from sentinel.grade import EXIT_GATE_FAILED, EXIT_OK, Gate, ScanReport
-from sentinel.runner import ScanOptions, scan_target
-from sentinel.waivers import ConfigError, Waiver
+from toolgauge import baseline as baseline_mod
+from toolgauge.catalog.base import Outcome, Severity
+from toolgauge.config import load_policy
+from toolgauge.fingerprint import fingerprint, target_identity
+from toolgauge.grade import EXIT_GATE_FAILED, EXIT_OK, Gate, ScanReport
+from toolgauge.runner import ScanOptions, scan_target
+from toolgauge.waivers import ConfigError, Waiver
 
 pytestmark = pytest.mark.unit
 
@@ -21,7 +21,7 @@ TODAY = datetime.date(2026, 10, 1)
 
 
 def scan(endpoint: str, tmp_path: Path, toml: str = "", **kw: object) -> ScanReport:
-    cfg = tmp_path / "sentinel.toml"
+    cfg = tmp_path / "toolgauge.toml"
     cfg.write_text(toml)
     policy = load_policy(config=cfg, env={})
     return scan_target(ScanOptions(endpoint=endpoint, policy=policy, today=TODAY, **kw))  # type: ignore[arg-type]

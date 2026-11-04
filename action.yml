@@ -1,4 +1,4 @@
-name: Sentinel MCP conformance
+name: toolgauge MCP conformance
 description: >-
   Grade an MCP server against the current MCP specification. Fails the job on any
   MUST violation, reports what cannot be verified from the wire, and uploads the
@@ -15,7 +15,7 @@ inputs:
     default: ''
   version:
     description: >-
-      The sentinel-mcp-conformance version to install from PyPI. Empty installs the
+      The toolgauge version to install from PyPI. Empty installs the
       copy that ships with this action, so the action and the scanner always agree.
     required: false
     default: ''
@@ -26,21 +26,21 @@ inputs:
     required: false
     default: must
   config:
-    description: Path to a sentinel.toml. Default is ./sentinel.toml when present.
+    description: Path to a toolgauge.toml. Default is ./toolgauge.toml when present.
     required: false
     default: ''
   baseline:
-    description: Gate only on findings absent from this baseline file (sentinel baseline create).
+    description: Gate only on findings absent from this baseline file (toolgauge baseline create).
     required: false
     default: ''
   snapshot:
-    description: A snapshot to compare against, enabling SENTINEL/SECURITY/manifest-drift.
+    description: A snapshot to compare against, enabling TOOLGAUGE/SECURITY/manifest-drift.
     required: false
     default: ''
   targets:
     description: >-
       A fleet file. When set, every target is scanned with its own credential and gate
-      and `endpoint` is ignored. Reports are written to sentinel-fleet/.
+      and `endpoint` is ignored. Reports are written to toolgauge-fleet/.
     required: false
     default: ''
   no-exec:
@@ -60,7 +60,7 @@ inputs:
   sarif-file:
     description: Where to write the SARIF report.
     required: false
-    default: sentinel.sarif
+    default: toolgauge.sarif
   sarif-anchor:
     description: >-
       Repository file the code-scanning annotations attach to. A conformance
@@ -91,13 +91,13 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
 
-    - name: install sentinel
+    - name: install toolgauge
       shell: bash
       env:
         VERSION: ${{ inputs.version }}
       run: |
         if [ -n "$VERSION" ]; then
-          python -m pip install --quiet "sentinel-mcp-conformance==$VERSION"
+          python -m pip install --quiet "toolgauge==$VERSION"
         else
           python -m pip install --quiet "${{ github.action_path }}/harness"
         fi
@@ -106,46 +106,46 @@ runs:
       id: scan
       shell: bash
       env:
-        SENTINEL_ACTION_ENDPOINT: ${{ inputs.endpoint }}
-        SENTINEL_ACTION_GATE: ${{ inputs.gate }}
-        SENTINEL_ACTION_SAFE: ${{ inputs.safe }}
-        SENTINEL_ACTION_CONFIG: ${{ inputs.config }}
-        SENTINEL_ACTION_BASELINE: ${{ inputs.baseline }}
-        SENTINEL_ACTION_SNAPSHOT: ${{ inputs.snapshot }}
-        SENTINEL_ACTION_TARGETS: ${{ inputs.targets }}
-        SENTINEL_ACTION_NOEXEC: ${{ inputs.no-exec }}
-        SENTINEL_ACTION_SARIF: ${{ inputs.sarif-file }}
-        SENTINEL_ACTION_ANCHOR: ${{ inputs.sarif-anchor }}
-        SENTINEL_TOKEN: ${{ inputs.token }}
+        TOOLGAUGE_ACTION_ENDPOINT: ${{ inputs.endpoint }}
+        TOOLGAUGE_ACTION_GATE: ${{ inputs.gate }}
+        TOOLGAUGE_ACTION_SAFE: ${{ inputs.safe }}
+        TOOLGAUGE_ACTION_CONFIG: ${{ inputs.config }}
+        TOOLGAUGE_ACTION_BASELINE: ${{ inputs.baseline }}
+        TOOLGAUGE_ACTION_SNAPSHOT: ${{ inputs.snapshot }}
+        TOOLGAUGE_ACTION_TARGETS: ${{ inputs.targets }}
+        TOOLGAUGE_ACTION_NOEXEC: ${{ inputs.no-exec }}
+        TOOLGAUGE_ACTION_SARIF: ${{ inputs.sarif-file }}
+        TOOLGAUGE_ACTION_ANCHOR: ${{ inputs.sarif-anchor }}
+        TOOLGAUGE_TOKEN: ${{ inputs.token }}
       run: |
-        summary="$RUNNER_TEMP/sentinel-summary.md"
-        args=(scan --no-color --sarif-anchor "$SENTINEL_ACTION_ANCHOR")
-        [ -n "$SENTINEL_ACTION_ENDPOINT" ] && args+=(--endpoint "$SENTINEL_ACTION_ENDPOINT")
-        [ -n "$SENTINEL_ACTION_GATE" ] && args+=(--gate "$SENTINEL_ACTION_GATE")
-        [ -n "$SENTINEL_ACTION_CONFIG" ] && args+=(--config "$SENTINEL_ACTION_CONFIG")
-        [ -n "$SENTINEL_ACTION_BASELINE" ] && args+=(--baseline "$SENTINEL_ACTION_BASELINE")
-        [ -n "$SENTINEL_ACTION_SNAPSHOT" ] && args+=(--snapshot "$SENTINEL_ACTION_SNAPSHOT")
-        [ "$SENTINEL_ACTION_SAFE" = "true" ] && args+=(--safe)
-        [ "$SENTINEL_ACTION_NOEXEC" = "true" ] && args+=(--no-exec)
-        if [ -n "$SENTINEL_ACTION_TARGETS" ]; then
-          args+=(--targets "$SENTINEL_ACTION_TARGETS" --format sarif)
+        summary="$RUNNER_TEMP/toolgauge-summary.md"
+        args=(scan --no-color --sarif-anchor "$TOOLGAUGE_ACTION_ANCHOR")
+        [ -n "$TOOLGAUGE_ACTION_ENDPOINT" ] && args+=(--endpoint "$TOOLGAUGE_ACTION_ENDPOINT")
+        [ -n "$TOOLGAUGE_ACTION_GATE" ] && args+=(--gate "$TOOLGAUGE_ACTION_GATE")
+        [ -n "$TOOLGAUGE_ACTION_CONFIG" ] && args+=(--config "$TOOLGAUGE_ACTION_CONFIG")
+        [ -n "$TOOLGAUGE_ACTION_BASELINE" ] && args+=(--baseline "$TOOLGAUGE_ACTION_BASELINE")
+        [ -n "$TOOLGAUGE_ACTION_SNAPSHOT" ] && args+=(--snapshot "$TOOLGAUGE_ACTION_SNAPSHOT")
+        [ "$TOOLGAUGE_ACTION_SAFE" = "true" ] && args+=(--safe)
+        [ "$TOOLGAUGE_ACTION_NOEXEC" = "true" ] && args+=(--no-exec)
+        if [ -n "$TOOLGAUGE_ACTION_TARGETS" ]; then
+          args+=(--targets "$TOOLGAUGE_ACTION_TARGETS" --format sarif)
         else
-          args+=(--format markdown --out "$summary" --also "sarif=$SENTINEL_ACTION_SARIF")
+          args+=(--format markdown --out "$summary" --also "sarif=$TOOLGAUGE_ACTION_SARIF")
         fi
         set +e
-        sentinel "${args[@]}"
+        toolgauge "${args[@]}"
         code=$?
         set -e
         echo "exit-code=$code" >> "$GITHUB_OUTPUT"
         {
           if [ -f "$summary" ]; then
             cat "$summary"
-          elif [ -f sentinel-fleet/rollup.md ]; then
-            echo "### Sentinel: fleet"
+          elif [ -f toolgauge-fleet/rollup.md ]; then
+            echo "### toolgauge: fleet"
             echo
-            cat sentinel-fleet/rollup.md
+            cat toolgauge-fleet/rollup.md
           else
-            echo "### Sentinel: MCP conformance"
+            echo "### toolgauge: MCP conformance"
             echo
             echo "The scanner **could not run** (exit $code). See the job log."
           fi
@@ -156,7 +156,7 @@ runs:
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: ${{ inputs.sarif-file }}
-        category: sentinel-mcp-conformance
+        category: toolgauge
 
     - name: apply the gate
       shell: bash

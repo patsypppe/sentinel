@@ -2,12 +2,12 @@
 
 One scan answers "is this server conformant now". A company with several MCP servers also needs
 "which ones, since when, and what is about to break". That is two things: scanning many targets
-in one command, and `sentinel-server`, which keeps the history.
+in one command, and `toolgauge-server`, which keeps the history.
 
 ## Scanning many targets
 
 ```yaml
-# sentinel-fleet.yaml
+# toolgauge-fleet.yaml
 concurrency: 5
 targets:
   - name: broker-prod
@@ -23,7 +23,7 @@ targets:
 ```
 
 ```bash
-sentinel scan --targets sentinel-fleet.yaml --out-dir sentinel-fleet --format junit
+toolgauge scan --targets toolgauge-fleet.yaml --out-dir toolgauge-fleet --format junit
 ```
 
 A target is a *named, separately credentialed connection*, not a bare URL, because each MCP
@@ -45,34 +45,34 @@ to `must` and a vendor to `should`. The same server can pass one gate and fail a
 Targets run concurrently up to `concurrency`; within each, rules run concurrently on their own
 connections, so wall-clock is roughly the slowest rule, not the sum.
 
-## `sentinel-server`
+## `toolgauge-server`
 
 ```
-sentinel scan --publish https://sentinel.internal   →   sentinel-server   →   dashboard + API
+toolgauge scan --publish https://toolgauge.internal   →   toolgauge-server   →   dashboard + API
 ```
 
 `--publish` is additive. The CLI never *requires* a service, a publish failure is a warning on
 stderr, and **it never changes the exit code**: a scan's verdict is the product, and a service
 that is down must neither turn a clean scan red nor a failing one green. The bearer token comes
-from `SENTINEL_PUBLISH_TOKEN`, never a flag, so it stays out of shell history and CI logs.
+from `TOOLGAUGE_PUBLISH_TOKEN`, never a flag, so it stays out of shell history and CI logs.
 
 ### Run it
 
 ```bash
 docker compose --profile fleet up          # postgres + the service on 127.0.0.1:8088
 # or:
-SENTINEL_SERVER_INGEST_TOKEN=... SENTINEL_SERVER_READ_TOKEN=... \
-SENTINEL_SERVER_DATABASE_URL=postgres://... sentinel-server serve
+TOOLGAUGE_SERVER_INGEST_TOKEN=... TOOLGAUGE_SERVER_READ_TOKEN=... \
+TOOLGAUGE_SERVER_DATABASE_URL=postgres://... toolgauge-server serve
 ```
 
 | Variable | |
 |---|---|
-| `SENTINEL_SERVER_INGEST_TOKEN` | **Required.** What `--publish` presents. The server will not start without it: an open ingest endpoint would let anyone make any target look green. |
-| `SENTINEL_SERVER_READ_TOKEN` | Optional. When set, the API and dashboard require it, as a bearer token or as the password of HTTP Basic, so a browser can prompt for it. When unset the server warns at start that reads are open. |
-| `SENTINEL_SERVER_DATABASE_URL` | A Postgres URL. Unset, data is held in memory and lost on restart, and the server says so. |
-| `SENTINEL_SERVER_MIGRATE_DATABASE_URL` | A role that may create tables. Migrations run under an advisory lock, each in a transaction. `sentinel-server migrate` runs them and exits. |
-| `SENTINEL_SERVER_ADDR` | Default `127.0.0.1:8088`. Set `0.0.0.0:8088` deliberately. |
-| `SENTINEL_SERVER_STALE_AFTER` | How old a target's latest scan may be before it stops counting as passing. Default 48h. |
+| `TOOLGAUGE_SERVER_INGEST_TOKEN` | **Required.** What `--publish` presents. The server will not start without it: an open ingest endpoint would let anyone make any target look green. |
+| `TOOLGAUGE_SERVER_READ_TOKEN` | Optional. When set, the API and dashboard require it, as a bearer token or as the password of HTTP Basic, so a browser can prompt for it. When unset the server warns at start that reads are open. |
+| `TOOLGAUGE_SERVER_DATABASE_URL` | A Postgres URL. Unset, data is held in memory and lost on restart, and the server says so. |
+| `TOOLGAUGE_SERVER_MIGRATE_DATABASE_URL` | A role that may create tables. Migrations run under an advisory lock, each in a transaction. `toolgauge-server migrate` runs them and exits. |
+| `TOOLGAUGE_SERVER_ADDR` | Default `127.0.0.1:8088`. Set `0.0.0.0:8088` deliberately. |
+| `TOOLGAUGE_SERVER_STALE_AFTER` | How old a target's latest scan may be before it stops counting as passing. Default 48h. |
 
 The ingest and read tokens are **different credentials**. The one that lets CI publish a scan must
 not let anyone read the fleet's weaknesses, and a read-only dashboard viewer must not be able to
@@ -94,7 +94,7 @@ Time.
 - **Time to remediation per rule**, and how often a fixed finding came back. A fix is only
   observed when the next scan runs, so these are upper bounds by up to one scan interval.
 - **Manifest drift events**: when a target's tool manifest hash changed. The service knows *that*
-  and *when*; `sentinel diff` against a snapshot says *what* and *how bad*.
+  and *when*; `toolgauge diff` against a snapshot says *what* and *how bad*.
 - **Waivers about to lapse**, with the ones over a **still-failing** finding first. That is the
   list that prevents an outage: a waiver about to expire over a finding that still fails is a gate
   about to go red.
@@ -128,6 +128,6 @@ implementation of it.
 ## What it does not do
 
 - It does not scan. The CLI scans; the service stores what it is sent.
-- It does not classify drift. It records that the manifest hash changed; `sentinel diff` classifies.
+- It does not classify drift. It records that the manifest hash changed; `toolgauge diff` classifies.
 - It is not multi-tenant, has no users or roles beyond the two tokens, and is software you run, not
   a hosted service.

@@ -53,7 +53,7 @@ function verdictColumn(target, scan, exitCode, onOpen) {
       ),
     ),
     ruleStrip(scan.findings),
-    h("pre", { class: "verdict__line", attrs: { "aria-label": "Summary as printed by sentinel" } },
+    h("pre", { class: "verdict__line", attrs: { "aria-label": "Summary as printed by toolgauge" } },
       h("code", {},
         `${summaryLine("MUST", must, true)}\n${summaryLine("SHOULD", scan.summary.should, false)}\n${scan.findings.length} rules in ${scan.elapsedSeconds}s`,
       ),

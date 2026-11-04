@@ -1,6 +1,6 @@
 """The Python half of the cross-language tokenizer contract.
 
-`sentinel.tokens` is a port of `mcp/registry/tokens.go`. Two
+`toolgauge.tokens` is a port of `mcp/registry/tokens.go`. Two
 implementations of one method is exactly the situation where a published number
 drifts silently, so both sides are held to one committed corpus:
 `tests/harness/data/tokenizer_corpus.jsonl` carries the text and the count Go
@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from sentinel.tokens import TOKENIZER_NAME, estimate_tokens
+from toolgauge.tokens import TOKENIZER_NAME, estimate_tokens
 
 pytestmark = pytest.mark.unit
 

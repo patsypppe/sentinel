@@ -12,7 +12,7 @@ pytestmark = pytest.mark.unit
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-m", "sentinel.cli", *args],
+        [sys.executable, "-m", "toolgauge.cli", *args],
         capture_output=True,
         text=True,
         check=False,

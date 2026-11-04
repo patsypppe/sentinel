@@ -15,7 +15,7 @@ function bind(name, value) {
 }
 
 function showError(error) {
-  console.error("sentinel showcase: could not load scan data", error);
+  console.error("toolgauge showcase: could not load scan data", error);
   for (const name of ["verdicts", "indeterminate", "timeline", "migration", "lifecycle"]) {
     try {
       replaceContent(mount(name), h("p", { class: "load-error", text: `Could not load the scan data (${error.message}). The raw JSON is in site/data.` }));

@@ -1,4 +1,4 @@
-# The scanner as a container: `docker run ghcr.io/patsypppe/sentinel scan --endpoint ...`.
+# The scanner as a container: `docker run ghcr.io/patsypppe/toolgauge scan --endpoint ...`.
 #
 # Two stages, so the image carries the installed wheel and nothing that built it:
 # no compiler, no pip cache, no source tree. It runs as an unprivileged user, and
@@ -18,11 +18,11 @@ FROM python:3.12-slim
 LABEL org.opencontainers.image.source="https://github.com/patsypppe/sentinel" \
       org.opencontainers.image.description="Conformance harness for MCP 2026-07-28" \
       org.opencontainers.image.licenses="MIT"
-RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin sentinel
+RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin toolgauge
 COPY --from=build /dist/*.whl /tmp/
 RUN pip install --no-cache-dir /tmp/*.whl && rm -f /tmp/*.whl
 USER 10001
 WORKDIR /work
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
-ENTRYPOINT ["sentinel"]
+ENTRYPOINT ["toolgauge"]
 CMD ["--help"]

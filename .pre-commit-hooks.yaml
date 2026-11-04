@@ -4,28 +4,28 @@
 #     - repo: https://github.com/patsypppe/sentinel
 #       rev: v0.4.0
 #       hooks:
-#         - id: sentinel-scan
+#         - id: toolgauge-scan
 #
-# Point it at a server with a sentinel.toml in your repository (scan.endpoint) or
-# the SENTINEL_ENDPOINT environment variable. It runs on pre-push by default: a
+# Point it at a server with a toolgauge.toml in your repository (scan.endpoint) or
+# the TOOLGAUGE_ENDPOINT environment variable. It runs on pre-push by default: a
 # scan makes a few hundred requests and is not something to run on every commit.
 
 # Runs the published image. Needs Docker, nothing else, and cannot drift from the
 # version pinned by `rev`.
-- id: sentinel-scan
-  name: sentinel MCP conformance scan
+- id: toolgauge-scan
+  name: toolgauge MCP conformance scan
   description: Grade a locally-running MCP server against the current MCP spec and fail on a MUST violation.
-  entry: ghcr.io/patsypppe/sentinel:latest scan --gate must --no-color
+  entry: ghcr.io/patsypppe/toolgauge:latest scan --gate must --no-color
   language: docker_image
   pass_filenames: false
   always_run: true
   stages: [pre-push, manual]
 
-# For machines that already have `sentinel` installed (pip, pipx or uvx).
-- id: sentinel-scan-local
-  name: sentinel MCP conformance scan (installed)
-  description: Same scan, using the sentinel command already on PATH.
-  entry: sentinel scan --gate must --no-color
+# For machines that already have `toolgauge` installed (pip, pipx or uvx).
+- id: toolgauge-scan-local
+  name: toolgauge MCP conformance scan (installed)
+  description: Same scan, using the toolgauge command already on PATH.
+  entry: toolgauge scan --gate must --no-color
   language: system
   pass_filenames: false
   always_run: true

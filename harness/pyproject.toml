@@ -1,9 +1,5 @@
 [project]
-# The distribution name is not the import or command name: "sentinel" on PyPI
-# belongs to an unrelated project. The package still imports as `sentinel` and
-# installs the `sentinel` command, plus a second command matching the
-# distribution so `uvx sentinel-mcp-conformance scan ...` works with no --from.
-name = "sentinel-mcp-conformance"
+name = "toolgauge"
 version = "0.4.0"
 description = "Conformance checker for MCP servers. Grades any MCP server against the normative requirements, reports which MUSTs it cannot verify black-box, and inventories deprecated-feature debt."
 readme = "README.md"
@@ -12,7 +8,7 @@ license = { text = "MIT" }
 dependencies = [
     "httpx>=0.27",
     "typer>=0.12",
-    # Fleet files are YAML; sentinel.toml itself is TOML and needs nothing.
+    # Fleet files are YAML; toolgauge.toml itself is TOML and needs nothing.
     "pyyaml>=6.0",
 ]
 
@@ -35,15 +31,14 @@ Repository = "https://github.com/patsypppe/sentinel"
 Issues = "https://github.com/patsypppe/sentinel/issues"
 
 [project.scripts]
-sentinel = "sentinel.cli:app"
-sentinel-mcp-conformance = "sentinel.cli:app"
+toolgauge = "toolgauge.cli:app"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/sentinel"]
+packages = ["src/toolgauge"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"../fixtures/server" = "sentinel/_fixtures/server"
+"../fixtures/server" = "toolgauge/_fixtures/server"

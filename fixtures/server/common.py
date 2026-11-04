@@ -56,7 +56,7 @@ class Handler(BaseHTTPRequestHandler):
     #: verifier, a traffic capture. Never set on the conformant or non-conformant
     #: fixtures.
     introspect: Any = None
-    server_version = "sentinel-fixture/0.1"
+    server_version = "toolgauge-fixture/0.1"
 
     def log_message(self, fmt: str, *args: Any) -> None:
         """Silence the default stderr access log; a scan makes hundreds of

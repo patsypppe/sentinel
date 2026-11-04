@@ -43,7 +43,7 @@ jobs:
         run: |
           args=(registry-scan --out-dir scan --concurrency 8 --timeout 10)
           if [ -n "$LIMIT" ]; then args+=(--limit "$LIMIT"); fi
-          sentinel "${args[@]}"
+          toolgauge "${args[@]}"
           cat scan/summary.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:

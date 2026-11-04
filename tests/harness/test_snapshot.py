@@ -11,10 +11,10 @@ from typing import Any
 
 import pytest
 
-from sentinel import snapshot as snap
-from sentinel.probe.client import Probe
-from sentinel.snapshot import ChangeKind, Level, Snapshot, diff, extract_scopes
-from sentinel.waivers import ConfigError
+from toolgauge import snapshot as snap
+from toolgauge.probe.client import Probe
+from toolgauge.snapshot import ChangeKind, Level, Snapshot, diff, extract_scopes
+from toolgauge.waivers import ConfigError
 
 pytestmark = pytest.mark.unit
 
@@ -174,7 +174,7 @@ def test_capture_against_a_live_server(conformant_endpoint: str) -> None:
 
 def run(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-m", "sentinel.cli", *args],
+        [sys.executable, "-m", "toolgauge.cli", *args],
         capture_output=True,
         text=True,
         check=False,

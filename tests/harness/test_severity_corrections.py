@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import pytest
 
-import sentinel.catalog  # noqa: F401  -- import registers every rule
-from sentinel.catalog import REGISTRY
-from sentinel.catalog.base import validate_registry
+import toolgauge.catalog  # noqa: F401  -- import registers every rule
+from toolgauge.catalog import REGISTRY
+from toolgauge.catalog.base import validate_registry
 
 pytestmark = pytest.mark.unit
 
@@ -22,7 +22,7 @@ CORRECTIONS = [
         "MCP/2026-07-28/MUST/tools-list-is-deterministic",
         "MCP/2026-07-28/SHOULD/tools-list-is-deterministic",
     ),
-    ("MCP/2026-07-28/SHOULD/tools-sorted-by-name", "SENTINEL/STYLE/tools-sorted-by-name"),
+    ("MCP/2026-07-28/SHOULD/tools-sorted-by-name", "TOOLGAUGE/STYLE/tools-sorted-by-name"),
 ]
 
 

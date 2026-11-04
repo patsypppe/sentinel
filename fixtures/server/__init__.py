@@ -6,7 +6,7 @@ failures it reports against the conformant one, which must be zero.
 
 They are a package so the harness's tests can import `SEEDED_VIOLATIONS` — the
 denominator of the recall measurement — rather than re-deriving it. They import
-nothing from `sentinel`, deliberately: a fixture sharing code with the harness
+nothing from `toolgauge`, deliberately: a fixture sharing code with the harness
 would let a bug in the shared part hide itself from both sides.
 """
 

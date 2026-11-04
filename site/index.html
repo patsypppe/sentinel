@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>Sentinel — MCP conformance, graded on the wire</title>
-  <meta name="description" content="Sentinel scans any Model Context Protocol server and grades it against the 2026-07-28 specification, rule by rule, with a spec citation per finding. This page renders real scan output.">
+  <title>toolgauge — MCP conformance, graded on the wire</title>
+  <meta name="description" content="toolgauge scans any Model Context Protocol server and grades it against the 2026-07-28 specification, rule by rule, with a spec citation per finding. This page renders real scan output.">
   <meta name="color-scheme" content="light dark">
   <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,8 +23,8 @@
   <header class="masthead">
     <div class="masthead__inner">
       <p class="masthead__id">
-        <span class="wordmark">Sentinel</span>
-        <span class="masthead__meta">Conformance report · MCP <span data-bind="spec">2026-07-28</span> · <span data-bind="version">sentinel</span></span>
+        <span class="wordmark">toolgauge</span>
+        <span class="masthead__meta">Conformance report · MCP <span data-bind="spec">2026-07-28</span> · <span data-bind="version">toolgauge</span></span>
       </p>
       <nav aria-label="Sections">
         <ol class="toc">
@@ -48,14 +48,14 @@
         <p class="lede">
           On 28 July 2026 the Model Context Protocol became stateless: sessions, the
           <code>initialize</code> handshake and server-initiated requests were removed, and
-          <code>server/discover</code> became mandatory. <strong>Sentinel</strong> is a harness that
+          <code>server/discover</code> became mandatory. <strong>toolgauge</strong> is a harness that
           scans any endpoint over the wire and grades it rule by rule, each with the clause it comes
           from. It also lists the deprecated features the server still uses and when each can be removed.
           The <strong>broker</strong> is a Go server built natively on the new revision, and it is
           graded by that same harness.
         </p>
         <p class="hero__provenance">
-          Everything below is rendered from JSON that <code>sentinel</code> wrote, scanned
+          Everything below is rendered from JSON that <code>toolgauge</code> wrote, scanned
           <time data-bind="asOf">recently</time>. Nothing is typed in by hand.
           <a href="https://github.com/patsypppe/sentinel/blob/main/site/data/regenerate.sh">How it was generated</a>.
         </p>
@@ -145,7 +145,7 @@
         <p class="section__n" aria-hidden="true">§3</p>
         <h2 id="indet-heading">Five MUSTs a scan cannot settle, and does not pretend to</h2>
         <p class="section__lede">
-          Some requirements are invisible from the client side. Sentinel reports them as
+          Some requirements are invisible from the client side. toolgauge reports them as
           <span class="tag tag--indeterminate">Indeterminate</span>, never as passes. It
           <strong>excludes them from the gate</strong> and <strong>reprints them on every scan</strong>,
           so a green build can never be read as covering them. The same five appear, with the same
@@ -177,7 +177,7 @@
         <p class="section__n" aria-hidden="true">§4</p>
         <h2 id="dep-heading">Deprecated-feature inventory, against the removal clock</h2>
         <p class="section__lede">
-          <code>sentinel deprecations</code> probes for each deprecated feature and records how
+          <code>toolgauge deprecations</code> probes for each deprecated feature and records how
           it knows: <em>observed</em> on the wire, or <em>advertised</em> in
           <code>server/discover</code>. This inventory never fails a gate. A deprecated feature
           that still works is a migration to plan, not a defect.
@@ -191,7 +191,7 @@
         <p class="section__n" aria-hidden="true">§4.1</p>
         <h2 id="mig-heading">Sizing the migration from the same evidence</h2>
         <p class="section__lede">
-          <code>sentinel migrate</code> maps failing rules onto the revision's breaking changes.
+          <code>toolgauge migrate</code> maps failing rules onto the revision's breaking changes.
           Changes the wire cannot reveal are listed as <em>not checkable from here</em> rather than
           marked done. The hours are the harness's planning estimates, not measurements.
         </p>
@@ -213,7 +213,7 @@
       </header>
       <div data-mount="lifecycle"></div>
       <p class="cite">
-        All three corrections in 0.2.0 went the same way: sentinel had been demanding more than the
+        All three corrections in 0.2.0 went the same way: toolgauge had been demanding more than the
         specification does. Reasons are quoted from the
         <a href="https://github.com/patsypppe/sentinel#rule-lifecycle">README</a>. Outcomes are from
         a replay scan of the unmigrated fixture.
@@ -235,10 +235,10 @@
       <figure class="arch" aria-labelledby="arch-caption">
         <div class="arch__col arch__col--harness">
           <p class="arch__label">harness/ · Python</p>
-          <h3 class="arch__title">sentinel</h3>
+          <h3 class="arch__title">toolgauge</h3>
           <ol class="arch__stack">
             <li><b>probe</b><span>hand-built JSON-RPC over HTTP, no SDK</span></li>
-            <li><b>catalog</b><span><span data-bind="ruleCount">52</span> live rules: MUST · SHOULD · SENTINEL/ beyond-spec, each with a citation or a rationale</span></li>
+            <li><b>catalog</b><span><span data-bind="ruleCount">52</span> live rules: MUST · SHOULD · TOOLGAUGE/ beyond-spec, each with a citation or a rationale</span></li>
             <li><b>grade</b><span>PASS · FAIL · INDETERMINATE · N/A, then the gate</span></li>
             <li><b>report</b><span>text · JSON · SARIF for GitHub code scanning</span></li>
           </ol>
@@ -297,9 +297,9 @@ make demo           # the nine-step demo</code></pre>
         </div>
         <div class="run__block">
           <h3>Scanning your own server</h3>
-          <pre class="code" tabindex="0"><code>uv run sentinel scan --endpoint https://your-server.example/mcp --gate must \
+          <pre class="code" tabindex="0"><code>uv run toolgauge scan --endpoint https://your-server.example/mcp --gate must \
   --token "$TOKEN" --format sarif --out scan.sarif
-uv run sentinel deprecations --endpoint https://your-server.example/mcp</code></pre>
+uv run toolgauge deprecations --endpoint https://your-server.example/mcp</code></pre>
         </div>
         <div class="run__block">
           <h3>Regenerating this page's data</h3>

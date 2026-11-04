@@ -1,6 +1,6 @@
 // Package model is what the fleet service stores about a scan.
 //
-// It is parsed from the schema-2 JSON report `sentinel scan --format json` writes,
+// It is parsed from the schema-2 JSON report `toolgauge scan --format json` writes,
 // and deliberately keeps only what the service computes over: counts, the failing
 // and accepted findings with their fingerprints, the manifest hash, and the waivers
 // in force. A scan's passing rules are not stored. They are the absence of a
@@ -121,7 +121,7 @@ func ParseReport(raw []byte, now time.Time) (ScanRun, error) {
 	if w.SchemaVersion != SchemaVersion {
 		return ScanRun{}, fmt.Errorf(
 			"%w: schemaVersion is %d; this service reads %d. Re-run the scan with "+
-				"`sentinel scan --schema-version 2`", ErrBadReport, w.SchemaVersion, SchemaVersion)
+				"`toolgauge scan --schema-version 2`", ErrBadReport, w.SchemaVersion, SchemaVersion)
 	}
 	identity := strings.TrimSpace(w.Target.Identity)
 	if identity == "" {

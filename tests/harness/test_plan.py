@@ -15,10 +15,10 @@ from __future__ import annotations
 
 import pytest
 
-from sentinel.catalog.base import REGISTRY, Outcome, RuleResult
-from sentinel.catalog.deprecations import Confidence
-from sentinel.grade import Finding, ScanReport
-from sentinel.plan import (
+from toolgauge.catalog.base import REGISTRY, Outcome, RuleResult
+from toolgauge.catalog.deprecations import Confidence
+from toolgauge.grade import Finding, ScanReport
+from toolgauge.plan import (
     BREAKING_CHANGES,
     Impact,
     build_plan,

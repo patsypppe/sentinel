@@ -135,7 +135,7 @@ func tokenOK(got, want string) bool {
 func (s *server) read(next http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.cfg.ReadToken != "" && !tokenOK(bearer(r), s.cfg.ReadToken) {
-			w.Header().Add("WWW-Authenticate", `Basic realm="sentinel", charset="UTF-8"`)
+			w.Header().Add("WWW-Authenticate", `Basic realm="toolgauge", charset="UTF-8"`)
 			w.Header().Add("WWW-Authenticate", "Bearer")
 			writeError(w, http.StatusUnauthorized, "a read token is required")
 			return

@@ -22,12 +22,12 @@ import time
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "fixtures")]
 
-from sentinel import baseline as baseline_mod  # noqa: E402
-from sentinel.config import load_policy  # noqa: E402
-from sentinel.report import render_report  # noqa: E402
-from sentinel.runner import ScanOptions, scan_target  # noqa: E402
 from server.common import serve_background  # noqa: E402
 from server.nonconformant import BEHAVIOUR, dispatch  # noqa: E402
+from toolgauge import baseline as baseline_mod  # noqa: E402
+from toolgauge.config import load_policy  # noqa: E402
+from toolgauge.report import render_report  # noqa: E402
+from toolgauge.runner import ScanOptions, scan_target  # noqa: E402
 
 OUT = ROOT / "fleet" / "internal" / "model" / "testdata"
 
@@ -45,7 +45,7 @@ def main() -> int:
     endpoint = f"http://127.0.0.1:{port}/mcp"
     try:
         with tempfile.TemporaryDirectory() as tmp:
-            cfg = pathlib.Path(tmp) / "sentinel.toml"
+            cfg = pathlib.Path(tmp) / "toolgauge.toml"
             cfg.write_text("")
             plain = load_policy(config=cfg, env={})
             first = scan_target(
@@ -71,7 +71,7 @@ def main() -> int:
             )
         gate = {
             "selected": "must",
-            "failed": report.gate(__import__("sentinel.runner", fromlist=["x"]).parse_gate("must"))
+            "failed": report.gate(__import__("toolgauge.runner", fromlist=["x"]).parse_gate("must"))
             == 1,
         }
         document = json.loads(
