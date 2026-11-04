@@ -1,4 +1,4 @@
-"""`sentinel lint --command` lints a server that only speaks stdio."""
+"""`toolgauge lint --command` lints a server that only speaks stdio."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ def test_lint_reads_a_stdio_servers_manifest_and_reports_the_undescribed_paramet
         [
             sys.executable,
             "-m",
-            "sentinel.cli",
+            "toolgauge.cli",
             "lint",
             "--command",
             f"{sys.executable} {script}",
@@ -61,7 +61,7 @@ def test_lint_reads_a_stdio_servers_manifest_and_reports_the_undescribed_paramet
     )
     report = json.loads(done.stdout)
     outcome = {f["ruleId"]: f["outcome"] for f in report["findings"]}
-    assert outcome["SENTINEL/STYLE/parameters-are-described"] == "fail"
+    assert outcome["TOOLGAUGE/STYLE/parameters-are-described"] == "fail"
     assert outcome["MCP/2026-07-28/SHOULD/tool-names-well-formed"] == "pass"
     assert done.returncode == 1
 
@@ -74,7 +74,7 @@ def test_lint_starts_the_server_once_not_once_per_rule(tmp_path: pytest.TempPath
         [
             sys.executable,
             "-m",
-            "sentinel.cli",
+            "toolgauge.cli",
             "lint",
             "--command",
             f"{sys.executable} {script}",

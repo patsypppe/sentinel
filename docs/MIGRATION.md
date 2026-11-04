@@ -6,7 +6,7 @@ history. It converted MCP from a stateful, session-based, bidirectional protocol
 
 Every MCP server written before that date was written against the old idioms. This document is
 the change list with the *work* attached — what each change actually requires, and how
-[`sentinel`](../harness) detects whether you still owe it.
+[`toolgauge`](../harness) detects whether you still owe it.
 
 > **Precedence.** Where this document and the
 > [specification](https://modelcontextprotocol.io/specification/2026-07-28/) disagree, the
@@ -15,8 +15,8 @@ the change list with the *work* attached — what each change actually requires,
 Run the inventory before you read any further; it will tell you which sections apply to you:
 
 ```bash
-uv run sentinel scan --endpoint https://your-server.example/mcp --gate must
-uv run sentinel deprecations --endpoint https://your-server.example/mcp
+uv run toolgauge scan --endpoint https://your-server.example/mcp --gate must
+uv run toolgauge deprecations --endpoint https://your-server.example/mcp
 ```
 
 ---
@@ -48,8 +48,8 @@ These do not warn. They are gone, and a client on the new revision will get an e
 | `logging/setLevel` | `_meta.io.modelcontextprotocol/logLevel` | Minutes. The level travels per-request instead of per-session. |
 | `notifications/roots/list_changed` | — | Minutes. |
 
-**Detected by:** `SENTINEL/STYLE/initialize-removed`, `SENTINEL/STYLE/ping-removed`, `SENTINEL/STYLE/logging-set-level-removed`,
-`SENTINEL/STYLE/resources-subscribe-removed`, `SENTINEL/STYLE/resources-unsubscribe-removed`
+**Detected by:** `TOOLGAUGE/STYLE/initialize-removed`, `TOOLGAUGE/STYLE/ping-removed`, `TOOLGAUGE/STYLE/logging-set-level-removed`,
+`TOOLGAUGE/STYLE/resources-subscribe-removed`, `TOOLGAUGE/STYLE/resources-unsubscribe-removed`
 (advisory: a dual-era server may keep serving them). Sampling and roots stay functional during
 their deprecation window and are no longer checked.
 
@@ -97,7 +97,7 @@ SELECT payload FROM state_handles
 
 **Detected by:** `MUST/handle-possession-is-not-authentication` — but see *Limits* below. This one
 is **UNVERIFIABLE** black-box: proving it needs two authenticated principals, and a scan has one.
-`sentinel` reports it as `INDETERMINATE` rather than pretending.
+`toolgauge` reports it as `INDETERMINATE` rather than pretending.
 
 ---
 
@@ -192,7 +192,7 @@ and per-connection state is exactly what a server carries over from the session-
 clients holding the same credential must be told about the same tools.
 
 **Detected by:** `MUST/tools-list-connection-independent`, `SHOULD/tools-list-is-deterministic`,
-`SENTINEL/STYLE/tools-sorted-by-name` — the last is beyond-spec and never fails the gate.
+`TOOLGAUGE/STYLE/tools-sorted-by-name` — the last is beyond-spec and never fails the gate.
 
 ---
 
@@ -285,7 +285,7 @@ a schedule, so plan against it rather than to it.
 | **OAuth Dynamic Client Registration** | Client ID Metadata Documents | A client's identity becomes a document the authorization server can fetch and check. |
 | `includeContext: "thisServer"` / `"allServers"` | explicit arguments | Both asked the client to gather context for you; `"allServers"` also leaked one server's context to another. |
 
-**Detected by:** `sentinel deprecations`, which reports each with its deprecation date, its
+**Detected by:** `toolgauge deprecations`, which reports each with its deprecation date, its
 earliest removal, and what to replace it with.
 
 ---
@@ -320,7 +320,7 @@ and a scanner cannot mint a token signed by your issuer.
 
 ## Limits: what a scan cannot tell you
 
-Four MUST rules, and one beyond-spec security rule, cannot be settled from the wire, and `sentinel` reports them as **`INDETERMINATE`**
+Four MUST rules, and one beyond-spec security rule, cannot be settled from the wire, and `toolgauge` reports them as **`INDETERMINATE`**
 rather than as passes:
 
 | Rule | What would settle it |
@@ -329,7 +329,7 @@ rather than as passes:
 | `no-token-passthrough` | Capture your server's egress while it serves an authenticated call; confirm the inbound token appears in none of it. |
 | `handle-possession-is-not-authentication` | Mint a handle as one principal, present it as another; confirm the refusal. |
 | `mrtr-retries-are-idempotent` | Retry a completed flow and count the effect **at its source**, not in the reply. |
-| `SENTINEL/SECURITY/invocations-are-audited` (beyond-spec) | Read the log directly and verify its chain. |
+| `TOOLGAUGE/SECURITY/invocations-are-audited` (beyond-spec) | Read the log directly and verify its chain. |
 
 A clean scan is not a clean bill of health, and a tool that implied otherwise would be worse than
 no tool. These five are where you still have to look yourself.
@@ -351,6 +351,6 @@ no tool. These five are where you still have to look yourself.
 Scan after each step. The gate is the point:
 
 ```bash
-uv run sentinel scan --endpoint http://localhost:8080/mcp --gate must
+uv run toolgauge scan --endpoint http://localhost:8080/mcp --gate must
 # exit 0 → you passed. exit 1 → a MUST failed. exit 2 → the scanner broke.
 ```

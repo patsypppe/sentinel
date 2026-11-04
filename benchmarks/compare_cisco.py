@@ -1,4 +1,4 @@
-"""Benchmark: tool-description poisoning, Sentinel against Cisco's open-source `mcp-scanner`.
+"""Benchmark: tool-description poisoning, toolgauge against Cisco's open-source `mcp-scanner`.
 
 Three sets of tool definitions:
   * 15 poisoned tools written after published attack patterns (explicit, hidden-character, and
@@ -21,7 +21,7 @@ import pathlib
 import subprocess
 import tempfile
 
-from sentinel.catalog.beyond.security import injection_findings
+from toolgauge.catalog.beyond.security import injection_findings
 
 HERE = pathlib.Path(__file__).resolve().parent
 
@@ -53,7 +53,7 @@ def cisco_flags(tools: list[dict[str, object]]) -> set[str]:
     return {str(d["tool_name"]) for d in data if not d.get("is_safe", True)}
 
 
-def sentinel_flags(tools: list[dict[str, object]], *, core_only: bool) -> set[str]:
+def toolgauge_flags(tools: list[dict[str, object]], *, core_only: bool) -> set[str]:
     flagged = set()
     for tool in tools:
         kinds = {kind for kind, _, _ in injection_findings(tool)}  # type: ignore[arg-type]
@@ -82,8 +82,8 @@ def main() -> int:
     results: dict[str, dict[str, set[str]]] = {}
     for label, tools in (("poisoned", poisoned), ("hard", hard), ("real", real)):
         results[label] = {
-            "Sentinel (all categories)": sentinel_flags(tools, core_only=False),
-            "Sentinel (without credential-path mentions)": sentinel_flags(tools, core_only=True),
+            "toolgauge (all categories)": toolgauge_flags(tools, core_only=False),
+            "toolgauge (without credential-path mentions)": toolgauge_flags(tools, core_only=True),
             "Cisco mcp-scanner (YARA, offline)": cisco_flags(tools),
         }
 
@@ -92,7 +92,7 @@ def main() -> int:
         return f"{len(tool_set & set(ids))}/{len(ids)}"
 
     lines = [
-        "# Tool-description poisoning: Sentinel vs Cisco mcp-scanner (offline YARA)",
+        "# Tool-description poisoning: toolgauge vs Cisco mcp-scanner (offline YARA)",
         "",
         f"{len(poisoned)} poisoned tools, {len(hard)} hard negatives, {len(real)} real tools from "
         "published servers (taken as benign, then the flagged ones read by hand).",

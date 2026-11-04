@@ -61,7 +61,7 @@ Generated in 7.7s.
 
 **Result:** **100%** (52 of 52 seeded violations detected)
 
-**Value:** MCP/MUST 43/43 (100%); MCP/SHOULD 6/6 (100%); SENTINEL/MUST 2/2 (100%); SENTINEL/SHOULD 1/1 (100%)
+**Value:** MCP/MUST 43/43 (100%); MCP/SHOULD 6/6 (100%); TOOLGAUGE/MUST 2/2 (100%); TOOLGAUGE/SHOULD 1/1 (100%)
 
 **Method:** Seeded violations detected ÷ seeded violations. The fixture TAGS each violation in its own source and lists it in `SEEDED_VIOLATIONS`, and a test asserts the two agree — so the denominator describes what the fixture actually does rather than what the scanner happened to find. A scanner supplying its own denominator would be grading its own homework. Reported per severity because a MUST failure and a beyond-spec opinion are not the same claim, and one number over both would let a strong figure hide a weak one.
 

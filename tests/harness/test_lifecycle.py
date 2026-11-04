@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from sentinel.catalog.base import (
+from toolgauge.catalog.base import (
     BaseRule,
     Namespace,
     Outcome,
@@ -19,9 +19,9 @@ from sentinel.catalog.base import (
     Verifiability,
     validate_registry,
 )
-from sentinel.grade import EXIT_GATE_FAILED, EXIT_OK, Finding, ScanReport, run_scan
-from sentinel.report.json_report import render as render_json
-from sentinel.report.text import render as render_text
+from toolgauge.grade import EXIT_GATE_FAILED, EXIT_OK, Finding, ScanReport, run_scan
+from toolgauge.report.json_report import render as render_json
+from toolgauge.report.text import render as render_text
 
 pytestmark = pytest.mark.unit
 
@@ -52,8 +52,8 @@ def _rule(
 
 def test_namespace_is_derived_from_the_id() -> None:
     assert _rule("MCP/2026-07-28/MUST/a").namespace is Namespace.MCP
-    beyond_spec = _rule("SENTINEL/STYLE/a", citation="", rationale="x" * 25)
-    assert beyond_spec.namespace is Namespace.SENTINEL
+    beyond_spec = _rule("TOOLGAUGE/STYLE/a", citation="", rationale="x" * 25)
+    assert beyond_spec.namespace is Namespace.TOOLGAUGE
 
 
 def test_slug_is_the_last_segment() -> None:
@@ -136,16 +136,16 @@ def test_a_deprecated_rule_and_its_successor_may_share_a_slug() -> None:
     assert validate_registry(reg) == []
 
 
-def test_sentinel_namespace_requires_a_rationale_and_no_citation() -> None:
+def test_toolgauge_namespace_requires_a_rationale_and_no_citation() -> None:
     reg = Registry()
-    reg.register(_rule("SENTINEL/STYLE/a", citation="", rationale=""))
+    reg.register(_rule("TOOLGAUGE/STYLE/a", citation="", rationale=""))
     problems = validate_registry(reg)
     assert any("rationale" in p.problem for p in problems)
 
     reg2 = Registry()
     reg2.register(
         _rule(
-            "SENTINEL/STYLE/a",
+            "TOOLGAUGE/STYLE/a",
             citation="https://modelcontextprotocol.io/specification/2026-07-28/basic",
             rationale="x" * 25,
         )
@@ -172,7 +172,7 @@ def _finding(
     deprecated_in: str | None = None,
     superseded_by: str | None = None,
 ) -> Finding:
-    beyond_spec = rule_id.startswith("SENTINEL/")
+    beyond_spec = rule_id.startswith("TOOLGAUGE/")
     return Finding(
         rule=_rule(
             rule_id,
@@ -201,7 +201,7 @@ def test_gate_ignores_the_beyond_spec_namespace() -> None:
     """A style opinion must never be able to fail a conformance gate."""
     report = _report(
         _finding("MCP/2026-07-28/MUST/ok", Outcome.PASS, Severity.MUST),
-        _finding("SENTINEL/STYLE/opinion", Outcome.FAIL, Severity.SHOULD),
+        _finding("TOOLGAUGE/STYLE/opinion", Outcome.FAIL, Severity.SHOULD),
     )
     assert report.gate(Severity.MUST) == EXIT_OK
     assert report.gate(Severity.SHOULD) == EXIT_OK
@@ -214,9 +214,9 @@ def test_gate_still_fails_on_a_must_in_the_mcp_namespace() -> None:
 
 def test_a_beyond_spec_failure_is_still_reported() -> None:
     """Excluded from the gate is not the same as hidden."""
-    report = _report(_finding("SENTINEL/STYLE/opinion", Outcome.FAIL, Severity.SHOULD))
+    report = _report(_finding("TOOLGAUGE/STYLE/opinion", Outcome.FAIL, Severity.SHOULD))
     assert report.by_outcome(Outcome.FAIL) != []
-    assert "SENTINEL/STYLE/opinion" in render_text(report, color=False)
+    assert "TOOLGAUGE/STYLE/opinion" in render_text(report, color=False)
 
 
 def test_run_scan_excludes_deprecated_rules_unless_asked() -> None:
@@ -293,7 +293,7 @@ def test_the_json_report_carries_the_lifecycle_on_every_finding() -> None:
             deprecated_in="0.2.0",
             superseded_by="MCP/2026-07-28/SHOULD/live",
         ),
-        _finding("SENTINEL/STYLE/opinion", Outcome.PASS, Severity.SHOULD),
+        _finding("TOOLGAUGE/STYLE/opinion", Outcome.PASS, Severity.SHOULD),
     )
     rendered = render_json(report)
 
@@ -305,6 +305,6 @@ def test_the_json_report_carries_the_lifecycle_on_every_finding() -> None:
     assert deprecated["namespace"] == "MCP"
     assert deprecated["deprecated"] is True
     assert deprecated["supersededBy"] == "MCP/2026-07-28/SHOULD/live"
-    assert opinion["namespace"] == "SENTINEL"
+    assert opinion["namespace"] == "TOOLGAUGE"
     assert opinion["deprecated"] is False
     assert opinion["supersededBy"] is None

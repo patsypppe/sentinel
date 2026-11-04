@@ -10,9 +10,9 @@ import sys
 
 import pytest
 
-from sentinel.config import load_policy
-from sentinel.fleet import exit_code, load_fleet, rollup, scan_fleet
-from sentinel.waivers import ConfigError
+from toolgauge.config import load_policy
+from toolgauge.fleet import exit_code, load_fleet, rollup, scan_fleet
+from toolgauge.waivers import ConfigError
 
 pytestmark = pytest.mark.unit
 
@@ -26,8 +26,8 @@ def fleet_file(tmp_path: pathlib.Path, body: str, name: str = "fleet.yaml") -> p
 
 
 def policy(tmp_path: pathlib.Path):
-    (tmp_path / "sentinel.toml").write_text("")
-    return load_policy(config=tmp_path / "sentinel.toml", env={})
+    (tmp_path / "toolgauge.toml").write_text("")
+    return load_policy(config=tmp_path / "toolgauge.toml", env={})
 
 
 def test_a_fleet_file_is_validated(tmp_path: pathlib.Path) -> None:
@@ -226,7 +226,7 @@ targets:
         [
             sys.executable,
             "-m",
-            "sentinel.cli",
+            "toolgauge.cli",
             "scan",
             "--targets",
             str(fleet),

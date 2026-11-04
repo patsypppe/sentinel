@@ -20,7 +20,7 @@ import httpx
 import pytest
 from tests.harness.conftest import free_port
 
-from sentinel.publish import publish
+from toolgauge.publish import publish
 
 pytestmark = pytest.mark.unit
 
@@ -29,20 +29,20 @@ GO = shutil.which("go") or "/usr/local/go/bin/go"
 INGEST = "ingest-token-for-tests"
 READ = "read-token-for-tests"
 
-# Locally a missing Go toolchain skips these tests. In CI, SENTINEL_REQUIRE_GO is set and
+# Locally a missing Go toolchain skips these tests. In CI, TOOLGAUGE_REQUIRE_GO is set and
 # they run, and fail loudly if Go is missing, rather than letting the claim they back
 # quietly stop being checked.
 needs_go = pytest.mark.skipif(
-    not pathlib.Path(GO).exists() and not os.environ.get("SENTINEL_REQUIRE_GO"),
+    not pathlib.Path(GO).exists() and not os.environ.get("TOOLGAUGE_REQUIRE_GO"),
     reason="the Go toolchain is not installed",
 )
 
 
 @pytest.fixture(scope="module")
 def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
-    binary = tmp_path_factory.mktemp("fleet") / "sentinel-server"
+    binary = tmp_path_factory.mktemp("fleet") / "toolgauge-server"
     built = subprocess.run(
-        [GO, "build", "-o", str(binary), "./fleet/cmd/sentinel-server"],
+        [GO, "build", "-o", str(binary), "./fleet/cmd/toolgauge-server"],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -54,9 +54,9 @@ def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
         [str(binary), "serve"],
         env={
             **os.environ,
-            "SENTINEL_SERVER_ADDR": f"127.0.0.1:{port}",
-            "SENTINEL_SERVER_INGEST_TOKEN": INGEST,
-            "SENTINEL_SERVER_READ_TOKEN": READ,
+            "TOOLGAUGE_SERVER_ADDR": f"127.0.0.1:{port}",
+            "TOOLGAUGE_SERVER_INGEST_TOKEN": INGEST,
+            "TOOLGAUGE_SERVER_READ_TOKEN": READ,
         },
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -77,12 +77,12 @@ def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
     proc.wait(timeout=10)
 
 
-def sentinel(*args: str, token: str | None = INGEST) -> subprocess.CompletedProcess[str]:
+def toolgauge(*args: str, token: str | None = INGEST) -> subprocess.CompletedProcess[str]:
     env = {**os.environ}
     if token is not None:
-        env["SENTINEL_PUBLISH_TOKEN"] = token
+        env["TOOLGAUGE_PUBLISH_TOKEN"] = token
     return subprocess.run(
-        [sys.executable, "-m", "sentinel.cli", *args],
+        [sys.executable, "-m", "toolgauge.cli", *args],
         capture_output=True,
         text=True,
         check=False,
@@ -99,14 +99,14 @@ def api(base: str, path: str) -> dict:
 
 @needs_go
 def test_the_server_refuses_to_start_without_an_ingest_token(tmp_path: pathlib.Path) -> None:
-    binary = tmp_path / "sentinel-server"
+    binary = tmp_path / "toolgauge-server"
     subprocess.run(
-        [GO, "build", "-o", str(binary), "./fleet/cmd/sentinel-server"],
+        [GO, "build", "-o", str(binary), "./fleet/cmd/toolgauge-server"],
         cwd=ROOT,
         check=True,
         capture_output=True,
     )
-    env = {k: v for k, v in os.environ.items() if not k.startswith("SENTINEL_SERVER_")}
+    env = {k: v for k, v in os.environ.items() if not k.startswith("TOOLGAUGE_SERVER_")}
     result = subprocess.run(
         [str(binary), "serve"], env=env, capture_output=True, text=True, timeout=10, check=False
     )
@@ -118,7 +118,7 @@ def test_the_server_refuses_to_start_without_an_ingest_token(tmp_path: pathlib.P
 def test_a_published_scan_appears_with_its_verdict(
     service: str, conformant_endpoint: str, nonconformant_endpoint: str
 ) -> None:
-    good = sentinel(
+    good = toolgauge(
         "scan",
         "--endpoint",
         conformant_endpoint,
@@ -129,7 +129,7 @@ def test_a_published_scan_appears_with_its_verdict(
         "--publish",
         service,
     )
-    bad = sentinel(
+    bad = toolgauge(
         "scan",
         "--endpoint",
         nonconformant_endpoint,
@@ -168,7 +168,7 @@ def test_a_baselined_scan_publishes_its_failures_as_accepted(
 ) -> None:
     baseline = tmp_path / "b.json"
     assert (
-        sentinel(
+        toolgauge(
             "baseline",
             "create",
             "--endpoint",
@@ -180,7 +180,7 @@ def test_a_baselined_scan_publishes_its_failures_as_accepted(
         ).returncode
         == 0
     )
-    ran = sentinel(
+    ran = toolgauge(
         "scan",
         "--endpoint",
         nonconformant_endpoint,
@@ -216,7 +216,7 @@ def test_the_dashboard_serves_html_behind_the_read_token(service: str) -> None:
 def test_a_wrong_token_is_a_warning_and_never_changes_the_exit_code(
     service: str, conformant_endpoint: str, nonconformant_endpoint: str
 ) -> None:
-    good = sentinel(
+    good = toolgauge(
         "scan",
         "--endpoint",
         conformant_endpoint,
@@ -226,7 +226,7 @@ def test_a_wrong_token_is_a_warning_and_never_changes_the_exit_code(
         service,
         token="wrong",
     )
-    bad = sentinel(
+    bad = toolgauge(
         "scan",
         "--endpoint",
         nonconformant_endpoint,
@@ -244,8 +244,8 @@ def test_a_dead_service_is_a_warning_and_never_changes_the_exit_code(
     conformant_endpoint: str, nonconformant_endpoint: str
 ) -> None:
     dead = "http://127.0.0.1:9"
-    good = sentinel("scan", "--endpoint", conformant_endpoint, "--gate", "must", "--publish", dead)
-    bad = sentinel(
+    good = toolgauge("scan", "--endpoint", conformant_endpoint, "--gate", "must", "--publish", dead)
+    bad = toolgauge(
         "scan", "--endpoint", nonconformant_endpoint, "--gate", "must", "--publish", dead
     )
     assert good.returncode == 0, "a clean scan must not turn red because the service is down"

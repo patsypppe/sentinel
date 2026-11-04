@@ -3,7 +3,7 @@
 Two things are under test here, and the second matters more than the first.
 
 The pricing is arithmetic and is checked directly. The GATE SEPARATION is the
-invariant: a `SENTINEL/OPS` rule must be able to fail `--gate ops` and must be
+invariant: a `TOOLGAUGE/OPS` rule must be able to fail `--gate ops` and must be
 unable to fail `--gate must`. If the second half of that ever breaks, a budget
 opinion this project holds starts masquerading as a conformance verdict about
 the specification, which is the failure mode `ScanReport.gate` exists to
@@ -15,15 +15,15 @@ from __future__ import annotations
 
 import pytest
 
-from sentinel.budget import BudgetPolicy, manifest_cost, schema_depth
-from sentinel.catalog.base import (
+from toolgauge.budget import BudgetPolicy, manifest_cost, schema_depth
+from toolgauge.catalog.base import (
     REGISTRY,
     Namespace,
     Outcome,
     RuleResult,
     Severity,
 )
-from sentinel.grade import (
+from toolgauge.grade import (
     EXIT_GATE_FAILED,
     EXIT_OK,
     Finding,
@@ -109,7 +109,7 @@ def test_budget_policy_reports_whether_anything_was_asked_for() -> None:
 
 # ------------------------------------------------------------ gate separation
 
-BUDGET_RULE = "SENTINEL/OPS/manifest-token-budget"
+BUDGET_RULE = "TOOLGAUGE/OPS/manifest-token-budget"
 SPEC_RULE = "MCP/2026-07-28/MUST/discover-implemented"
 
 
@@ -150,11 +150,11 @@ def test_a_bare_severity_still_means_exactly_what_it_meant() -> None:
 
 
 def test_every_budget_rule_is_beyond_spec_and_carries_a_rationale() -> None:
-    """A SENTINEL rule with a citation would be claiming the spec requires it."""
+    """A TOOLGAUGE rule with a citation would be claiming the spec requires it."""
     budget_rules = [r for r in REGISTRY.all() if r.category == "OPS"]
     assert budget_rules, "no OPS rules registered; the gate below tests nothing"
     for r in budget_rules:
-        assert r.namespace is Namespace.SENTINEL
+        assert r.namespace is Namespace.TOOLGAUGE
         assert r.rationale and not r.citation
         assert len(r.remediation) >= 40
 

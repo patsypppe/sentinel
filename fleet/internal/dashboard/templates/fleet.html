@@ -19,7 +19,7 @@
 <td class="num">{{.Failing}}</td><td class="num">{{.Accepted}}</td><td class="num">{{.Indeterminate}}</td>
 <td>{{.Age}} ago</td></tr>{{end}}
 </table>
-{{else}}<p>No scans have been published yet. Run <code>sentinel scan --publish URL</code>.</p>{{end}}
+{{else}}<p>No scans have been published yet. Run <code>toolgauge scan --publish URL</code>.</p>{{end}}
 {{if .MostFailing}}<h2>Rules failing on the most targets</h2>
 <table><tr><th>Rule</th><th class="num">Targets</th></tr>
 {{range .MostFailing}}<tr><td><code>{{.RuleID}}</code></td><td class="num">{{.Targets}}</td></tr>{{end}}</table>{{end}}

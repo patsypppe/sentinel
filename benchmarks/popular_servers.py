@@ -1,7 +1,7 @@
 """Benchmark: lint a hand-picked set of widely used, published MCP servers.
 
 Each server is started the way its README says (npx / uvx, dummy credentials where a token is
-required just to start), its tool manifest is read, and Sentinel's manifest rules are run. The
+required just to start), its tool manifest is read, and toolgauge's manifest rules are run. The
 output is aggregate: how many servers, how many tools, and what share break each rule.
 
     uv run python benchmarks/popular_servers.py
@@ -22,13 +22,13 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
-from sentinel.catalog.base import Outcome
-from sentinel.catalog.beyond.style import parameter_documented
-from sentinel.grade import LINT_RULES, run_scan
-from sentinel.probe.client import Probe
+from toolgauge.catalog.base import Outcome
+from toolgauge.catalog.beyond.style import parameter_documented
+from toolgauge.grade import LINT_RULES, run_scan
+from toolgauge.probe.client import Probe
 
 HERE = pathlib.Path(__file__).resolve().parent
-DUMMY = "sentinel-benchmark-dummy"
+DUMMY = "toolgauge-benchmark-dummy"
 
 
 @dataclass

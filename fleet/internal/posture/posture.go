@@ -182,7 +182,7 @@ type DriftEvent struct {
 }
 
 // Drift lists every point where the manifest hash changed. The service knows THAT the
-// manifest changed and when; `sentinel diff` against a snapshot says WHAT changed and
+// manifest changed and when; `toolgauge diff` against a snapshot says WHAT changed and
 // how severe it is. A scan with no hash (an unreadable manifest) neither starts nor
 // ends a drift event: it is a gap, not a change.
 func Drift(scans []model.ScanRun) []DriftEvent {

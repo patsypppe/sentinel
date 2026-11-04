@@ -15,14 +15,14 @@ from typing import Any
 import pytest
 from tests.harness.conftest import free_port
 
-from sentinel.catalog.base import REGISTRY, Outcome
-from sentinel.config import load_policy
-from sentinel.grade import ScanReport
-from sentinel.graybox import Evidence, run_command, validate_graybox
-from sentinel.runner import ScanOptions, scan_target
-from sentinel.waivers import ConfigError
 from server.common import serve_background
 from server.graybox import WRONG_AUDIENCE, GrayboxServer
+from toolgauge.catalog.base import REGISTRY, Outcome
+from toolgauge.config import load_policy
+from toolgauge.grade import ScanReport
+from toolgauge.graybox import Evidence, run_command, validate_graybox
+from toolgauge.runner import ScanOptions, scan_target
+from toolgauge.waivers import ConfigError
 
 pytestmark = pytest.mark.unit
 
@@ -77,7 +77,7 @@ def graybox_config(base: str) -> dict[str, Any]:
 def verdicts(
     base: str, tmp_path: Any, config: dict[str, Any] | None, *, allow_exec: bool = True
 ) -> dict[str, tuple[Outcome, str, str]]:
-    cfg = tmp_path / "sentinel.toml"
+    cfg = tmp_path / "toolgauge.toml"
     cfg.write_text("")
     policy = load_policy(config=cfg, env={})
     policy.graybox = config if config is not None else {}
@@ -252,7 +252,7 @@ def test_a_command_given_as_a_string_is_rejected_at_load_time() -> None:
 
 def test_a_command_runs_with_a_minimal_environment() -> None:
     result = run_command([sys.executable, "-c", "import os;print(sorted(os.environ))"])
-    assert "SENTINEL_TOKEN" not in result.stdout
+    assert "TOOLGAUGE_TOKEN" not in result.stdout
     assert "AWS_SECRET_ACCESS_KEY" not in result.stdout
 
 

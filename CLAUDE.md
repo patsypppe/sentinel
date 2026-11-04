@@ -1,9 +1,9 @@
-# Sentinel — working instructions
+# toolgauge — working instructions
 
 Two products in one repository:
 
 - **`broker/`** — a Go MCP server built natively on the **stateless** MCP `2026-07-28` specification.
-- **`harness/`** — `sentinel`, a Python conformance harness that grades *any* MCP server.
+- **`harness/`** — `toolgauge`, a Python conformance harness that grades *any* MCP server.
 
 The spec is `docs/HANDOFF.md` (SN-HND-001). **Where this repository and the
 [MCP specification](https://modelcontextprotocol.io/specification/2026-07-28/) disagree, the spec wins.**

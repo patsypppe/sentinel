@@ -17,9 +17,9 @@ from __future__ import annotations
 
 import pytest
 
-from sentinel.catalog.base import BaseRule, Outcome, Severity
-from sentinel.grade import EXIT_GATE_FAILED, EXIT_OK, run_scan
 from server.nonconformant import SEEDED_VIOLATIONS
+from toolgauge.catalog.base import BaseRule, Outcome, Severity
+from toolgauge.grade import EXIT_GATE_FAILED, EXIT_OK, run_scan
 
 pytestmark = pytest.mark.unit
 
@@ -60,7 +60,7 @@ def test_recall_against_seeded_violations(nonconformant_endpoint: str) -> None:
     seeds that stopped being MUSTs would shrink the denominator to flatter the
     number, which is the one thing this oracle exists to prevent.
     """
-    from sentinel.catalog.base import REGISTRY
+    from toolgauge.catalog.base import REGISTRY
 
     report = run_scan(nonconformant_endpoint)
     detected = {f.rule.id for f in report.by_outcome(Outcome.FAIL)}
@@ -143,7 +143,7 @@ def test_seeded_list_matches_the_tagged_code() -> None:
     # Both namespaces, and an optional colon. A tag the pattern does not match
     # is a tagged violation this test silently stops checking, so the pattern
     # is deliberately more forgiving than the file's own convention.
-    tagged = set(re.findall(r"VIOLATES:?\s+((?:MCP|SENTINEL)/\S+)", source))
+    tagged = set(re.findall(r"VIOLATES:?\s+((?:MCP|TOOLGAUGE)/\S+)", source))
     listed = set(SEEDED_VIOLATIONS)
 
     assert listed == tagged, (
@@ -156,7 +156,7 @@ def test_seeded_list_matches_the_tagged_code() -> None:
 def test_every_seeded_violation_names_a_real_rule() -> None:
     """A seeded violation naming a rule that does not exist would inflate the
     denominator with something no scanner could ever detect."""
-    from sentinel.catalog.base import REGISTRY
+    from toolgauge.catalog.base import REGISTRY
 
     known = {r.id for r in REGISTRY}
     unknown = set(SEEDED_VIOLATIONS) - known
@@ -177,7 +177,7 @@ def test_a_rule_that_raises_becomes_indeterminate_not_a_failure(conformant_endpo
     This is the difference between a tool that says "you are wrong" and one that
     says "I broke", and conflating them is how a scanner loses its reader.
     """
-    from sentinel.catalog.base import BaseRule, Registry, Severity, Verifiability
+    from toolgauge.catalog.base import BaseRule, Registry, Severity, Verifiability
 
     def explode(_probe: object) -> object:
         raise RuntimeError("the rule itself is broken")

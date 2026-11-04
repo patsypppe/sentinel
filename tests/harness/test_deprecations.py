@@ -10,7 +10,8 @@ from datetime import date
 
 import pytest
 
-from sentinel.catalog.deprecations import (
+from server.nonconformant import SEEDED_DEPRECATIONS
+from toolgauge.catalog.deprecations import (
     DEPRECATED_ON,
     FEATURES,
     MINIMUM_NOTICE_MONTHS,
@@ -20,8 +21,7 @@ from sentinel.catalog.deprecations import (
     render_json,
     render_text,
 )
-from sentinel.probe.client import Probe
-from server.nonconformant import SEEDED_DEPRECATIONS
+from toolgauge.probe.client import Probe
 
 pytestmark = pytest.mark.unit
 
@@ -128,7 +128,7 @@ def test_findings_cite_the_specification(nonconformant_endpoint: str) -> None:
 def test_months_remaining_goes_negative_rather_than_clamping() -> None:
     """Reporting 0 months once the window has passed implies there is still
     time. A negative number says what actually happened."""
-    from sentinel.catalog.deprecations import Detection, Inventory
+    from toolgauge.catalog.deprecations import Detection, Inventory
 
     detection = Detection(FEATURES[0], in_use=True, confidence=Confidence.OBSERVED)
     late = Inventory(endpoint="x", as_of=date(2028, 1, 1), detections=[detection])

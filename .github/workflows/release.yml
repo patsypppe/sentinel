@@ -1,10 +1,10 @@
-# On a GitHub release this publishes the wheel to PyPI as `sentinel-mcp-conformance`,
+# On a GitHub release this publishes the wheel to PyPI as `toolgauge`,
 # pushes a multi-arch container image to GHCR, signs both with cosign (keyless, using
 # this workflow's GitHub OIDC identity, so there is no signing key to leak) and
 # attaches a CycloneDX SBOM of the harness to the release.
 #
 # Verify a release:
-#   cosign verify ghcr.io/patsypppe/sentinel:<version> \
+#   cosign verify ghcr.io/patsypppe/toolgauge:<version> \
 #     --certificate-identity-regexp 'https://github.com/patsypppe/sentinel/.github/workflows/release.yml@.*' \
 #     --certificate-oidc-issuer https://token.actions.githubusercontent.com
 #
@@ -44,8 +44,8 @@ jobs:
         run: |
           uv venv /tmp/smoke --python 3.12
           uv pip install --python /tmp/smoke dist/*.whl
-          /tmp/smoke/bin/sentinel version
-          /tmp/smoke/bin/sentinel-mcp-conformance catalog validate
+          /tmp/smoke/bin/toolgauge version
+          /tmp/smoke/bin/toolgauge catalog validate
       - uses: actions/upload-artifact@v4
         with:
           name: dist
@@ -98,15 +98,15 @@ jobs:
           push: true
           provenance: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/sentinel:${{ steps.meta.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/sentinel:latest
+            ghcr.io/${{ github.repository_owner }}/toolgauge:${{ steps.meta.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/toolgauge:latest
       - name: sign the image by digest
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
-        run: cosign sign --yes "ghcr.io/${{ github.repository_owner }}/sentinel@${DIGEST}"
+        run: cosign sign --yes "ghcr.io/${{ github.repository_owner }}/toolgauge@${DIGEST}"
       - name: the image runs
         run: |
-          docker run --rm "ghcr.io/${{ github.repository_owner }}/sentinel:${{ steps.meta.outputs.version }}" version
+          docker run --rm "ghcr.io/${{ github.repository_owner }}/toolgauge:${{ steps.meta.outputs.version }}" version
 
   attest:
     name: sign the wheel, attach the SBOM
@@ -134,11 +134,11 @@ jobs:
         with:
           path: harness
           format: cyclonedx-json
-          output-file: sentinel-harness.cdx.json
+          output-file: toolgauge-harness.cdx.json
           upload-artifact: false
           upload-release-assets: false
       - name: attach to the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "$GITHUB_REF_NAME" dist/*.sigstore.json sentinel-harness.cdx.json --clobber
+          gh release upload "$GITHUB_REF_NAME" dist/*.sigstore.json toolgauge-harness.cdx.json --clobber

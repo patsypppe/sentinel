@@ -11,20 +11,20 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
-from sentinel import baseline as baseline_mod
-from sentinel.catalog.base import Outcome, RuleResult
-from sentinel.config import load_policy
-from sentinel.grade import ScanReport
-from sentinel.report import FORMATS, render_report
-from sentinel.report import markdown as md
-from sentinel.runner import ScanOptions, scan_target
+from toolgauge import baseline as baseline_mod
+from toolgauge.catalog.base import Outcome, RuleResult
+from toolgauge.config import load_policy
+from toolgauge.grade import ScanReport
+from toolgauge.report import FORMATS, render_report
+from toolgauge.report import markdown as md
+from toolgauge.runner import ScanOptions, scan_target
 
 pytestmark = pytest.mark.unit
 
 
 @pytest.fixture(scope="module")
 def failing(nonconformant_endpoint: str, tmp_path_factory: pytest.TempPathFactory) -> ScanReport:
-    cfg = tmp_path_factory.mktemp("cfg") / "sentinel.toml"
+    cfg = tmp_path_factory.mktemp("cfg") / "toolgauge.toml"
     cfg.write_text("")
     return scan_target(
         ScanOptions(
@@ -37,7 +37,7 @@ def failing(nonconformant_endpoint: str, tmp_path_factory: pytest.TempPathFactor
 
 @pytest.fixture(scope="module")
 def clean(conformant_endpoint: str, tmp_path_factory: pytest.TempPathFactory) -> ScanReport:
-    cfg = tmp_path_factory.mktemp("cfg2") / "sentinel.toml"
+    cfg = tmp_path_factory.mktemp("cfg2") / "toolgauge.toml"
     cfg.write_text("")
     return scan_target(
         ScanOptions(endpoint=conformant_endpoint, policy=load_policy(config=cfg, env={}))
@@ -137,8 +137,8 @@ def test_json_v2_adds_identity_policy_and_target_and_keeps_v1_keys(failing: Scan
 def test_sarif_carries_the_fingerprint_so_github_can_track_a_finding(failing: ScanReport) -> None:
     sarif = json.loads(render_report("sarif", failing))
     results = sarif["runs"][0]["results"]
-    assert all(r["partialFingerprints"]["sentinel/v1"] for r in results)
-    assert len({r["partialFingerprints"]["sentinel/v1"] for r in results}) == len(results)
+    assert all(r["partialFingerprints"]["toolgauge/v1"] for r in results)
+    assert len({r["partialFingerprints"]["toolgauge/v1"] for r in results}) == len(results)
 
 
 def test_sarif_marks_a_baselined_failure_as_a_suppression_not_a_deletion(
@@ -146,7 +146,7 @@ def test_sarif_marks_a_baselined_failure_as_a_suppression_not_a_deletion(
 ) -> None:
     again = copy.copy(failing)
     again.findings = [copy.copy(f) for f in failing.findings]
-    from sentinel.triage import apply_baseline
+    from toolgauge.triage import apply_baseline
 
     apply_baseline(again, baseline_mod.create(failing))
     sarif = json.loads(render_report("sarif", again))
@@ -159,7 +159,7 @@ def test_sarif_marks_a_baselined_failure_as_a_suppression_not_a_deletion(
 def test_text_report_lists_accepted_failures_separately(failing: ScanReport) -> None:
     again = copy.copy(failing)
     again.findings = [copy.copy(f) for f in failing.findings]
-    from sentinel.triage import apply_baseline
+    from toolgauge.triage import apply_baseline
 
     apply_baseline(again, baseline_mod.create(failing))
     text = render_report("text", again)
@@ -170,8 +170,8 @@ def test_text_report_lists_accepted_failures_separately(failing: ScanReport) -> 
 def test_a_target_manifest_hash_matches_a_snapshot_of_the_same_server(
     conformant_endpoint: str, clean: ScanReport
 ) -> None:
-    from sentinel import snapshot as snap
-    from sentinel.probe.client import Probe
+    from toolgauge import snapshot as snap
+    from toolgauge.probe.client import Probe
 
     with Probe(conformant_endpoint) as probe:
         assert snap.capture(probe).manifest_hash == clean.manifest_hash

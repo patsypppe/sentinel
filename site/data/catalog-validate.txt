@@ -2,7 +2,7 @@
 3 deprecated rule(s) keep their ids and are skipped unless --include-deprecated-rules is passed:
   MCP/2026-07-28/MUST/server-info-echoed -> MCP/2026-07-28/SHOULD/server-info-echoed
   MCP/2026-07-28/MUST/tools-list-is-deterministic -> MCP/2026-07-28/SHOULD/tools-list-is-deterministic
-  MCP/2026-07-28/SHOULD/tools-sorted-by-name -> SENTINEL/STYLE/tools-sorted-by-name
+  MCP/2026-07-28/SHOULD/tools-sorted-by-name -> TOOLGAUGE/STYLE/tools-sorted-by-name
 5 MUST rule(s) are UNVERIFIABLE black-box and always report INDETERMINATE:
   MCP/2026-07-28/MUST/handle-possession-is-not-authentication
   MCP/2026-07-28/MUST/invocations-are-audited

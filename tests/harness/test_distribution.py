@@ -44,11 +44,11 @@ def run_action_scan(env: dict[str, str], tmp_path: pathlib.Path) -> tuple[int, s
         "RUNNER_TEMP": str(tmp_path),
         "GITHUB_OUTPUT": str(output),
         "GITHUB_STEP_SUMMARY": str(summary),
-        "SENTINEL_ACTION_SARIF": str(tmp_path / "out.sarif"),
-        "SENTINEL_ACTION_ANCHOR": "README.md",
-        "SENTINEL_ACTION_GATE": "must",
-        "SENTINEL_ACTION_SAFE": "false",
-        "SENTINEL_ACTION_NOEXEC": "false",
+        "TOOLGAUGE_ACTION_SARIF": str(tmp_path / "out.sarif"),
+        "TOOLGAUGE_ACTION_ANCHOR": "README.md",
+        "TOOLGAUGE_ACTION_GATE": "must",
+        "TOOLGAUGE_ACTION_SAFE": "false",
+        "TOOLGAUGE_ACTION_NOEXEC": "false",
         **env,
     }
     proc = subprocess.run(
@@ -68,7 +68,7 @@ def test_the_action_passes_a_conformant_server_and_writes_both_reports(
     conformant_endpoint: str, tmp_path: pathlib.Path
 ) -> None:
     code, summary, sarif = run_action_scan(
-        {"SENTINEL_ACTION_ENDPOINT": conformant_endpoint}, tmp_path
+        {"TOOLGAUGE_ACTION_ENDPOINT": conformant_endpoint}, tmp_path
     )
     assert code == 0
     assert "**PASS**" in summary
@@ -79,7 +79,7 @@ def test_the_action_fails_a_nonconformant_server_and_says_so_in_the_summary(
     nonconformant_endpoint: str, tmp_path: pathlib.Path
 ) -> None:
     code, summary, sarif = run_action_scan(
-        {"SENTINEL_ACTION_ENDPOINT": nonconformant_endpoint}, tmp_path
+        {"TOOLGAUGE_ACTION_ENDPOINT": nonconformant_endpoint}, tmp_path
     )
     assert code == 1
     assert "**FAIL**" in summary
@@ -88,7 +88,7 @@ def test_the_action_fails_a_nonconformant_server_and_says_so_in_the_summary(
 
 
 def test_the_action_reports_a_scanner_error_as_two_not_as_a_verdict(tmp_path: pathlib.Path) -> None:
-    code, summary, _ = run_action_scan({"SENTINEL_ACTION_ENDPOINT": ""}, tmp_path)
+    code, summary, _ = run_action_scan({"TOOLGAUGE_ACTION_ENDPOINT": ""}, tmp_path)
     assert code == 2
     assert "could not run" in summary
 
@@ -101,7 +101,7 @@ def test_the_action_honours_a_baseline_and_a_config(
         [
             sys.executable,
             "-m",
-            "sentinel.cli",
+            "toolgauge.cli",
             "baseline",
             "create",
             "--endpoint",
@@ -117,8 +117,8 @@ def test_the_action_honours_a_baseline_and_a_config(
     assert made.returncode == 0, made.stderr
     code, _, _ = run_action_scan(
         {
-            "SENTINEL_ACTION_ENDPOINT": nonconformant_endpoint,
-            "SENTINEL_ACTION_BASELINE": str(baseline),
+            "TOOLGAUGE_ACTION_ENDPOINT": nonconformant_endpoint,
+            "TOOLGAUGE_ACTION_BASELINE": str(baseline),
         },
         tmp_path,
     )
@@ -130,7 +130,7 @@ def test_the_action_scans_a_fleet(conformant_endpoint: str, tmp_path: pathlib.Pa
     fleet.write_text(
         f'targets:\n  - {{name: only, endpoint: "{conformant_endpoint}", gate: must}}\n'
     )
-    code, summary, _ = run_action_scan({"SENTINEL_ACTION_TARGETS": str(fleet)}, tmp_path)
+    code, summary, _ = run_action_scan({"TOOLGAUGE_ACTION_TARGETS": str(fleet)}, tmp_path)
     assert code == 0
     assert "fleet" in summary and "| only |" in summary
 
@@ -144,7 +144,7 @@ def cli_flags(command: str) -> set[str]:
     """
     import typer.main
 
-    from sentinel.cli import app
+    from toolgauge.cli import app
 
     group = typer.main.get_command(app)
     scan = group.commands[command]  # type: ignore[attr-defined]
@@ -157,7 +157,7 @@ def test_every_flag_the_action_passes_exists() -> None:
 
 
 def test_every_flag_the_gitlab_template_passes_exists() -> None:
-    text = (ROOT / "ci/gitlab/sentinel.gitlab-ci.yml").read_text()
+    text = (ROOT / "ci/gitlab/toolgauge.gitlab-ci.yml").read_text()
     jobs = yaml.safe_load(text)
     used: set[str] = set()
     for job in jobs.values():
@@ -168,7 +168,7 @@ def test_every_flag_the_gitlab_template_passes_exists() -> None:
 
 def test_the_precommit_hooks_are_well_formed_and_their_flags_exist() -> None:
     hooks = load(".pre-commit-hooks.yaml")
-    assert {h["id"] for h in hooks} == {"sentinel-scan", "sentinel-scan-local"}
+    assert {h["id"] for h in hooks} == {"toolgauge-scan", "toolgauge-scan-local"}
     for hook in hooks:
         assert hook["pass_filenames"] is False, "a scan is of a server, not of changed files"
         assert hook["language"] in {"docker_image", "system"}
@@ -177,16 +177,16 @@ def test_the_precommit_hooks_are_well_formed_and_their_flags_exist() -> None:
 
 
 def test_the_gitlab_junit_report_is_what_the_scan_writes() -> None:
-    job = load("ci/gitlab/sentinel.gitlab-ci.yml")[".sentinel-scan"]
-    assert job["artifacts"]["reports"]["junit"] == "sentinel-junit.xml"
-    assert "--format junit --out sentinel-junit.xml" in " ".join(job["script"])
+    job = load("ci/gitlab/toolgauge.gitlab-ci.yml")[".toolgauge-scan"]
+    assert job["artifacts"]["reports"]["junit"] == "toolgauge-junit.xml"
+    assert "--format junit --out toolgauge-junit.xml" in " ".join(job["script"])
     assert job["artifacts"]["when"] == "always"
 
 
 def test_the_dockerfile_runs_as_a_non_root_user_with_the_cli_as_entrypoint() -> None:
     text = (ROOT / "Dockerfile").read_text()
     assert re.search(r"^USER 10001$", text, re.MULTILINE)
-    assert 'ENTRYPOINT ["sentinel"]' in text
+    assert 'ENTRYPOINT ["toolgauge"]' in text
     final = text.split("FROM python:3.12-slim")[-1]
     assert "pip install build" not in final, "the final stage must not carry the build tooling"
     assert (ROOT / "Dockerfile.dockerignore").read_text().count("broker/") == 1

@@ -1,15 +1,15 @@
-# Sentinel
+# toolgauge
 
 **Check whether an MCP server follows the current MCP specification — and a reference server that does.**
 
 [![ci](https://github.com/patsypppe/sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/patsypppe/sentinel/actions/workflows/ci.yml)
 [![conformance](https://github.com/patsypppe/sentinel/actions/workflows/conformance.yml/badge.svg)](https://github.com/patsypppe/sentinel/actions/workflows/conformance.yml)
 
-**[Live showcase → patsypppe.github.io/sentinel](https://patsypppe.github.io/sentinel/)**: an interactive
-viewer over real `sentinel` output, with rule-by-rule findings, the deprecation timeline and the
+**[Live showcase → patsypppe.github.io/toolgauge](https://patsypppe.github.io/toolgauge/)**: an interactive
+viewer over real `toolgauge` output, with rule-by-rule findings, the deprecation timeline and the
 INDETERMINATE design. The data comes from the scans in [`site/data/`](site/data/).
 
-[![Three scans side by side: the unmigrated server fails the MUST gate, the broker and the conformant fixture pass it](site/assets/img/showcase.png)](https://patsypppe.github.io/sentinel/)
+[![Three scans side by side: the unmigrated server fails the MUST gate, the broker and the conformant fixture pass it](site/assets/img/showcase.png)](https://patsypppe.github.io/toolgauge/)
 
 ## What this is
 
@@ -21,32 +21,32 @@ instead ask for more input by returning an `input_required` result that the clie
 retrying; and list results must say how long they can be cached. See the
 [revision's own change list](https://modelcontextprotocol.io/specification/2026-07-28/changelog).
 
-**Sentinel answers one question: does this MCP server follow that specification?** Point it at a
+**toolgauge answers one question: does this MCP server follow that specification?** Point it at a
 server's URL and it sends real requests, checks every answer against the MUST/SHOULD requirements,
 and tells you which rules failed, what it saw, what to change, and which page of the spec the rule
 comes from. It works on any server in any language, because it only speaks HTTP to it.
 
 ```bash
 uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" \
-  sentinel scan --endpoint https://your-server.example/mcp --gate must
+  toolgauge scan --endpoint https://your-server.example/mcp --gate must
 ```
 
 Exit code `0` means no MUST rule failed; `1` means at least one did. Some requirements cannot be
 checked from outside a server (for example, "does it log every call?"); those are reported as
 `INDETERMINATE`, never as passes.
 
-Sentinel is not the official test suite. The MCP project publishes
+toolgauge is not the official test suite. The MCP project publishes
 [`modelcontextprotocol/conformance`](https://github.com/modelcontextprotocol/conformance), which
-drives a server with a scripted client and expects the server to expose specific test tools. Sentinel
+drives a server with a scripted client and expects the server to expose specific test tools. toolgauge
 needs nothing from the server, adds the operational half (baselines, waivers, fleets, drift
 detection, deprecation tracking, CI reports) and is stricter in places, so run both if you can.
 
 | | |
 |---|---|
-| **`harness/`** | **`sentinel`**, a conformance harness that scans *any* MCP server, grades it against the normative requirements with a spec citation per rule, and inventories its deprecated-feature debt. Waivers, baselines, drift detection, fleets, six report formats. |
+| **`harness/`** | **`toolgauge`**, a conformance harness that scans *any* MCP server, grades it against the normative requirements with a spec citation per rule, and inventories its deprecated-feature debt. Waivers, baselines, drift detection, fleets, six report formats. |
 | **`mcp/`** | The Go **server kit**: the packages that make a server native to the current spec, importable, with `server.New` and a one-tool example that the build scans on every commit. |
 | **`broker/`** | A Go MCP server built **natively** on the current spec with that kit — stateless, handle-based, MRTR-only, audited. The reference application. |
-| **`fleet/`** | **`sentinel-server`**: ingests scan reports, keeps their history, and answers what one scan cannot — how long a finding has been open, what drifted, which waivers are about to lapse. |
+| **`fleet/`** | **`toolgauge-server`**: ingests scan reports, keeps their history, and answers what one scan cannot — how long a finding has been open, what drifted, which waivers are about to lapse. |
 
 They are coupled deliberately: the harness's credibility comes from grading a server that is not
 its own, and the server's credibility comes from being graded. The harness never imports server
@@ -57,12 +57,12 @@ internals and runs against any endpoint URL.
 ## The two scans
 
 ```console
-$ sentinel scan --endpoint http://localhost:9000/mcp --gate must     # an unmigrated server
+$ toolgauge scan --endpoint http://localhost:9000/mcp --gate must     # an unmigrated server
 MUST: 2 pass, 25 fail, 5 indeterminate, 0 n/a
 SHOULD: 1 pass, 3 fail, 0 n/a
 exit 1
 
-$ sentinel scan --endpoint http://localhost:8080/mcp --gate must --token "$TOKEN"   # broker
+$ toolgauge scan --endpoint http://localhost:8080/mcp --gate must --token "$TOKEN"   # broker
 MUST: 27 pass, 0 fail, 5 indeterminate, 0 n/a
 SHOULD: 4 pass, 0 fail, 0 n/a
 exit 0
@@ -89,7 +89,7 @@ FAIL  MCP/2026-07-28/MUST/header-body-mismatch-rejected
 And the deprecation debt, with removal windows:
 
 ```console
-$ sentinel deprecations --endpoint http://localhost:9000/mcp
+$ toolgauge deprecations --endpoint http://localhost:9000/mcp
 6 deprecated feature(s) in use
 
   IN USE  Roots  (SEP-2577)
@@ -106,15 +106,15 @@ A scan is a verdict. Running it every commit, against servers you do and do not 
 more things, all in [`docs/USING.md`](docs/USING.md):
 
 ```bash
-sentinel baseline create --endpoint $URL --out sentinel-baseline.json   # adopt it without fixing everything first
-sentinel scan --baseline sentinel-baseline.json --gate must              # the gate fires only on what is new
-sentinel snapshot --endpoint $VENDOR --out vendor.json                   # then, on a schedule:
-sentinel diff vendor.json --gate                                         #   a rewritten tool description is the rug pull
-sentinel scan --targets sentinel-fleet.yaml                              # many servers, each with its own gate
-sentinel scan --publish https://sentinel.internal                        # keep the history (docs/FLEET.md)
+toolgauge baseline create --endpoint $URL --out toolgauge-baseline.json   # adopt it without fixing everything first
+toolgauge scan --baseline toolgauge-baseline.json --gate must              # the gate fires only on what is new
+toolgauge snapshot --endpoint $VENDOR --out vendor.json                   # then, on a schedule:
+toolgauge diff vendor.json --gate                                         #   a rewritten tool description is the rug pull
+toolgauge scan --targets toolgauge-fleet.yaml                              # many servers, each with its own gate
+toolgauge scan --publish https://toolgauge.internal                        # keep the history (docs/FLEET.md)
 ```
 
-`sentinel.toml` holds the endpoint, the gate, rule toggles, severity overrides that can only be
+`toolgauge.toml` holds the endpoint, the gate, rule toggles, severity overrides that can only be
 *stricter*, and **waivers whose expiry is required** (a malformed date is an error, never "ignore
 forever"; an expired waiver fails again, labelled). Precedence is CLI, environment, file, `extends`,
 default, and every resolved value records where it came from.
@@ -123,7 +123,7 @@ default, and every resolved value records where it came from.
 
 ## Limitations, stated plainly
 
-**Four MUST requirements, and one beyond-spec rule, cannot be verified black-box.** `sentinel` reports them as
+**Four MUST requirements, and one beyond-spec rule, cannot be verified black-box.** `toolgauge` reports them as
 `INDETERMINATE` — never as passes — excludes them from the gate, and prints them on every scan.
 **Give it the evidence and each returns a real verdict** (see [Gray-box evidence](docs/USING.md#settling-the-five-rules-a-scan-cannot));
 without it, absence of evidence is never a pass:
@@ -134,7 +134,7 @@ without it, absence of evidence is never a pass:
 | `no-token-passthrough` | What a server sends to its own dependencies is invisible from the client side. | Capture the server's egress during an authenticated call. |
 | `handle-possession-is-not-authentication` | Needs **two** authenticated principals; a scan has one. | Mint a handle as one, present it as the other. |
 | `mrtr-retries-are-idempotent` | A duplicate retry that returns the right answer is indistinguishable from one that performed the effect twice *and* returned the right answer. | Count the effect at its source, not in the reply. |
-| `SENTINEL/SECURITY/invocations-are-audited` *(beyond-spec: the security page has no audit-logging requirement)* | An audit log is not exposed over MCP; a server claiming to keep one would be believed on its own word. | Read the log and verify its chain. |
+| `TOOLGAUGE/SECURITY/invocations-are-audited` *(beyond-spec: the security page has no audit-logging requirement)* | An audit log is not exposed over MCP; a server claiming to keep one would be believed on its own word. | Read the log and verify its chain. |
 
 **A clean scan is not a clean bill of health.** A harness that scored these as passes would be
 lying, and a tool that implied otherwise would be worse than no tool.
@@ -155,14 +155,14 @@ covers what it cannot.
 else, so redefining one silently rewrites what that report said. When a rule turns out to be wrong,
 it is deprecated and a successor is published under a new ID.
 
-Three rules were corrected in **0.2.0**, all in the same direction — `sentinel` was demanding more
+Three rules were corrected in **0.2.0**, all in the same direction — `toolgauge` was demanding more
 than the specification does, which is the false positive `MEASUREMENTS.md` publishes as zero:
 
 | Deprecated | Successor | Why |
 |---|---|---|
 | `MUST/server-info-echoed` | `SHOULD/server-info-echoed` | The spec marks `serverInfo` *Required: No*. Omitting it costs you cache keys and attribution; it does not make you non-conformant. |
 | `MUST/tools-list-is-deterministic` | `SHOULD/tools-list-is-deterministic` | "Servers **SHOULD** return tools in a deterministic order." The MUST in the same paragraph is a different property — the set MUST NOT vary per-connection — now checked by `MUST/tools-list-connection-independent`, which opens a second connection because twenty calls on one could never have seen it. |
-| `SHOULD/tools-sorted-by-name` | `SENTINEL/STYLE/tools-sorted-by-name` | The specification asks for a deterministic order and never for a sorted one, so a stable unsorted manifest conforms fully. It is still a good idea, so it moved to the beyond-spec namespace rather than being deleted. A `SENTINEL/` rule carries a rationale instead of a citation and can never fail a spec gate. |
+| `SHOULD/tools-sorted-by-name` | `TOOLGAUGE/STYLE/tools-sorted-by-name` | The specification asks for a deterministic order and never for a sorted one, so a stable unsorted manifest conforms fully. It is still a good idea, so it moved to the beyond-spec namespace rather than being deleted. A `TOOLGAUGE/` rule carries a rationale instead of a citation and can never fail a spec gate. |
 
 Deprecated rules are excluded from a scan by default and never deleted. Pass
 `--include-deprecated-rules` to evaluate them as well, which is how you reproduce a report written
@@ -207,20 +207,20 @@ for a reason outside this repository.
 
 ### Scanning your own server
 
-No clone needed. Until the first release is published to PyPI (`sentinel-mcp-conformance`, via
+No clone needed. Until the first release is published to PyPI (`toolgauge`, via
 the `release` workflow), install from git:
 
 ```bash
 uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" \
-  sentinel scan --endpoint https://your-server.example/mcp --gate must
+  toolgauge scan --endpoint https://your-server.example/mcp --gate must
 ```
 
 From a clone:
 
 ```bash
-uv run sentinel scan --endpoint https://your-server.example/mcp --gate must \
+uv run toolgauge scan --endpoint https://your-server.example/mcp --gate must \
   --token "$TOKEN" --format sarif --out scan.sarif
-uv run sentinel deprecations --endpoint https://your-server.example/mcp
+uv run toolgauge deprecations --endpoint https://your-server.example/mcp
 ```
 
 ### In CI, as a GitHub Action
@@ -234,29 +234,29 @@ steps:
     with:
       endpoint: http://localhost:3000/mcp
       gate: must              # fail the job on any MUST violation
-      # baseline: sentinel-baseline.json   # gate only on what is new
-      # config: sentinel.toml              # rule toggles, waivers, evidence
+      # baseline: toolgauge-baseline.json   # gate only on what is new
+      # config: toolgauge.toml              # rule toggles, waivers, evidence
 ```
 
 The job fails on a MUST violation, writes a Markdown summary to the run page, and uploads the
 findings to code scanning. The action's own CI runs it against both fixtures and asserts it passes
 one and fails the other, and a test executes its scan step as the bash it is.
 
-Elsewhere: `docker run ghcr.io/patsypppe/sentinel scan ...`, a [GitLab template](ci/gitlab/sentinel.gitlab-ci.yml)
+Elsewhere: `docker run ghcr.io/patsypppe/toolgauge scan ...`, a [GitLab template](ci/gitlab/toolgauge.gitlab-ci.yml)
 that publishes JUnit, and a `pre-commit` hook. Releases are signed with cosign (keyless) and carry
 a CycloneDX SBOM.
 
 ### Scanning a server you do not own: `--safe`
 
 Three rules prove a MUST by calling one of the server's own tools with empty arguments. On your
-server that is fine; on someone else's, a tool call can still do something. With `--safe`, Sentinel
+server that is fine; on someone else's, a tool call can still do something. With `--safe`, toolgauge
 only invokes a tool the server has annotated `readOnlyHint: true`. Every rule that needed any other
 call reports `INDETERMINATE (skipped in safe mode)` — never a pass, never a fail.
 
 ### Scanning the whole registry
 
 ```bash
-sentinel registry-scan --out-dir scan     # every remote server in the official MCP registry
+toolgauge registry-scan --out-dir scan     # every remote server in the official MCP registry
 ```
 
 Classifies each endpoint (speaks the current spec, legacy `2025-11-25` only, needs credentials,
@@ -301,9 +301,9 @@ to; a scan of a third-party server has no such file and should use `--format jso
 - **[`docs/MIGRATION.md`](docs/MIGRATION.md)** — what changed in the current spec and what it costs
   you, with the mistakes worth avoiding and a migration order that works.
 - **[`docs/USING.md`](docs/USING.md)** — baselines, waivers, severity overrides, drift, gray-box evidence, output formats, wiring into CI.
-- **[`docs/FLEET.md`](docs/FLEET.md)** — scanning many servers, and `sentinel-server`: ingest, history, the dashboard, the API.
+- **[`docs/FLEET.md`](docs/FLEET.md)** — scanning many servers, and `toolgauge-server`: ingest, history, the dashboard, the API.
 - **[`docs/KIT.md`](docs/KIT.md)** — building a conformant server with `mcp/`.
-- [`docs/examples/`](docs/examples/) — a complete `sentinel.toml` and fleet file; tests load them.
+- [`docs/examples/`](docs/examples/) — a complete `toolgauge.toml` and fleet file; tests load them.
 - [`CHANGELOG.md`](CHANGELOG.md)
 - [`docs/HANDOFF.md`](docs/HANDOFF.md) — the implementation specification (SN-HND-001).
 - [`docs/runbook.md`](docs/runbook.md) — running, operating and debugging the stack.

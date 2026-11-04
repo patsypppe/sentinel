@@ -1,18 +1,18 @@
-# Sentinel — MCP conformance
+# toolgauge — MCP conformance
 
-A conformance checker for **MCP servers**, published as `sentinel-mcp-conformance`.
+A conformance checker for **MCP servers**, published as `toolgauge`.
 
 Scans any MCP server, grades it against the normative requirements with a spec citation per rule,
 reports which MUSTs it **cannot** verify black-box rather than scoring them as passes, and
 inventories which deprecated features the target still depends on with their earliest removal dates.
 
 ```bash
-uvx sentinel-mcp-conformance scan --endpoint http://localhost:8080/mcp --gate must
-sentinel scan --endpoint https://someone-elses.example/mcp --safe   # never invokes a non-read-only tool
-sentinel registry-scan --out-dir scan                               # every remote server in the MCP registry
-uv run sentinel scan --endpoint http://localhost:8080/mcp --gate must --format sarif --out scan.sarif
-uv run sentinel deprecations --endpoint http://localhost:8080/mcp --as-of 2026-09-23
-uv run sentinel catalog validate
+uvx toolgauge scan --endpoint http://localhost:8080/mcp --gate must
+toolgauge scan --endpoint https://someone-elses.example/mcp --safe   # never invokes a non-read-only tool
+toolgauge registry-scan --out-dir scan                               # every remote server in the MCP registry
+uv run toolgauge scan --endpoint http://localhost:8080/mcp --gate must --format sarif --out scan.sarif
+uv run toolgauge deprecations --endpoint http://localhost:8080/mcp --as-of 2026-09-23
+uv run toolgauge catalog validate
 ```
 
 `scan --gate must` exits **1** if any MUST rule FAILs and **0** otherwise. `INDETERMINATE` never

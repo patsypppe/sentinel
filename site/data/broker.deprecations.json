@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "tool": "sentinel",
+  "tool": "toolgauge",
   "specRevision": "2026-07-28",
   "endpoint": "http://localhost:8080/mcp",
   "asOf": "2026-09-29",

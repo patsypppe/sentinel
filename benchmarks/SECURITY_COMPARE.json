@@ -1,6 +1,6 @@
 {
  "poisoned": {
-  "Sentinel (all categories)": [
+  "toolgauge (all categories)": [
    "conceal-shell",
    "html-comment",
    "ignore-previous",
@@ -10,7 +10,7 @@
    "unicode-tag-smuggling",
    "zero-width"
   ],
-  "Sentinel (without credential-path mentions)": [
+  "toolgauge (without credential-path mentions)": [
    "conceal-shell",
    "html-comment",
    "ignore-previous",
@@ -25,11 +25,11 @@
   ]
  },
  "hard": {
-  "Sentinel (all categories)": [
+  "toolgauge (all categories)": [
    "deletes-ssh-key",
    "reads-env-file"
   ],
-  "Sentinel (without credential-path mentions)": [],
+  "toolgauge (without credential-path mentions)": [],
   "Cisco mcp-scanner (YARA, offline)": [
    "defensive-warning",
    "deletes-ssh-key",
@@ -37,13 +37,13 @@
   ]
  },
  "real": {
-  "Sentinel (all categories)": [
+  "toolgauge (all categories)": [
    "aws-documentation::read_documentation",
    "aws-documentation::read_sections",
    "aws-documentation::search_table",
    "desktop-commander::start_search"
   ],
-  "Sentinel (without credential-path mentions)": [],
+  "toolgauge (without credential-path mentions)": [],
   "Cisco mcp-scanner (YARA, offline)": [
    "arxiv::export_citations",
    "arxiv::semantic_search",

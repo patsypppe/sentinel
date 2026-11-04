@@ -67,7 +67,7 @@ jobs:
       # Direction 1: the broker must PASS.
       - name: scan the broker
         run: |
-          uv run sentinel scan \
+          uv run toolgauge scan \
             --endpoint http://localhost:8080/mcp \
             --token "$SCAN_TOKEN" \
             --gate must --format sarif --out broker.sarif --no-color \
@@ -84,7 +84,7 @@ jobs:
       # Without this the job proves only that the harness can say yes.
       - name: the non-conformant fixture must fail the gate
         run: |
-          uv run sentinel fixture serve --profile nonconformant &
+          uv run toolgauge fixture serve --profile nonconformant &
           for _ in $(seq 1 30); do
             curl -sf -o /dev/null http://127.0.0.1:9000/mcp \
               -H 'Mcp-Method: server/discover' \
@@ -92,7 +92,7 @@ jobs:
             sleep 1
           done
 
-          if uv run sentinel scan --endpoint http://127.0.0.1:9000/mcp --gate must --no-color; then
+          if uv run toolgauge scan --endpoint http://127.0.0.1:9000/mcp --gate must --no-color; then
             echo "::error::the non-conformant fixture PASSED the MUST gate — the harness is broken"
             exit 1
           fi
@@ -102,21 +102,21 @@ jobs:
       # "the rules work" from "the rules reject everything".
       - name: the conformant fixture must pass the gate
         run: |
-          uv run sentinel fixture serve --profile conformant &
+          uv run toolgauge fixture serve --profile conformant &
           for _ in $(seq 1 30); do
             curl -sf -o /dev/null http://127.0.0.1:9001/mcp \
               -H 'Mcp-Method: server/discover' \
               -d '{"jsonrpc":"2.0","id":1,"method":"server/discover"}' && break
             sleep 1
           done
-          uv run sentinel scan --endpoint http://127.0.0.1:9001/mcp --gate must --no-color
+          uv run toolgauge scan --endpoint http://127.0.0.1:9001/mcp --gate must --no-color
 
       # The deprecation inventory, in both directions too. It never fails a
       # gate — a deprecated feature that still works is a migration to plan, not
       # a defect — so the assertion is on the CONTENT rather than the exit code.
       - name: the broker depends on no deprecated feature
         run: |
-          uv run sentinel deprecations \
+          uv run toolgauge deprecations \
             --endpoint http://localhost:8080/mcp \
             --token "$SCAN_TOKEN" --format json --out broker-deprecations.json --no-color
           IN_USE=$(python -c "import json,sys; d=json.load(open('broker-deprecations.json')); print(sum(1 for f in d['features'] if f['inUse']))")
@@ -128,7 +128,7 @@ jobs:
 
       - name: the fixture's deprecations are all found
         run: |
-          uv run sentinel deprecations \
+          uv run toolgauge deprecations \
             --endpoint http://127.0.0.1:9000/mcp \
             --format json --out fixture-deprecations.json --no-color
           python - <<'PY'

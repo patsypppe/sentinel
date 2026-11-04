@@ -6,9 +6,9 @@
 -- history. `targets` and `manifest_snapshots` are the two tables the service updates
 -- (last_seen), so they alone need UPDATE.
 --
---   GRANT SELECT, INSERT ON scan_runs, scan_findings, waiver_ledger TO sentinel_app;
---   GRANT SELECT, INSERT, UPDATE ON targets, manifest_snapshots TO sentinel_app;
---   GRANT USAGE ON SEQUENCE scan_runs_id_seq TO sentinel_app;
+--   GRANT SELECT, INSERT ON scan_runs, scan_findings, waiver_ledger TO toolgauge_app;
+--   GRANT SELECT, INSERT, UPDATE ON targets, manifest_snapshots TO toolgauge_app;
+--   GRANT USAGE ON SEQUENCE scan_runs_id_seq TO toolgauge_app;
 
 CREATE TABLE targets (
     target     text PRIMARY KEY,

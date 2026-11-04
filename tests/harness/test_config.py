@@ -1,4 +1,4 @@
-"""`sentinel.toml`: precedence is tested cell by cell, not asserted in prose."""
+"""`toolgauge.toml`: precedence is tested cell by cell, not asserted in prose."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from sentinel.catalog.base import Severity
-from sentinel.config import ConfigError, discover, load_policy
+from toolgauge.catalog.base import Severity
+from toolgauge.config import ConfigError, discover, load_policy
 
 pytestmark = pytest.mark.unit
 
@@ -37,7 +37,7 @@ def test_each_layer_beats_the_one_below_it(tmp_path: Path) -> None:
     write(tmp_path, "base.toml", "[scan]\ntimeout = 9.0\nconcurrency = 2\n")
     child = write(
         tmp_path,
-        "sentinel.toml",
+        "toolgauge.toml",
         'extends = "base.toml"\n[scan]\ntimeout = 7.0\n',
     )
 
@@ -50,27 +50,27 @@ def test_each_layer_beats_the_one_below_it(tmp_path: Path) -> None:
     assert policy.sources["timeout"] == str(child)
 
     # env beats the file...
-    policy = load_policy(config=child, env={"SENTINEL_TIMEOUT": "5"})
+    policy = load_policy(config=child, env={"TOOLGAUGE_TIMEOUT": "5"})
     assert policy.timeout == 5.0
-    assert policy.sources["timeout"] == "env: SENTINEL_TIMEOUT"
+    assert policy.sources["timeout"] == "env: TOOLGAUGE_TIMEOUT"
 
     # ...and the CLI beats env.
-    policy = load_policy(config=child, env={"SENTINEL_TIMEOUT": "5"}, cli={"timeout": 3.0})
+    policy = load_policy(config=child, env={"TOOLGAUGE_TIMEOUT": "5"}, cli={"timeout": 3.0})
     assert policy.timeout == 3.0
     assert policy.sources["timeout"] == "cli"
 
 
 def test_an_unset_cli_flag_does_not_override_anything(tmp_path: Path) -> None:
-    cfg = write(tmp_path, "sentinel.toml", "[scan]\ngate = 'must'\n")
+    cfg = write(tmp_path, "toolgauge.toml", "[scan]\ngate = 'must'\n")
     policy = load_policy(config=cfg, env={}, cli={"gate": None})
     assert policy.gate == "must"
 
 
 def test_discovery_order(tmp_path: Path) -> None:
     assert discover(None, tmp_path) is None
-    hidden = write(tmp_path, ".sentinel.toml", "")
+    hidden = write(tmp_path, ".toolgauge.toml", "")
     assert discover(None, tmp_path) == hidden
-    visible = write(tmp_path, "sentinel.toml", "")
+    visible = write(tmp_path, "toolgauge.toml", "")
     assert discover(None, tmp_path) == visible
     explicit = write(tmp_path, "other.toml", "")
     assert discover(explicit, tmp_path) == explicit
@@ -97,7 +97,7 @@ def test_severity_may_be_raised_but_never_lowered(tmp_path: Path) -> None:
 
 def test_a_rule_id_that_does_not_exist_is_an_error_with_a_hint(tmp_path: Path) -> None:
     cfg = write(
-        tmp_path, "sentinel.toml", '[rules]\ndisable = ["MCP/2026-07-28/SHOULD/get-delete-404"]\n'
+        tmp_path, "toolgauge.toml", '[rules]\ndisable = ["MCP/2026-07-28/SHOULD/get-delete-404"]\n'
     )
     with pytest.raises(ConfigError, match="not a rule in this catalog"):
         load_policy(config=cfg, env={})
@@ -109,7 +109,7 @@ def test_a_rule_id_that_does_not_exist_is_an_error_with_a_hint(tmp_path: Path) -
 
 
 def test_disable_is_allowed_and_visible_in_the_report_block(tmp_path: Path) -> None:
-    cfg = write(tmp_path, "sentinel.toml", f'[rules]\ndisable = ["{SHOULD}"]\n')
+    cfg = write(tmp_path, "toolgauge.toml", f'[rules]\ndisable = ["{SHOULD}"]\n')
     policy = load_policy(config=cfg, env={})
     assert policy.describe()["disabledRules"] == [SHOULD]
 
@@ -151,21 +151,21 @@ def test_a_waiver_without_an_expiry_or_reason_is_rejected(tmp_path: Path) -> Non
 
 
 def test_extends_misplaced_under_a_waiver_gets_a_useful_error(tmp_path: Path) -> None:
-    cfg = write(tmp_path, "sentinel.toml", waiver("2026-11-30") + 'extends = "x.toml"\n')
+    cfg = write(tmp_path, "toolgauge.toml", waiver("2026-11-30") + 'extends = "x.toml"\n')
     with pytest.raises(ConfigError, match="first line"):
         load_policy(config=cfg, env={})
 
 
 def test_a_bad_value_names_where_it_came_from(tmp_path: Path) -> None:
-    with pytest.raises(ConfigError, match=r"SENTINEL_TIMEOUT|env: SENTINEL_TIMEOUT"):
-        load_policy(cwd=tmp_path, env={"SENTINEL_TIMEOUT": "soon"})
+    with pytest.raises(ConfigError, match=r"TOOLGAUGE_TIMEOUT|env: TOOLGAUGE_TIMEOUT"):
+        load_policy(cwd=tmp_path, env={"TOOLGAUGE_TIMEOUT": "soon"})
     with pytest.raises(ConfigError, match="at least 1"):
         load_policy(cwd=tmp_path, env={}, cli={"concurrency": 0})
 
 
 def test_the_token_comes_from_the_named_environment_variable(tmp_path: Path) -> None:
-    cfg = write(tmp_path, "sentinel.toml", "[scan]\ntoken_env = 'BROKER_TOKEN'\n")
+    cfg = write(tmp_path, "toolgauge.toml", "[scan]\ntoken_env = 'BROKER_TOKEN'\n")
     policy = load_policy(config=cfg, env={})
-    assert policy.token({"BROKER_TOKEN": "s3cret", "SENTINEL_TOKEN": "wrong"}) == "s3cret"
+    assert policy.token({"BROKER_TOKEN": "s3cret", "TOOLGAUGE_TOKEN": "wrong"}) == "s3cret"
     assert policy.token({}) is None
     assert "s3cret" not in str(policy.describe())

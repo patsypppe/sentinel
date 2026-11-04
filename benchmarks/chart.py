@@ -31,7 +31,7 @@ def render(rows: list[dict[str, object]]) -> str:
         '<text x="16" y="26" font-size="16" font-weight="bold" fill="#111">'
         "Are tool parameters documented where a model can read them?</text>",
         '<text x="16" y="45" fill="#555">Where each parameter is documented, '
-        f"{len(data)} published MCP servers, linted by Sentinel</text>",
+        f"{len(data)} published MCP servers, linted by toolgauge</text>",
     ]
     for i, r in enumerate(data):
         schema, prose, obvious, none = (

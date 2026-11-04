@@ -48,7 +48,7 @@ def nonconformant_endpoint() -> Iterator[str]:
     port = free_port()
     # **BEHAVIOUR carries the faults that live outside `dispatch` -- the response
     # Content-Type and what a bare GET gets. Without it the in-process fixture
-    # would be a strictly more conformant server than the one `sentinel fixture
+    # would be a strictly more conformant server than the one `toolgauge fixture
     # serve` starts, and two seeded violations would go undetectable here.
     httpd, _ = serve_background(
         nonconformant_dispatch, port, banner="test nonconformant", **NONCONFORMANT_BEHAVIOUR

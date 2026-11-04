@@ -5,11 +5,11 @@ a table and writes it next to the script.
 
 | | Script | Result file |
 |---|---|---|
-| Does Sentinel catch violations that the MCP maintainers labelled? | `official_negatives.py` | [`RESULTS.md`](RESULTS.md) |
-| What does Sentinel report on servers built with the official SDKs? | `sdk_readiness.py` | [`SDK_RESULTS.md`](SDK_RESULTS.md) |
+| Does toolgauge catch violations that the MCP maintainers labelled? | `official_negatives.py` | [`RESULTS.md`](RESULTS.md) |
+| What does toolgauge report on servers built with the official SDKs? | `sdk_readiness.py` | [`SDK_RESULTS.md`](SDK_RESULTS.md) |
 | How do 28 widely used published servers fare? | `popular_servers.py` | [`POPULAR_SERVERS.md`](POPULAR_SERVERS.md) |
-| How often is Sentinel right? (hand-checked samples) | by hand, see the file | [`PRECISION.md`](PRECISION.md) |
-| Sentinel vs Cisco's mcp-scanner on tool poisoning | `compare_cisco.py` | [`SECURITY_COMPARE.md`](SECURITY_COMPARE.md) |
+| How often is toolgauge right? (hand-checked samples) | by hand, see the file | [`PRECISION.md`](PRECISION.md) |
+| toolgauge vs Cisco's mcp-scanner on tool poisoning | `compare_cisco.py` | [`SECURITY_COMPARE.md`](SECURITY_COMPARE.md) |
 
 ```bash
 git clone https://github.com/modelcontextprotocol/conformance && cd conformance
@@ -24,7 +24,7 @@ Measured against `modelcontextprotocol/conformance` at commit `c37eec8`, run on 
 
 **Answer key.** The broken servers in `modelcontextprotocol/conformance` each carry a header
 comment naming their one violation. Those labels were written by the MCP maintainers for their
-own test suite. Each label is mapped to the Sentinel rule that should catch it (the `LABELS` table at the top of
+own test suite. Each label is mapped to the toolgauge rule that should catch it (the `LABELS` table at the top of
 the script, taken from the fixtures' own comments), and a rule counts as caught only if it FAILed.
 Be aware that this is not a blind test: the rules existed before these fixtures were run, but the
 same person looked at the fixtures while writing the mapping, and no rule was changed to improve
@@ -32,16 +32,16 @@ these results. One change *was* made from the SDK scan: the stub-description thr
 20 to 12 characters after "Add two numbers." was flagged, which is a false positive.
 
 **Misses and exclusions are reported, not tuned away.** The seven broken servers carry eight
-rule-level violations in total (one server names a violation Sentinel has no rule for):
+rule-level violations in total (one server names a violation toolgauge has no rule for):
 
 - 7 of 8 are caught. Six on servers that speak the current protocol, one on a server that has not
-  migrated (for the rules that only read the tool manifest, Sentinel opens a previous-revision
+  migrated (for the rules that only read the tool manifest, toolgauge opens a previous-revision
   session instead of reporting "unreachable");
 - the remaining one, `no-dns-rebinding-protection`, is *not gradable*: with the installed SDK it
   answers every request, for any client, with HTTP 500 ("inputSchema must be a Zod schema"), so
-  Sentinel correctly reports INDETERMINATE rather than guess. It stays in the table but out of the
+  toolgauge correctly reports INDETERMINATE rather than guess. It stays in the table but out of the
   denominator;
-- `sep-2106-stripped-schema` (JSON Schema 2020-12 keywords stripped) has no Sentinel rule and
+- `sep-2106-stripped-schema` (JSON Schema 2020-12 keywords stripped) has no toolgauge rule and
   contributes no expectation. That is a coverage gap, not a catch.
 
 Net: **7 of the 7 gradable violations caught**, 1 fixture unusable, 1 known coverage gap.
@@ -50,7 +50,7 @@ Net: **7 of the 7 gradable violations caught**, 1 fixture unusable, 1 known cove
 
 Same server, the official Python SDK demo (two tools, no special fixtures), graded by each tool:
 
-| | Official `conformance` suite (`--requirements 2026-07-28`) | Sentinel |
+| | Official `conformance` suite (`--requirements 2026-07-28`) | toolgauge |
 |---|---|---|
 | What it needs from the server | its own fixed test tools, prompts and resources | nothing |
 | Result on this server | 113 checks pass, 57 fail | 26 required rules pass, 3 fail |
@@ -59,8 +59,8 @@ Same server, the official Python SDK demo (two tools, no special fixtures), grad
 | Flags the wrong rejection error code | no (it treats the code as optional) | yes (the spec text says MUST) |
 
 So the two answer different questions. The official suite checks content handling (images, prompts,
-resources, tasks, OAuth flows) on servers built to its fixtures, and Sentinel does not cover those.
-Sentinel grades an arbitrary server as it is, and adds checks the suite lacks (description quality,
+resources, tasks, OAuth flows) on servers built to its fixtures, and toolgauge does not cover those.
+toolgauge grades an arbitrary server as it is, and adds checks the suite lacks (description quality,
 tool-text injection, Origin, header rules). Use both.
 
 ## The whole registry
@@ -92,7 +92,7 @@ findings); the page records how that was found and fixed.
 
 `popular_servers.py` starts 29 published servers the way their READMEs say (`npx -y ...` or `uvx ...`,
 with dummy credentials where a token is only needed to start), reads each tool list over stdio, and
-runs Sentinel's manifest rules. 28 started. Result: **362 tools and 1,349 parameters; 8 of 28 servers
+runs toolgauge's manifest rules. 28 started. Result: **362 tools and 1,349 parameters; 8 of 28 servers
 have parameters documented nowhere (234 parameters, 17%); 3 more document some only in the
 description text.** The one that did not start is listed.
 
@@ -104,7 +104,7 @@ results are in the table so any of them can be rechecked.
 
 ## Speed: one server process, not one per rule
 
-`sentinel lint` first started the server once per rule (a dozen times). The lint rules only read, so
+`toolgauge lint` first started the server once per rule (a dozen times). The lint rules only read, so
 they now share one process. Same rule outcomes, wall-clock for a full lint on this machine:
 
 | Server | One process per rule | One shared process |
@@ -122,14 +122,14 @@ not the decimals.
 I tried [Snyk Agent Scan](https://appsecsanta.com/mcp-scan) (formerly Invariant's `mcp-scan`) on the
 same kind of server. Its security analysis calls Snyk's cloud service, which this environment cannot
 reach, so `scan` hung until killed and I have **no comparison to report**. It does not check protocol
-conformance either; the overlap with Sentinel is the tool-description security check, and that
+conformance either; the overlap with toolgauge is the tool-description security check, and that
 comparison needs a machine with internet access and a Snyk token.
 
-## Where Sentinel is stricter than the official suite, on purpose
+## Where toolgauge is stricter than the official suite, on purpose
 
 - **Error codes for rejected headers.** The specification text says a server rejecting a request for a
   bad or missing standard header MUST answer HTTP 400 *and* JSON-RPC code `-32020`. The official suite
-  treats the code as a SHOULD for standard headers. Sentinel follows the spec text, so a server
+  treats the code as a SHOULD for standard headers. toolgauge follows the spec text, so a server
   that answers 400 with some other code (the Python SDK answers `-32600`) FAILs here and passes there.
   Both readings are written down; neither is hidden.
 - **Origin validation and the `Mcp-Method` / `Mcp-Name` headers.** The spec says MUST. The official

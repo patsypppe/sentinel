@@ -118,12 +118,12 @@ next month are created at boot, an hourly job rolls them forward, and a missing 
 created on demand. If it does, `SELECT ensure_invocation_partition(now());`.
 
 **Scan reports 25 MUST failures against a server you believe is fine** — check it is running.
-`sentinel` reports an unreachable target as `INDETERMINATE`, but a server that is *up* and
+`toolgauge` reports an unreachable target as `INDETERMINATE`, but a server that is *up* and
 answering everything with an error will genuinely fail most rules.
 
 ## Operating the scanner
 
-Problems you meet running `sentinel` itself, as opposed to the broker.
+Problems you meet running `toolgauge` itself, as opposed to the broker.
 
 **The gate is red after I adopted a baseline.** Either the finding is genuinely new, or its
 identity changed. A finding's identity is `sha256(rule, target, evidence key)` and the target is
@@ -138,7 +138,7 @@ valid all day on the 1st). `unused waiver` means the rule is not failing and the
 waiver whose `rule` or `endpoint` does not match is silently *not applied*, so check both against the
 report's `ruleId` and `target.identity`.
 
-**`sentinel.toml`: "... is not a date" or "would demote a MUST rule".** Both are deliberate refusals.
+**`toolgauge.toml`: "... is not a date" or "would demote a MUST rule".** Both are deliberate refusals.
 A waiver without a readable `expires_at` is rejected rather than treated as permanent, and a severity
 override can only make a rule stricter. Use `rules.disable` or a waiver to stop a rule gating.
 
@@ -152,23 +152,23 @@ inconclusive, and each says why: a wrong-audience token refused *exactly* as a g
 refused (the refusal may be the signature check), an empty egress capture, an effect counter that
 did not move. Fix the evidence, not the rule.
 
-**`sentinel diff` says the snapshot "has been edited".** A snapshot carries a hash of its own tools
-and is refused if they no longer match. Do not edit one; take a new one with `sentinel snapshot`
+**`toolgauge diff` says the snapshot "has been edited".** A snapshot carries a hash of its own tools
+and is refused if they no longer match. Do not edit one; take a new one with `toolgauge snapshot`
 after you have reviewed the change.
 
 **A fleet target shows `error`.** It is unreachable, or its `token_env` variable is not set. A
 target that needs a credential is not scanned anonymously. The other targets are unaffected, and the
 fleet exits 2 (or 1, if another target failed its gate).
 
-**`sentinel: WARNING could not reach ...` after a scan.** That is `--publish`. It never changes the
-exit code. Check `SENTINEL_PUBLISH_TOKEN` and the URL; a `401` means the ingest token is wrong.
+**`toolgauge: WARNING could not reach ...` after a scan.** That is `--publish`. It never changes the
+exit code. Check `TOOLGAUGE_PUBLISH_TOKEN` and the URL; a `401` means the ingest token is wrong.
 
-**`sentinel-server` will not start: `INGEST_TOKEN is required`.** Deliberate. Without it anyone
-could publish a clean scan for any target. Set `SENTINEL_SERVER_INGEST_TOKEN`. If it logs that
+**`toolgauge-server` will not start: `INGEST_TOKEN is required`.** Deliberate. Without it anyone
+could publish a clean scan for any target. Set `TOOLGAUGE_SERVER_INGEST_TOKEN`. If it logs that
 `DATABASE_URL` is unset, scans are in memory and vanish on restart.
 
 **A target shows `stale` on the dashboard.** Its latest scan is older than
-`SENTINEL_SERVER_STALE_AFTER` (48 hours). An old pass is not a current one, so it is not counted as
+`TOOLGAUGE_SERVER_STALE_AFTER` (48 hours). An old pass is not a current one, so it is not counted as
 passing. Scan it more often, or raise the threshold.
 
 **The Markdown report says sections were omitted.** It is capped under GitHub's 65,536-character

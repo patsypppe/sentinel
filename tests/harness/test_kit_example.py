@@ -1,7 +1,7 @@
 """The Go server kit's example, built from source and graded by the harness.
 
 A kit whose example can rot is a kit nobody trusts. This builds `mcp/example`,
-serves it, and requires `sentinel scan --gate must` to exit 0 against it -- so a
+serves it, and requires `toolgauge scan --gate must` to exit 0 against it -- so a
 change to the kit that makes the minimal server non-conformant turns the build red
 rather than surprising the first stranger who copies it.
 """
@@ -26,11 +26,11 @@ pytestmark = pytest.mark.unit
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 GO = shutil.which("go") or "/usr/local/go/bin/go"
 
-# Locally a missing Go toolchain skips these tests. In CI, SENTINEL_REQUIRE_GO is set and
+# Locally a missing Go toolchain skips these tests. In CI, TOOLGAUGE_REQUIRE_GO is set and
 # they run, and fail loudly if Go is missing, rather than letting the claim they back
 # quietly stop being checked.
 needs_go = pytest.mark.skipif(
-    not pathlib.Path(GO).exists() and not os.environ.get("SENTINEL_REQUIRE_GO"),
+    not pathlib.Path(GO).exists() and not os.environ.get("TOOLGAUGE_REQUIRE_GO"),
     reason="the Go toolchain is not installed",
 )
 
@@ -70,7 +70,16 @@ def example_endpoint(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
 
 def scan(endpoint: str, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-m", "sentinel.cli", "scan", "--endpoint", endpoint, "--no-color", *args],
+        [
+            sys.executable,
+            "-m",
+            "toolgauge.cli",
+            "scan",
+            "--endpoint",
+            endpoint,
+            "--no-color",
+            *args,
+        ],
         capture_output=True,
         text=True,
         check=False,

@@ -2,6 +2,18 @@
 
 ## 0.4.0
 
+### Renamed: Sentinel is now toolgauge
+
+The project was called Sentinel. That name collided in three places: the PyPI package `sentinel`
+installs a top-level `sentinel` module, HashiCorp's Sentinel policy tool installs a `sentinel` command,
+and `mcp-sentinel` is a different MCP testing project. Everything user-facing is now `toolgauge`: the
+PyPI distribution, the import package, the command, the rule namespace (`TOOLGAUGE/...` instead of
+`SENTINEL/...`), the config file (`toolgauge.toml`), environment variables (`TOOLGAUGE_*`), the
+history service (`toolgauge-server`), the Docker image and the GitHub Action. Baselines written by an
+earlier build still load (`sentinelVersion` is read as a fallback); their `SENTINEL/` rule ids no
+longer match, so recreate a baseline after upgrading. The reference server's internal names (database,
+dev headers, `*.sentinel.local`) and the repository URL are unchanged.
+
 The harness stops being a one-shot grader and becomes something a team runs.
 
 ### Measured: the whole MCP registry
@@ -18,11 +30,11 @@ aggregate as an annotation so it can be read without downloading an artifact.
 refined, 7 of 12 after, on a fresh draw; specification findings: 15 of 15 correct). The rule now treats
 enums, paging names, flag booleans and unit-suffixed numbers as self-explanatory and accepts quoted
 parameter names in prose. Headline: 11% of parameters flagged, an estimated 6 to 7% genuinely missing.
-`benchmarks/compare_cisco.py`: Sentinel against Cisco's `mcp-scanner` on a labelled poisoning corpus.
+`benchmarks/compare_cisco.py`: toolgauge against Cisco's `mcp-scanner` on a labelled poisoning corpus.
 
 ### Fixed: the parameter-documentation rule over-reported
 
-`SENTINEL/STYLE/parameters-are-described` counted only schema descriptions. It now also accepts a
+`TOOLGAUGE/STYLE/parameters-are-described` counted only schema descriptions. It now also accepts a
 parameter documented in the tool description (`name: ...`, as SDK docstring `Args:` blocks produce), an
 object whose fields are all described, and self-evident plain-string names (`path`, `url`, ...).
 The benchmark moved from 28% to 17% of parameters as a result.
@@ -32,11 +44,11 @@ The benchmark moved from 28% to 17% of parameters as a result.
 The lint rules only read, so they share one child process instead of starting the server per rule:
 4.4x to 6.7x faster with identical results. `benchmarks/chart.py` draws the 27-server result as an SVG.
 
-### Added: `sentinel lint` and stdio servers
+### Added: `toolgauge lint` and stdio servers
 
-- `sentinel lint --command "npx -y <server>"` runs the manifest rules against a server started as a
+- `toolgauge lint --command "npx -y <server>"` runs the manifest rules against a server started as a
   child process (newline-delimited JSON over pipes), or `--endpoint` for HTTP. Most published MCP
-  servers are stdio programs, which Sentinel could not reach before.
+  servers are stdio programs, which toolgauge could not reach before.
 - `benchmarks/popular_servers.py`: lints 29 published servers; 28 started, 362 tools, 1,349
   parameters, 17% documented nowhere.
 
@@ -49,17 +61,17 @@ session and run, instead of every rule reporting the server unreachable.
 ### Added: benchmarks against servers this project did not write
 
 - `benchmarks/official_negatives.py`: runs the broken fixtures from the official conformance repo and
-  reports which labelled violations Sentinel catches (7 of 7 gradable; one fixture is unusable and one violation has no rule, both listed).
+  reports which labelled violations toolgauge catches (7 of 7 gradable; one fixture is unusable and one violation has no rule, both listed).
 - `benchmarks/sdk_readiness.py`: scans servers built with the official SDKs.
 - Reports now say which protocol generation answered, and a scan of a legacy-only server says so at
   the top instead of presenting a wall of failures as independent bugs.
 - The stub-description threshold is 12 characters, not 20 ("Add two numbers." is a description).
 
-### Added: `sentinel demo` and tool-description lint
+### Added: `toolgauge demo` and tool-description lint
 
-- `sentinel demo`: starts two bundled practice servers (one broken, one correct), scans both and
+- `toolgauge demo`: starts two bundled practice servers (one broken, one correct), scans both and
   prints the verdicts. Works from a plain `uvx` install because the practice servers ship in the wheel.
-- `SENTINEL/STYLE/description-states-purpose` and `SENTINEL/STYLE/parameters-are-described`,
+- `TOOLGAUGE/STYLE/description-states-purpose` and `TOOLGAUGE/STYLE/parameters-are-described`,
   grounded in two 2026 studies of MCP tool descriptions (arXiv 2602.14878, 2602.18914).
 
 ### Fixed: rules that were stricter than the specification
@@ -72,7 +84,7 @@ deprecated and points at its successor.
   `server/discover` from version negotiation, so it failed conformant servers.
 - Demoted to SHOULD (new ids): `discover-reports-server-info`, `list-changed-advertised-truthfully`
   (now INDETERMINATE when the probe cannot tell), `malformed-json-is-parse-error`.
-- Moved out of the spec namespace to `SENTINEL/STYLE/`: `tools-have-descriptions`, and the
+- Moved out of the spec namespace to `TOOLGAUGE/STYLE/`: `tools-have-descriptions`, and the
   `initialize` / `ping` / `logging/setLevel` / `resources/(un)subscribe` removed-method checks. A
   dual-era server MAY keep serving them. The `sampling` and `roots` checks were dropped: they remain
   functional during their deprecation window.
@@ -89,8 +101,8 @@ deprecated and points at its successor.
 
 ### Added: operating it
 
-- **`sentinel.toml`**: endpoint, gate, timeouts, rule toggles, severity overrides, waivers.
-  Precedence is CLI > `SENTINEL_*` > file > `extends` > default, tested cell by cell, and every
+- **`toolgauge.toml`**: endpoint, gate, timeouts, rule toggles, severity overrides, waivers.
+  Precedence is CLI > `TOOLGAUGE_*` > file > `extends` > default, tested cell by cell, and every
   resolved value records its source in the report.
 - **Waivers** with a required `expires_at`. A malformed date is an error; an expired waiver stops
   applying and the finding fails again, labelled.
@@ -115,9 +127,9 @@ deprecated and points at its successor.
 
 `x-mcp-header` constraints (5), `tools-declare-valid-input-schema`, tool-name hygiene (2), tools
 capability agreement, `tampered-requeststate-rejected`, `input-required-carries-requests-or-state`,
-`input-requests-respect-declared-capabilities`, and the beyond-spec `SENTINEL/SECURITY/`
+`input-requests-respect-declared-capabilities`, and the beyond-spec `TOOLGAUGE/SECURITY/`
 `tool-description-injection`, `wildcard-scopes`, `manifest-drift`, `tls-posture` and
-`SENTINEL/OPS/latency-budget`. A third fixture, `partial`, exercises every `NOT_APPLICABLE` branch.
+`TOOLGAUGE/OPS/latency-budget`. A third fixture, `partial`, exercises every `NOT_APPLICABLE` branch.
 
 Every `MCP/` rule cites a heading anchor, checked against the specification source. Three security rules had cited a page that does not exist (`basic/security_best_practices`; the page lives at `docs/2026-07-28/tutorials/security/`) and now point at the real one.
 
@@ -133,7 +145,7 @@ SBOM on each release.
 - **`mcp/`**: the reusable packages extracted from `broker/internal/` into a module of their own,
   with `server.New`, `server.InsecureAnonymous`, an in-memory audit sink, and `mcp/example`, a
   one-tool server the build scans with `--gate must` and `--gate security`.
-- **`fleet/` (`sentinel-server`)**: ingest, history, posture, drift, expiring waivers, an API and a
+- **`fleet/` (`toolgauge-server`)**: ingest, history, posture, drift, expiring waivers, an API and a
   server-rendered dashboard with a strict CSP. Memory or Postgres behind one contract suite.
   `scan --publish` sends a report and never changes the exit code.
 

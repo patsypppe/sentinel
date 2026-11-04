@@ -29,7 +29,7 @@ The sample is the first 4,000 endpoints in registry listing order, not a random 
 shares differ from run 1 (for example 25.9% old-handshake versus 35.7%), so use run 1 for adoption and this
 for rule behaviour, and treat the rule percentages as indicative.
 
-Sentinel `0.4.0` graded every remote server in the [official MCP registry](https://registry.modelcontextprotocol.io) against MCP `2026-07-28`, in safe mode (no tool invoked unless annotated read-only, one connection per host, no retries).
+toolgauge `0.4.0` graded every remote server in the [official MCP registry](https://registry.modelcontextprotocol.io) against MCP `2026-07-28`, in safe mode (no tool invoked unless annotated read-only, one connection per host, no retries).
 
 | | Endpoints | % |
 |---|---:|---:|
@@ -40,7 +40,7 @@ Sentinel `0.4.0` graded every remote server in the [official MCP registry](https
 | Unreachable or erroring | 462 | 11.6 |
 | Answer, but neither handshake | 95 | 2.4 |
 
-Of the 590 servers speaking `2026-07-28`, **95** (16.1%) pass every MUST rule Sentinel can verify from the wire. Median MUST failures per server: 1.0.
+Of the 590 servers speaking `2026-07-28`, **95** (16.1%) pass every MUST rule toolgauge can verify from the wire. Median MUST failures per server: 1.0.
 
 ## Most-failed MUST rules
 
@@ -75,5 +75,5 @@ Reading it: `invalid-origin-rejected` is the standout (52% serve a request carry
 The specification says a server MUST reject that, but a public server meant to be called from browsers may
 allow any origin on purpose, so it is a spec violation more than a bug. `cacheable-results-carry-scope` and
 `discover-reports-supported-versions` are classified "other": the server answered but the field is missing
-or empty. I have not hand-verified a sample of these findings, so the rule-level percentages are Sentinel's
+or empty. I have not hand-verified a sample of these findings, so the rule-level percentages are toolgauge's
 reading, not ground truth.

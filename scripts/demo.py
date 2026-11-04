@@ -141,14 +141,14 @@ def free_port_taken(port: int) -> bool:
 def psql(query: str) -> str:
     proc = subprocess.run(
         ["docker", "compose", "exec", "-T", "postgres",
-         "psql", "-U", "sentinel", "-d", "sentinel", "-tAc", query],
+         "psql", "-U", "toolgauge", "-d", "toolgauge", "-tAc", query],
         cwd=REPO, capture_output=True, text=True, check=False,
     )
     return proc.stdout.strip()
 
 
 def main() -> int:
-    print(f"{BOLD}Sentinel — the nine-step demo{RESET}")
+    print(f"{BOLD}toolgauge — the nine-step demo{RESET}")
     print(f"{DIM}docs/HANDOFF.md §13{RESET}")
 
     wait_for_broker()
@@ -165,20 +165,20 @@ def main() -> int:
 
     try:
         heading(1, "Scan an unmigrated server — 25 MUST failures, each with a citation")
-        shell(f"uv run sentinel scan --endpoint {FIXTURE} --gate must --no-color | head -32",
+        shell(f"uv run toolgauge scan --endpoint {FIXTURE} --gate must --no-color | head -32",
               expect_exit=0)
-        shell(f"uv run sentinel scan --endpoint {FIXTURE} --gate must --no-color > /dev/null",
+        shell(f"uv run toolgauge scan --endpoint {FIXTURE} --gate must --no-color > /dev/null",
               expect_exit=1)
 
         heading(2, "Scan the broker — zero")
         shell(
-            f"uv run sentinel scan --endpoint {BROKER} --gate must --no-color "
+            f"uv run toolgauge scan --endpoint {BROKER} --gate must --no-color "
             f'--token "{operator_token}" | tail -12',
             expect_exit=0,
         )
 
         heading(3, "The deprecation inventory, with removal windows")
-        shell(f"uv run sentinel deprecations --endpoint {FIXTURE} --no-color | head -20")
+        shell(f"uv run toolgauge deprecations --endpoint {FIXTURE} --no-color | head -20")
 
         heading(4, "concise versus detailed")
         print(f"{DIM}$ go test ./broker/internal/tools/warehouse/ -run Concise -v{RESET}")
@@ -272,7 +272,7 @@ def main() -> int:
 
         print(f"{DIM}First: the application role cannot rewrite the log at all.{RESET}")
         shell(
-            'docker compose exec -T postgres psql -U broker_app -d sentinel '
+            'docker compose exec -T postgres psql -U broker_app -d toolgauge '
             '-c "UPDATE tool_invocations SET outcome=\'ok\';" 2>&1 | head -2'
         )
 
@@ -289,7 +289,7 @@ def main() -> int:
                 "ORDER BY seq LIMIT 1 OFFSET 2"
             )
             shell(
-                "docker compose exec -T postgres psql -U sentinel -d sentinel -tAc "
+                "docker compose exec -T postgres psql -U toolgauge -d toolgauge -tAc "
                 f"\"UPDATE tool_invocations SET outcome='denied' WHERE tenant_id = "
                 f"'{DEMO_TENANT}' AND seq = {target};\""
             )

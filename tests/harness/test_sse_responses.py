@@ -14,11 +14,11 @@ from collections.abc import Iterator
 import pytest
 from conftest import _wait, free_port
 
-from sentinel.catalog.base import Outcome
-from sentinel.grade import run_scan
-from sentinel.probe.transport import RawResponse, sse_messages
 from server.common import serve_background
 from server.conformant import dispatch as conformant_dispatch
+from toolgauge.catalog.base import Outcome
+from toolgauge.grade import run_scan
+from toolgauge.probe.transport import RawResponse, sse_messages
 
 pytestmark = pytest.mark.unit
 

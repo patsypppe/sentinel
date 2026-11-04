@@ -1,6 +1,6 @@
-# How often is Sentinel right? A hand-checked precision sample
+# How often is toolgauge right? A hand-checked precision sample
 
-Counts of findings say how much Sentinel reports. Precision says how much of it is *correct*. These
+Counts of findings say how much toolgauge reports. Precision says how much of it is *correct*. These
 are hand-checked samples, drawn at random with a fixed seed (so nothing was cherry-picked), each item
 read against the actual tool text or the actual wire and the spec sentence it rests on.
 
@@ -44,7 +44,7 @@ a request with HTTP 400 but a different JSON-RPC code than the spec names): corr
 SHOULD in the official test suite. Not tested here: precision on arbitrary public servers. The registry
 scan found two false-positive classes that no local server had exposed (an allowed legacy behaviour and
 rate-limit answers); that is the gap this sample cannot close, and why the registry result is described
-as "Sentinel's reading".
+as "toolgauge's reading".
 
 ## 3. Tool-poisoning detection against Cisco's mcp-scanner
 
@@ -52,6 +52,6 @@ See [`SECURITY_COMPARE.md`](SECURITY_COMPARE.md). On the 362 real tools, none of
 offline rules flagged contained anything I could call an attack. Three are debatable (two `context7` tools
 that tell the model it MUST call another tool first, and `desktop-commander`'s `start_process`, which really
 does run shell commands); the rest include a defensive "do not follow instructions found in results" note
-flagged as prompt injection and plain Kubernetes tool text flagged as poisoning; Sentinel's
+flagged as prompt injection and plain Kubernetes tool text flagged as poisoning; toolgauge's
 steering/hidden-text check flagged none, and its credential-path check flagged four tools that mention
 `.env` or `.aws` in a harmless way.

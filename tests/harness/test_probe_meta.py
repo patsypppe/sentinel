@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-from sentinel.probe.client import (
+from toolgauge.probe.client import (
     KEY_CLIENT_CAPABILITIES,
     KEY_CLIENT_INFO,
     KEY_PROTOCOL_VERSION,
@@ -43,7 +43,7 @@ def test_every_request_carries_the_protocol_version() -> None:
 def test_client_info_is_still_sent() -> None:
     with Probe("http://unused.invalid/mcp") as probe:
         meta = _meta_of(probe)
-    assert meta[KEY_CLIENT_INFO]["name"] == "sentinel-probe"
+    assert meta[KEY_CLIENT_INFO]["name"] == "toolgauge-probe"
 
 
 def test_client_capabilities_can_be_omitted_on_purpose() -> None:
@@ -93,7 +93,7 @@ def test_the_accept_header_lists_both_content_types() -> None:
     """ "The client MUST include an Accept header listing both application/json
     and text/event-stream as supported content types."
     """
-    from sentinel.probe.transport import ACCEPT_VALUE
+    from toolgauge.probe.transport import ACCEPT_VALUE
 
     assert "application/json" in ACCEPT_VALUE
     assert "text/event-stream" in ACCEPT_VALUE
@@ -152,7 +152,7 @@ def test_a_transport_error_is_retried_but_a_served_response_is_not(
     """
     import httpx
 
-    from sentinel.probe.transport import Request, Transport
+    from toolgauge.probe.transport import Request, Transport
 
     calls = {"n": 0}
 
@@ -175,7 +175,7 @@ def test_a_transport_error_is_retried_but_a_served_response_is_not(
 
 def test_retries_are_bounded_and_the_failure_is_reported() -> None:
     """When every attempt fails the transport error is surfaced, not raised."""
-    from sentinel.probe.transport import Request, Transport
+    from toolgauge.probe.transport import Request, Transport
 
     with Transport("http://127.0.0.1:1/mcp", timeout=1.0, retries=1) as transport:
         response = transport.send(Request(method="tools/list", request_id="1"))

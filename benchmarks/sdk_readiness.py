@@ -1,8 +1,8 @@
-"""Benchmark: what does Sentinel say about servers people actually build with?
+"""Benchmark: what does toolgauge say about servers people actually build with?
 
 Scans servers built with the official SDKs, unmodified, and prints what it found. These are
-not planted bugs: whatever Sentinel reports is a real divergence between the server and the
-specification text (or a Sentinel false positive, which is why every FAIL is shown with its
+not planted bugs: whatever toolgauge reports is a real divergence between the server and the
+specification text (or a toolgauge false positive, which is why every FAIL is shown with its
 detail so it can be checked against the spec).
 
     uv run python benchmarks/sdk_readiness.py --conformance ~/src/conformance
@@ -43,7 +43,7 @@ def _scan(port: int) -> dict[str, object]:
         [
             sys.executable,
             "-m",
-            "sentinel.cli",
+            "toolgauge.cli",
             "scan",
             "--endpoint",
             f"http://127.0.0.1:{port}/mcp",
@@ -107,7 +107,7 @@ def run(conformance: pathlib.Path) -> str:
         ]
         fails = [f for f in findings if f["outcome"] == "fail"]
         if fails:
-            out += ["| Rule | What Sentinel saw |", "|---|---|"]
+            out += ["| Rule | What toolgauge saw |", "|---|---|"]
             for f in fails:
                 rid = f["ruleId"].replace("MCP/2026-07-28/", "")
                 out.append(f"| `{rid}` | {str(f['detail'])[:150].replace('|', '/')} |")

@@ -1,0 +1,51 @@
+# GitLab CI template for the toolgauge MCP conformance scan.
+#
+#   include:
+#     - remote: https://raw.githubusercontent.com/patsypppe/sentinel/main/ci/gitlab/toolgauge.gitlab-ci.yml
+#
+#   toolgauge:
+#     extends: .toolgauge-scan
+#     variables:
+#       TOOLGAUGE_ENDPOINT: https://mcp.internal.example/mcp
+#       TOOLGAUGE_TOKEN: $MCP_TOKEN            # a masked CI/CD variable, never a literal
+#
+# The job fails (exit 1) on a MUST violation and errors (exit 2) when the scanner
+# itself could not run, and publishes a JUnit report, which GitLab shows in the
+# merge request. INDETERMINATE and not-applicable rules render as skipped, never as
+# passes. Pin the image by digest in production.
+
+.toolgauge-scan:
+  image:
+    name: ghcr.io/patsypppe/toolgauge:latest
+    entrypoint: [""]
+  variables:
+    TOOLGAUGE_GATE: must
+  script:
+    - >-
+      toolgauge scan --no-color --gate "$TOOLGAUGE_GATE"
+      --format junit --out toolgauge-junit.xml
+      --also markdown=toolgauge-report.md
+      --also sarif=toolgauge.sarif
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths:
+      - toolgauge-report.md
+      - toolgauge.sarif
+    reports:
+      junit: toolgauge-junit.xml
+
+# For a fleet of servers: one report per target plus a rollup.
+.toolgauge-fleet:
+  image:
+    name: ghcr.io/patsypppe/toolgauge:latest
+    entrypoint: [""]
+  variables:
+    TOOLGAUGE_FLEET: toolgauge-fleet.yaml
+  script:
+    - toolgauge scan --no-color --targets "$TOOLGAUGE_FLEET" --format junit --out-dir toolgauge-fleet
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths:
+      - toolgauge-fleet/

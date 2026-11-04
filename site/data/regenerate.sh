@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Regenerate every JSON file the showcase page reads. Nothing on the page is
-# typed in by hand: each number and finding is produced by `sentinel` itself.
+# typed in by hand: each number and finding is produced by `toolgauge` itself.
 #
 # Prerequisites, from the repository root:
 #   docker compose up -d --wait postgres broker          # the broker on :8080
-#   uv run sentinel fixture serve --profile nonconformant &   # :9000
-#   uv run sentinel fixture serve --profile conformant &      # :9001
+#   uv run toolgauge fixture serve --profile nonconformant &   # :9000
+#   uv run toolgauge fixture serve --profile conformant &      # :9001
 #   export SCAN_TOKEN=$(BROKER_OAUTH_DEV_SEED=aaaa…aaaa \
 #       BROKER_OAUTH_ISSUER=https://issuer.sentinel.local \
 #       BROKER_OAUTH_AUDIENCE=https://broker.sentinel.local \
@@ -40,21 +40,21 @@ run() {
   echo "exit $rc  $label"
 }
 
-run broker.scan uv run sentinel scan --endpoint "$BROKER" --token "$SCAN_TOKEN" --gate must --format json --no-color --out "$OUT/broker.scan.json"
-run nonconformant.scan uv run sentinel scan --endpoint "$UNMIGRATED" --gate must --format json --no-color --out "$OUT/nonconformant.scan.json"
-run conformant.scan uv run sentinel scan --endpoint "$CONFORMANT" --gate must --format json --no-color --out "$OUT/conformant.scan.json"
+run broker.scan uv run toolgauge scan --endpoint "$BROKER" --token "$SCAN_TOKEN" --gate must --format json --no-color --out "$OUT/broker.scan.json"
+run nonconformant.scan uv run toolgauge scan --endpoint "$UNMIGRATED" --gate must --format json --no-color --out "$OUT/nonconformant.scan.json"
+run conformant.scan uv run toolgauge scan --endpoint "$CONFORMANT" --gate must --format json --no-color --out "$OUT/conformant.scan.json"
 # The same unmigrated scan with the retired rules switched back on, so the page
 # can show each deprecated rule next to the successor that replaced it.
-run nonconformant.with-deprecated-rules.scan uv run sentinel scan --endpoint "$UNMIGRATED" --gate must --format json --no-color --include-deprecated-rules --out "$OUT/nonconformant.with-deprecated-rules.scan.json"
+run nonconformant.with-deprecated-rules.scan uv run toolgauge scan --endpoint "$UNMIGRATED" --gate must --format json --no-color --include-deprecated-rules --out "$OUT/nonconformant.with-deprecated-rules.scan.json"
 
-run broker.deprecations uv run sentinel deprecations --endpoint "$BROKER" --token "$SCAN_TOKEN" --as-of "$AS_OF" --format json --no-color --out "$OUT/broker.deprecations.json"
-run nonconformant.deprecations uv run sentinel deprecations --endpoint "$UNMIGRATED" --as-of "$AS_OF" --format json --no-color --out "$OUT/nonconformant.deprecations.json"
+run broker.deprecations uv run toolgauge deprecations --endpoint "$BROKER" --token "$SCAN_TOKEN" --as-of "$AS_OF" --format json --no-color --out "$OUT/broker.deprecations.json"
+run nonconformant.deprecations uv run toolgauge deprecations --endpoint "$UNMIGRATED" --as-of "$AS_OF" --format json --no-color --out "$OUT/nonconformant.deprecations.json"
 
 # What moving this server to 2026-07-28 involves, sized from the same wire evidence.
-run nonconformant.migrate uv run sentinel migrate --endpoint "$UNMIGRATED" --format json --out "$OUT/nonconformant.migrate.json"
+run nonconformant.migrate uv run toolgauge migrate --endpoint "$UNMIGRATED" --format json --out "$OUT/nonconformant.migrate.json"
 
-uv run sentinel version > "$OUT/sentinel-version.txt"
-uv run sentinel catalog validate > "$OUT/catalog-validate.txt"
+uv run toolgauge version > "$OUT/toolgauge-version.txt"
+uv run toolgauge catalog validate > "$OUT/catalog-validate.txt"
 
 # Exit codes are part of the result: 0 passed, 1 the target failed the gate.
 ( IFS=,; printf '{"asOf": "%s", "exitCodes": {%s}}\n' "$AS_OF" "${EXITS[*]}" ) > "$OUT/meta.json"

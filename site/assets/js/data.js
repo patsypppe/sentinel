@@ -9,7 +9,7 @@ const FILES = {
   depFixture: "data/nonconformant.deprecations.json",
   depBroker: "data/broker.deprecations.json",
   migrate: "data/nonconformant.migrate.json",
-  version: "data/sentinel-version.txt",
+  version: "data/toolgauge-version.txt",
 };
 
 async function load(path) {
@@ -20,7 +20,7 @@ async function load(path) {
 
 function assertScan(name, scan) {
   if (!scan || scan.schemaVersion !== 1 || !Array.isArray(scan.findings)) {
-    throw new Error(`${name} is not a schemaVersion 1 sentinel scan report`);
+    throw new Error(`${name} is not a schemaVersion 1 toolgauge scan report`);
   }
 }
 

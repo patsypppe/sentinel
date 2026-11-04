@@ -152,7 +152,7 @@ def _out_of_process_timings(rounds: int, port: int) -> list[float]:
 
     import httpx
 
-    from sentinel.grade import run_scan
+    from toolgauge.grade import run_scan
 
     proc = subprocess.Popen(
         [sys.executable, "-m", "server.conformant", str(port)],
@@ -195,14 +195,14 @@ def run_oracle(rounds: int = 12) -> OracleRun:
     sys.path.insert(0, str(REPO / "fixtures"))
     sys.path.insert(0, str(REPO / "harness" / "src"))
 
-    from sentinel.catalog.base import REGISTRY, Outcome
-    from sentinel.grade import run_scan
     from server.common import serve_background
     from server.conformant import BEHAVIOUR as CONFORMANT_BEHAVIOUR
     from server.conformant import dispatch as conformant
     from server.nonconformant import BEHAVIOUR as NONCONFORMANT_BEHAVIOUR
     from server.nonconformant import SEEDED_VIOLATIONS
     from server.nonconformant import dispatch as nonconformant
+    from toolgauge.catalog.base import REGISTRY, Outcome
+    from toolgauge.grade import run_scan
 
     def free_port() -> int:
         import socket

@@ -12,8 +12,8 @@ import json
 
 import pytest
 
-from sentinel.grade import run_scan
-from sentinel.report.sarif import SARIF_VERSION, render
+from toolgauge.grade import run_scan
+from toolgauge.report.sarif import SARIF_VERSION, render
 
 pytestmark = pytest.mark.unit
 
@@ -26,7 +26,7 @@ def test_sarif_has_the_required_top_level_shape(conformant_endpoint: str) -> Non
     assert len(doc["runs"]) == 1
 
     driver = doc["runs"][0]["tool"]["driver"]
-    assert driver["name"] == "sentinel"
+    assert driver["name"] == "toolgauge"
     assert driver["rules"], "no rules were declared"
     assert doc["runs"][0]["results"], "no results were emitted"
 
@@ -46,7 +46,7 @@ def test_every_rule_carries_its_citation_as_a_help_uri(conformant_endpoint: str)
     doc = render(run_scan(conformant_endpoint))
     for r in doc["runs"][0]["tool"]["driver"]["rules"]:
         assert r["fullDescription"]["text"], r["id"]
-        if r["id"].startswith("SENTINEL/"):
+        if r["id"].startswith("TOOLGAUGE/"):
             continue
         assert r["helpUri"].startswith("https://modelcontextprotocol.io/"), r["id"]
 
@@ -56,18 +56,18 @@ def test_a_beyond_spec_rule_cites_nothing_and_says_why(conformant_endpoint: str)
 
     An empty helpUri and a bare "Specification: " would put a citation-shaped
     hole in the one report format a reviewer reads inside GitHub, which is
-    exactly the lie SENTINEL/ was introduced to make impossible.
+    exactly the lie TOOLGAUGE/ was introduced to make impossible.
     """
     doc = render(run_scan(conformant_endpoint))
     beyond = [
-        r for r in doc["runs"][0]["tool"]["driver"]["rules"] if r["id"].startswith("SENTINEL/")
+        r for r in doc["runs"][0]["tool"]["driver"]["rules"] if r["id"].startswith("TOOLGAUGE/")
     ]
     assert beyond, "the conformant scan produced no beyond-spec rules to check"
     for r in beyond:
         assert "helpUri" not in r, f"{r['id']} carries a helpUri with nothing behind it"
         assert "Specification:" not in r["help"]["text"], r["id"]
         assert "Rationale:" in r["help"]["text"], r["id"]
-        assert r["properties"]["namespace"] == "SENTINEL", r["id"]
+        assert r["properties"]["namespace"] == "TOOLGAUGE", r["id"]
 
 
 def test_indeterminate_is_never_rendered_as_a_pass(conformant_endpoint: str) -> None:

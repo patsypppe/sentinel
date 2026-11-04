@@ -9,19 +9,19 @@ from typing import Any
 
 import pytest
 
-from sentinel.budget import BudgetPolicy
-from sentinel.catalog.base import REGISTRY, Outcome
-from sentinel.catalog.beyond.latency import p95
-from sentinel.catalog.beyond.security import (
+from server import conformant
+from server.common import error, parse, result, serve_background
+from toolgauge.budget import BudgetPolicy
+from toolgauge.catalog.base import REGISTRY, Outcome
+from toolgauge.catalog.beyond.latency import p95
+from toolgauge.catalog.beyond.security import (
     certificate_problem,
     injection_findings,
     wildcard_scopes,
 )
-from sentinel.catalog.must.mrtr import _tampered
-from sentinel.grade import run_scan
-from sentinel.probe.client import Probe
-from server import conformant
-from server.common import error, parse, result, serve_background
+from toolgauge.catalog.must.mrtr import _tampered
+from toolgauge.grade import run_scan
+from toolgauge.probe.client import Probe
 
 pytestmark = pytest.mark.unit
 
@@ -29,7 +29,7 @@ NEW = [r for r in REGISTRY.all() if r.introduced_in == "0.4.0"]
 
 
 def test_there_are_new_rules_and_each_validates() -> None:
-    from sentinel.catalog.base import validate_registry
+    from toolgauge.catalog.base import validate_registry
 
     assert len(NEW) >= 17
     assert validate_registry() == []
@@ -181,7 +181,7 @@ def test_injection_is_found_in_schema_descriptions_too() -> None:
 
 
 def test_the_wildcard_scope_pattern() -> None:
-    from sentinel.catalog.beyond.security import _WILDCARD
+    from toolgauge.catalog.beyond.security import _WILDCARD
 
     for bad in ("*", "files:*", "admin", "all", "full-access", "full_access", "api/all"):
         assert _WILDCARD.search(bad), bad
@@ -211,7 +211,7 @@ def test_tls_posture_judges_scheme_and_loopback(conformant_endpoint: str) -> Non
 
 
 def test_manifest_drift_needs_a_snapshot_and_catches_a_rewrite(conformant_endpoint: str) -> None:
-    from sentinel import snapshot as snap
+    from toolgauge import snapshot as snap
 
     rule = next(r for r in REGISTRY.all() if r.slug == "manifest-drift")
     with Probe(conformant_endpoint) as probe:

@@ -1,6 +1,6 @@
-# Sentinel — two products, one repository.
+# toolgauge — two products, one repository.
 #   broker/   a Go MCP server built natively on MCP 2026-07-28
-#   harness/  `sentinel`, a conformance harness that grades any MCP server
+#   harness/  `toolgauge`, a conformance harness that grades any MCP server
 #
 # Go 1.23+ is required. Homebrew's Go is preferred when present because the
 # system Go on some machines is older than the module's floor.
@@ -84,8 +84,8 @@ demo: ## Run the nine-step demo from docs/HANDOFF.md §13 (needs `make up`)
 
 .PHONY: scan-broker
 scan-broker: ## Scan the running broker; exits 0 when it passes the MUST gate
-	$(UV) run sentinel scan --endpoint http://localhost:8080/mcp --gate must --format text
+	$(UV) run toolgauge scan --endpoint http://localhost:8080/mcp --gate must --format text
 
 .PHONY: scan-fixture
 scan-fixture: ## Scan the non-conformant fixture; expected to exit 1
-	$(UV) run sentinel scan --endpoint http://localhost:9000/mcp --gate must --format text
+	$(UV) run toolgauge scan --endpoint http://localhost:9000/mcp --gate must --format text

@@ -84,7 +84,7 @@ jobs:
       # and runs. Locally a missing toolchain skips those tests; here it must fail
       # them, or "the build scans the example on every commit" would quietly stop
       # being true.
-      SENTINEL_REQUIRE_GO: "1"
+      TOOLGAUGE_REQUIRE_GO: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

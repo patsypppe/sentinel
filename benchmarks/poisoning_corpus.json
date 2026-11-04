@@ -1,5 +1,5 @@
 {
- "note": "Synthetic. Written by the Sentinel author after published tool-poisoning patterns; see benchmarks/README.md for the bias this implies.",
+ "note": "Synthetic. Written by the toolgauge author after published tool-poisoning patterns; see benchmarks/README.md for the bias this implies.",
  "poisoned": [
   {
    "id": "imp-block-read-ssh",

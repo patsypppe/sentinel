@@ -9,8 +9,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-from sentinel.catalog.base import REGISTRY, Outcome
-from sentinel.grade import run_scan
+from toolgauge.catalog.base import REGISTRY, Outcome
+from toolgauge.grade import run_scan
 
 pytestmark = pytest.mark.unit
 

@@ -16,6 +16,6 @@
 <h2>Manifest drift</h2>
 {{if .Drift}}<table><tr><th>When</th><th>Before</th><th>After</th></tr>
 {{range .Drift}}<tr><td>{{stamp .At}}</td><td><code>{{short .Before}}</code></td><td><code>{{short .After}}</code></td></tr>{{end}}</table>
-<p class="muted">Run <code>sentinel diff</code> against a snapshot to see what changed and how severe it is.</p>
+<p class="muted">Run <code>toolgauge diff</code> against a snapshot to see what changed and how severe it is.</p>
 {{else}}<p class="muted">The tool manifest has not changed in the scans on record.</p>{{end}}
 {{template "foot"}}
