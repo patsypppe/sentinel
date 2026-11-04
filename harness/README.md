@@ -1,29 +1,44 @@
-# toolgauge — MCP conformance
+# toolgauge
 
-A conformance checker for **MCP servers**, published as `toolgauge`.
+**Check whether an MCP server follows the MCP specification, and whether its tools are documented well
+enough for a model to use them.**
 
-Scans any MCP server, grades it against the normative requirements with a spec citation per rule,
-reports which MUSTs it **cannot** verify black-box rather than scoring them as passes, and
-inventories which deprecated features the target still depends on with their earliest removal dates.
+[MCP](https://modelcontextprotocol.io) (Model Context Protocol) is how AI apps connect to tools.
+toolgauge sends a server real requests, checks every answer against the specification, and lints its
+tool descriptions. Each finding says what it saw, what to change, and which part of the spec it comes from.
+
+## Install
 
 ```bash
-uvx toolgauge scan --endpoint http://localhost:8080/mcp --gate must
-toolgauge scan --endpoint https://someone-elses.example/mcp --safe   # never invokes a non-read-only tool
-toolgauge registry-scan --out-dir scan                               # every remote server in the MCP registry
-uv run toolgauge scan --endpoint http://localhost:8080/mcp --gate must --format sarif --out scan.sarif
-uv run toolgauge deprecations --endpoint http://localhost:8080/mcp --as-of 2026-09-23
-uv run toolgauge catalog validate
+pip install toolgauge          # or: pipx install toolgauge
 ```
 
-`scan --gate must` exits **1** if any MUST rule FAILs and **0** otherwise. `INDETERMINATE` never
-fails a gate but is always printed. Every other subcommand reserves non-zero for harness errors, so
-CI can distinguish "the server is wrong" from "the scanner broke".
+Or run it without installing: `uvx toolgauge demo`. Needs Python 3.12 or newer.
 
-The probe is a deliberately literal MCP client — requests are built by hand from the specification,
-never through an SDK, because an SDK that helpfully adds `Mcp-Method` would make the rule requiring
-`Mcp-Method` untestable.
+## Use
 
-Responses framed as `text/event-stream` are read the same as bare JSON: the transport allows both,
-and grading an SSE reply as "no JSON-RPC response" would be the scanner's bug, not the server's.
+```bash
+toolgauge demo                                                     # scan two practice servers, see the difference
+toolgauge lint --command "npx -y @modelcontextprotocol/server-filesystem /tmp"   # lint a stdio server
+toolgauge scan --endpoint https://your-server.example/mcp --gate must            # grade an HTTP server
+toolgauge scan --endpoint https://your-server.example/mcp --format sarif --out scan.sarif
+```
 
-See the repository root for the full project, including `broker`, the server this harness grades.
+`--gate must` exits **1** if a required rule fails and **0** otherwise, so it drops into CI. A requirement
+that cannot be checked from outside the server is reported as `INDETERMINATE`, never as a pass. Use
+`--safe` on a server you do not own: it never invokes a tool that is not annotated read-only.
+
+## What it has measured
+
+Every remote server in the official MCP registry (15,451 endpoints), 28 widely used published servers,
+and the MCP maintainers' own broken test servers, with hand-checked precision samples and a comparison
+against Cisco's mcp-scanner. Details and methodology:
+[github.com/patsypppe/toolgauge/tree/main/benchmarks](https://github.com/patsypppe/toolgauge/tree/main/benchmarks).
+
+## Links
+
+- Source, issues and contributing guide: [github.com/patsypppe/toolgauge](https://github.com/patsypppe/toolgauge)
+- Usage guide (waivers, baselines, CI, report formats): [docs/USING.md](https://github.com/patsypppe/toolgauge/blob/main/docs/USING.md)
+- Changelog: [CHANGELOG.md](https://github.com/patsypppe/toolgauge/blob/main/CHANGELOG.md)
+
+MIT licensed.

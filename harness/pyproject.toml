@@ -40,5 +40,4 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/toolgauge"]
 
-[tool.hatch.build.targets.wheel.force-include]
-"../fixtures/server" = "toolgauge/_fixtures/server"
+[tool.hatch.build.hooks.custom]
