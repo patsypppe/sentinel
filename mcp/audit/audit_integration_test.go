@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/patsypppe/sentinel/mcp/store"
+	"github.com/patsypppe/toolgauge/mcp/store"
 )
 
 const (

@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
-	"github.com/patsypppe/sentinel/mcp/handles"
-	"github.com/patsypppe/sentinel/mcp/mrtr"
-	"github.com/patsypppe/sentinel/mcp/registry"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/handles"
+	"github.com/patsypppe/toolgauge/mcp/mrtr"
+	"github.com/patsypppe/toolgauge/mcp/registry"
 )
 
 // Authenticator turns a request into a validated principal.

@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
-	"github.com/patsypppe/sentinel/mcp/example"
-	"github.com/patsypppe/sentinel/mcp/registry"
-	"github.com/patsypppe/sentinel/mcp/server"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/example"
+	"github.com/patsypppe/toolgauge/mcp/registry"
+	"github.com/patsypppe/toolgauge/mcp/server"
 )
 
 const meta = `"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28",` +

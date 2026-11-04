@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/patsypppe/sentinel/fleet/internal/model"
+	"github.com/patsypppe/toolgauge/fleet/internal/model"
 )
 
 //go:embed migrations/*.sql

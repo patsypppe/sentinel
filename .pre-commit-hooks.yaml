@@ -1,7 +1,7 @@
 # Hooks for teams that scan a locally-running MCP server before they push.
 #
 #   repos:
-#     - repo: https://github.com/patsypppe/sentinel
+#     - repo: https://github.com/patsypppe/toolgauge
 #       rev: v0.4.0
 #       hooks:
 #         - id: toolgauge-scan

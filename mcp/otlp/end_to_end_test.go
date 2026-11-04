@@ -11,10 +11,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/patsypppe/sentinel/mcp/example"
-	"github.com/patsypppe/sentinel/mcp/otlp"
-	"github.com/patsypppe/sentinel/mcp/registry"
-	"github.com/patsypppe/sentinel/mcp/server"
+	"github.com/patsypppe/toolgauge/mcp/example"
+	"github.com/patsypppe/toolgauge/mcp/otlp"
+	"github.com/patsypppe/toolgauge/mcp/registry"
+	"github.com/patsypppe/toolgauge/mcp/server"
 )
 
 // A real kit server, the real exporter, and a stand-in collector: the trace a client

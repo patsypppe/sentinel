@@ -4,7 +4,7 @@
 `2026-07-28`, extracted from `broker/internal/` so you can import them.
 
 ```go
-import "github.com/patsypppe/sentinel/mcp/server"
+import "github.com/patsypppe/toolgauge/mcp/server"
 ```
 
 ## The smallest server

@@ -11,7 +11,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/patsypppe/sentinel/fleet/internal/model"
+	"github.com/patsypppe/toolgauge/fleet/internal/model"
 )
 
 // ErrNotFound is returned when a target has no scans.

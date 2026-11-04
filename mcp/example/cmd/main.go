@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/patsypppe/sentinel/mcp/example"
+	"github.com/patsypppe/toolgauge/mcp/example"
 )
 
 func main() {

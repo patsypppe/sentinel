@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
 )
 
 // Stdio is a newline-delimited JSON-RPC adapter over the same dispatch path the

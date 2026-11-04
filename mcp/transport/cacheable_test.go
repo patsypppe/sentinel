@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
-	"github.com/patsypppe/sentinel/mcp/registry"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/registry"
 )
 
 // fullServer registers every method the broker implements, so the cacheable

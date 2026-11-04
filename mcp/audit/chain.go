@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/patsypppe/sentinel/mcp/canonical"
+	"github.com/patsypppe/toolgauge/mcp/canonical"
 )
 
 // GenesisHash is the prev_hash of the first row in a tenant's chain.

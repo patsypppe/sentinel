@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
 )
 
 // Handler serves one MCP method. It returns a Result — an interface satisfiable

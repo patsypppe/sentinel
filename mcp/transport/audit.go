@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/patsypppe/sentinel/mcp/audit"
-	"github.com/patsypppe/sentinel/mcp/envelope"
-	"github.com/patsypppe/sentinel/mcp/registry"
+	"github.com/patsypppe/toolgauge/mcp/audit"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/registry"
 )
 
 // AuditSink records an invocation. The transport depends on this rather than on

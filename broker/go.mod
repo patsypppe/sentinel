@@ -1,11 +1,11 @@
-module github.com/patsypppe/sentinel/broker
+module github.com/patsypppe/toolgauge/broker
 
 go 1.23.0
 
 require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.4
-	github.com/patsypppe/sentinel/mcp v0.0.0
+	github.com/patsypppe/toolgauge/mcp v0.0.0
 )
 
 require (
@@ -22,4 +22,4 @@ require (
 // The kit lives beside the broker in this repository. A replace directive (as well
 // as go.work) lets `go build` work from the broker directory alone, as the Docker
 // build does.
-replace github.com/patsypppe/sentinel/mcp => ../mcp
+replace github.com/patsypppe/toolgauge/mcp => ../mcp

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/patsypppe/sentinel/mcp/registry"
+	"github.com/patsypppe/toolgauge/mcp/registry"
 )
 
 func sampleRows(n int) Rows {

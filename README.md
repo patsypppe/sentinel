@@ -17,7 +17,7 @@ No clone, no setup, nothing to configure. This starts two practice servers on yo
 with deliberate mistakes, one correct), scans both, and shows you the difference:
 
 ```bash
-uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" toolgauge demo
+uvx --from "git+https://github.com/patsypppe/toolgauge@main#subdirectory=harness" toolgauge demo
 ```
 
 ```
@@ -33,7 +33,7 @@ uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness"
   verdict: PASS (exit code 0)
 ```
 
-Prefer a clone? `git clone https://github.com/patsypppe/sentinel && cd sentinel && uv run toolgauge demo`.
+Prefer a clone? `git clone https://github.com/patsypppe/toolgauge && cd sentinel && uv run toolgauge demo`.
 
 ## Lint any server, including stdio ones
 
@@ -52,7 +52,7 @@ rule fails, so it drops straight into CI.
 No clone needed:
 
 ```bash
-uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" \
+uvx --from "git+https://github.com/patsypppe/toolgauge@main#subdirectory=harness" \
   toolgauge scan --endpoint https://your-server.example/mcp --gate must
 ```
 

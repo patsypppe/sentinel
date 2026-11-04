@@ -2,8 +2,8 @@
 
 **Check whether an MCP server follows the current MCP specification — and a reference server that does.**
 
-[![ci](https://github.com/patsypppe/sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/patsypppe/sentinel/actions/workflows/ci.yml)
-[![conformance](https://github.com/patsypppe/sentinel/actions/workflows/conformance.yml/badge.svg)](https://github.com/patsypppe/sentinel/actions/workflows/conformance.yml)
+[![ci](https://github.com/patsypppe/toolgauge/actions/workflows/ci.yml/badge.svg)](https://github.com/patsypppe/toolgauge/actions/workflows/ci.yml)
+[![conformance](https://github.com/patsypppe/toolgauge/actions/workflows/conformance.yml/badge.svg)](https://github.com/patsypppe/toolgauge/actions/workflows/conformance.yml)
 
 **[Live showcase → patsypppe.github.io/toolgauge](https://patsypppe.github.io/toolgauge/)**: an interactive
 viewer over real `toolgauge` output, with rule-by-rule findings, the deprecation timeline and the
@@ -27,7 +27,7 @@ and tells you which rules failed, what it saw, what to change, and which page of
 comes from. It works on any server in any language, because it only speaks HTTP to it.
 
 ```bash
-uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" \
+uvx --from "git+https://github.com/patsypppe/toolgauge@main#subdirectory=harness" \
   toolgauge scan --endpoint https://your-server.example/mcp --gate must
 ```
 
@@ -211,7 +211,7 @@ No clone needed. Until the first release is published to PyPI (`toolgauge`, via
 the `release` workflow), install from git:
 
 ```bash
-uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" \
+uvx --from "git+https://github.com/patsypppe/toolgauge@main#subdirectory=harness" \
   toolgauge scan --endpoint https://your-server.example/mcp --gate must
 ```
 
@@ -230,7 +230,7 @@ permissions:
   security-events: write      # only needed for the code-scanning upload
 steps:
   - run: ./start-my-server.sh &
-  - uses: patsypppe/sentinel@v0.4.0
+  - uses: patsypppe/toolgauge@v0.4.0
     with:
       endpoint: http://localhost:3000/mcp
       gate: must              # fail the job on any MUST violation

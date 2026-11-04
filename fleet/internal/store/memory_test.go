@@ -3,8 +3,8 @@ package store_test
 import (
 	"testing"
 
-	"github.com/patsypppe/sentinel/fleet/internal/store"
-	"github.com/patsypppe/sentinel/fleet/internal/store/storetest"
+	"github.com/patsypppe/toolgauge/fleet/internal/store"
+	"github.com/patsypppe/toolgauge/fleet/internal/store/storetest"
 )
 
 func TestMemoryStoreSatisfiesTheContract(t *testing.T) {

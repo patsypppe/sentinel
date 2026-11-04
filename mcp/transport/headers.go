@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
 )
 
 // The header contract, docs/HANDOFF.md §8.2.

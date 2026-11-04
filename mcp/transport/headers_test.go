@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
 )
 
 func req(method, params string) envelope.Request {

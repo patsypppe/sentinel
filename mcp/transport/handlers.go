@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
 )
 
 // DiscoverHandler answers server/discover.

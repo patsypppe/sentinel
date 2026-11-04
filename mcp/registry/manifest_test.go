@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
 )
 
 // fakeTool is a fully-declared tool for exercising the registry. It declares

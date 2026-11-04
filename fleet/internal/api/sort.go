@@ -3,7 +3,7 @@ package api
 import (
 	"sort"
 
-	"github.com/patsypppe/sentinel/fleet/internal/posture"
+	"github.com/patsypppe/toolgauge/fleet/internal/posture"
 )
 
 func sortWaivers(w []posture.ExpiringWaiver) {

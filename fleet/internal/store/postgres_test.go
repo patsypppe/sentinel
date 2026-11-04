@@ -12,8 +12,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/patsypppe/sentinel/fleet/internal/store"
-	"github.com/patsypppe/sentinel/fleet/internal/store/storetest"
+	"github.com/patsypppe/toolgauge/fleet/internal/store"
+	"github.com/patsypppe/toolgauge/fleet/internal/store/storetest"
 )
 
 func adminURL(t *testing.T) string {

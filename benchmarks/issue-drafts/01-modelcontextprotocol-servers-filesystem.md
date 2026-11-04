@@ -9,7 +9,7 @@ is already tracked. Post it from your own account; it is written in your voice.
 
 Hi, and thanks for maintaining this server.
 
-I'm building [toolgauge](https://github.com/patsypppe/sentinel), a linter for MCP servers, and
+I'm building [toolgauge](https://github.com/patsypppe/toolgauge), a linter for MCP servers, and
 ran it on `@modelcontextprotocol/server-filesystem` 2.0.0 (also checked against the source at
 `51b6382`). Most parameters carry a `.describe()`, but five do not, and a client or model reading the
 tool schema gets no explanation for them:
@@ -38,6 +38,6 @@ glob semantics.) Why it matters: two 2026 studies of MCP tool descriptions
 ([arXiv 2602.14878](https://arxiv.org/abs/2602.14878), [2602.18914](https://arxiv.org/abs/2602.18914))
 found missing parameter semantics are common and change which tool an LLM selects.
 
-Reproduce: `uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" toolgauge lint --command "npx -y @modelcontextprotocol/server-filesystem /tmp"`
+Reproduce: `uvx --from "git+https://github.com/patsypppe/toolgauge@main#subdirectory=harness" toolgauge lint --command "npx -y @modelcontextprotocol/server-filesystem /tmp"`
 
 Happy to send a PR with the descriptions if that's welcome.

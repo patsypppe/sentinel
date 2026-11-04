@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
-	"github.com/patsypppe/sentinel/mcp/registry"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/registry"
 )
 
 // maxBodyBytes caps a request body. A protocol server with one endpoint has no

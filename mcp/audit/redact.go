@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/patsypppe/sentinel/mcp/canonical"
+	"github.com/patsypppe/toolgauge/mcp/canonical"
 )
 
 // Argument redaction.

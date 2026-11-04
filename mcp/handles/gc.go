@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/patsypppe/sentinel/mcp/registry"
+	"github.com/patsypppe/toolgauge/mcp/registry"
 )
 
 // Handle lifecycle beyond resolution: revocation and collection.

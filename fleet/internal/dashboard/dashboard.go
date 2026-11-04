@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/patsypppe/sentinel/fleet/internal/posture"
+	"github.com/patsypppe/toolgauge/fleet/internal/posture"
 )
 
 //go:embed templates/*.html

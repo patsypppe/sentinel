@@ -23,7 +23,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/patsypppe/sentinel/mcp/registry"
+	"github.com/patsypppe/toolgauge/mcp/registry"
 )
 
 // Failure modes. They are distinct types internally so logs can tell them

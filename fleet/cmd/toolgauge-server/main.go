@@ -28,8 +28,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/patsypppe/sentinel/fleet/internal/api"
-	"github.com/patsypppe/sentinel/fleet/internal/store"
+	"github.com/patsypppe/toolgauge/fleet/internal/api"
+	"github.com/patsypppe/toolgauge/fleet/internal/store"
 )
 
 // version is overridden at build time with -ldflags "-X main.version=...".

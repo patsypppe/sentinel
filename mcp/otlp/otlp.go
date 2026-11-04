@@ -35,7 +35,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/patsypppe/sentinel/mcp/transport"
+	"github.com/patsypppe/toolgauge/mcp/transport"
 )
 
 const (
@@ -43,7 +43,7 @@ const (
 	batchSize    = 64
 	flushEvery   = 2 * time.Second
 	postTimeout  = 5 * time.Second
-	scopeName    = "github.com/patsypppe/sentinel/mcp"
+	scopeName    = "github.com/patsypppe/toolgauge/mcp"
 	spanKindServ = 2
 )
 

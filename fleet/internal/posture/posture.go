@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/patsypppe/sentinel/fleet/internal/model"
+	"github.com/patsypppe/toolgauge/fleet/internal/model"
 )
 
 const day = 24 * time.Hour

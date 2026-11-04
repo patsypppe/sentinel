@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir build \
     && python -m build --wheel --outdir /dist /src/harness
 
 FROM python:3.12-slim
-LABEL org.opencontainers.image.source="https://github.com/patsypppe/sentinel" \
+LABEL org.opencontainers.image.source="https://github.com/patsypppe/toolgauge" \
       org.opencontainers.image.description="Conformance harness for MCP 2026-07-28" \
       org.opencontainers.image.licenses="MIT"
 RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin toolgauge

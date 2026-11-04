@@ -24,10 +24,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/patsypppe/sentinel/fleet/internal/dashboard"
-	"github.com/patsypppe/sentinel/fleet/internal/model"
-	"github.com/patsypppe/sentinel/fleet/internal/posture"
-	"github.com/patsypppe/sentinel/fleet/internal/store"
+	"github.com/patsypppe/toolgauge/fleet/internal/dashboard"
+	"github.com/patsypppe/toolgauge/fleet/internal/model"
+	"github.com/patsypppe/toolgauge/fleet/internal/posture"
+	"github.com/patsypppe/toolgauge/fleet/internal/store"
 )
 
 // MaxReportBytes bounds a published report. A full v2 report is tens of kilobytes;
