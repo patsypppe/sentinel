@@ -1,0 +1,16 @@
+name: New rule
+description: Propose a check toolgauge does not do yet.
+labels: ["enhancement", "area: rules"]
+body:
+  - type: textarea
+    id: requirement
+    attributes:
+      label: The requirement
+      description: For a spec rule, quote the sentence and link the page and heading. Otherwise, explain why it matters.
+    validations:
+      required: true
+  - type: textarea
+    id: check
+    attributes:
+      label: How it can be checked from outside the server
+      description: What request to send, what answer is a pass, a fail, and "can't tell".
