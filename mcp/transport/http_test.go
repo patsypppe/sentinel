@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
-	"github.com/patsypppe/sentinel/mcp/registry"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/registry"
 )
 
 func testServer(t *testing.T) *httptest.Server {

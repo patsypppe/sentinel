@@ -1,7 +1,7 @@
 # GitLab CI template for the toolgauge MCP conformance scan.
 #
 #   include:
-#     - remote: https://raw.githubusercontent.com/patsypppe/sentinel/main/ci/gitlab/toolgauge.gitlab-ci.yml
+#     - remote: https://raw.githubusercontent.com/patsypppe/toolgauge/main/ci/gitlab/toolgauge.gitlab-ci.yml
 #
 #   toolgauge:
 #     extends: .toolgauge-scan

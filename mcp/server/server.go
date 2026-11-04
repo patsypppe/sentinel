@@ -25,10 +25,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/patsypppe/sentinel/mcp/audit"
-	"github.com/patsypppe/sentinel/mcp/envelope"
-	"github.com/patsypppe/sentinel/mcp/registry"
-	"github.com/patsypppe/sentinel/mcp/transport"
+	"github.com/patsypppe/toolgauge/mcp/audit"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/registry"
+	"github.com/patsypppe/toolgauge/mcp/transport"
 )
 
 // Options configures New.

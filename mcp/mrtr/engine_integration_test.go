@@ -14,9 +14,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
-	"github.com/patsypppe/sentinel/mcp/registry"
-	"github.com/patsypppe/sentinel/mcp/store"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/registry"
+	"github.com/patsypppe/toolgauge/mcp/store"
 )
 
 // Every test in the §8.5 table lives here, by the name the spec gives it.

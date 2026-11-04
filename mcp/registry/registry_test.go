@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
 )
 
 // TestToolMustDeclareAllSixProperties. §7.3: enforced in the interface, not in

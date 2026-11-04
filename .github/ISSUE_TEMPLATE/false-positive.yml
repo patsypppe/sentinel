@@ -1,0 +1,23 @@
+name: Wrong finding (false positive or false negative)
+description: toolgauge reported something that is not true, or missed something that is.
+labels: ["bug", "area: precision"]
+body:
+  - type: input
+    id: rule
+    attributes:
+      label: Rule id
+      placeholder: MCP/2026-07-28/MUST/... or TOOLGAUGE/STYLE/...
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: What toolgauge said, and what is actually true
+      description: Paste the finding. For a spec rule, quote the specification sentence that shows it is wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: The command you ran. Do not paste real credentials.

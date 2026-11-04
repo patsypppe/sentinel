@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/patsypppe/sentinel/mcp/transport"
+	"github.com/patsypppe/toolgauge/mcp/transport"
 )
 
 func quiet() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }

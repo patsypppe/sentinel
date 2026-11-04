@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/patsypppe/sentinel/fleet/internal/dashboard"
-	"github.com/patsypppe/sentinel/fleet/internal/posture"
+	"github.com/patsypppe/toolgauge/fleet/internal/dashboard"
+	"github.com/patsypppe/toolgauge/fleet/internal/posture"
 )
 
 func humanAge(d time.Duration) string {

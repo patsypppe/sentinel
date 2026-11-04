@@ -12,9 +12,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
-	"github.com/patsypppe/sentinel/mcp/registry"
-	"github.com/patsypppe/sentinel/mcp/server"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/registry"
+	"github.com/patsypppe/toolgauge/mcp/server"
 )
 
 // Scope the single tool requires.

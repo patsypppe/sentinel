@@ -2,7 +2,7 @@
 import { h, mount, replaceContent } from "./dom.js";
 import { shortRuleId } from "./model.js";
 
-const DOCS = "https://github.com/patsypppe/sentinel/blob/main/docs/MIGRATION.md";
+const DOCS = "https://github.com/patsypppe/toolgauge/blob/main/docs/MIGRATION.md";
 
 function change(c) {
   const state = c.outstanding ? "outstanding" : c.confidence === "unknown" ? "unknown" : "done";

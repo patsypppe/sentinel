@@ -11,14 +11,19 @@ You give it a server's URL. It sends the server test requests, checks each answe
 rulebook, and prints a pass/fail list. Every failure says what it saw, what to change, and which
 page of the spec the rule comes from.
 
-## Try it in 30 seconds
-
-No clone, no setup, nothing to configure. This starts two practice servers on your machine (one
-with deliberate mistakes, one correct), scans both, and shows you the difference:
+## Install
 
 ```bash
-uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" toolgauge demo
+pip install toolgauge          # or: pipx install toolgauge
+toolgauge demo
 ```
+
+No install at all: `uvx toolgauge demo`. Needs Python 3.12 or newer.
+
+## Try it in 30 seconds
+
+`toolgauge demo` starts two practice servers on your machine (one with deliberate mistakes, one
+correct), scans both, and shows you the difference:
 
 ```
 === Server A: has deliberate mistakes ===
@@ -33,7 +38,7 @@ uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness"
   verdict: PASS (exit code 0)
 ```
 
-Prefer a clone? `git clone https://github.com/patsypppe/sentinel && cd sentinel && uv run toolgauge demo`.
+From source: `git clone https://github.com/patsypppe/toolgauge && cd toolgauge && uv run toolgauge demo`.
 
 ## Lint any server, including stdio ones
 
@@ -49,11 +54,8 @@ rule fails, so it drops straight into CI.
 
 ## Scan your own server
 
-No clone needed:
-
 ```bash
-uvx --from "git+https://github.com/patsypppe/sentinel@main#subdirectory=harness" \
-  toolgauge scan --endpoint https://your-server.example/mcp --gate must
+toolgauge scan --endpoint https://your-server.example/mcp --gate must
 ```
 
 If the server needs a login token, add `--token "$TOKEN"`. Only scan servers you own or have
@@ -191,6 +193,12 @@ recommendations, so they are reported but never fail the gate. The rule names ca
 | `.github/`, [`action.yml`](action.yml) | CI, a reusable GitHub Action, and a pre-commit hook | GitHub Actions, Docker, SARIF to GitHub code scanning |
 
 toolgauge never imports the server code. It only talks HTTP, so it can be pointed at anything.
+
+## Contributing
+
+There is a list of concrete, scoped tasks on the
+[issue tracker](https://github.com/patsypppe/toolgauge/issues), many labelled `good first issue`.
+[`CONTRIBUTING.md`](CONTRIBUTING.md) explains how to set up, test and send a change.
 
 ## Test toolgauge itself
 

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/patsypppe/sentinel/fleet/internal/model"
-	"github.com/patsypppe/sentinel/fleet/internal/store"
+	"github.com/patsypppe/toolgauge/fleet/internal/model"
+	"github.com/patsypppe/toolgauge/fleet/internal/store"
 )
 
 var (

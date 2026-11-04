@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
-	"github.com/patsypppe/sentinel/mcp/registry"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/registry"
 )
 
 // TokenAuthenticator adapts Validate to the transport's Authenticator

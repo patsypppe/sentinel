@@ -5,7 +5,7 @@
 #
 # Verify a release:
 #   cosign verify ghcr.io/patsypppe/toolgauge:<version> \
-#     --certificate-identity-regexp 'https://github.com/patsypppe/sentinel/.github/workflows/release.yml@.*' \
+#     --certificate-identity-regexp 'https://github.com/patsypppe/toolgauge/.github/workflows/release.yml@.*' \
 #     --certificate-oidc-issuer https://token.actions.githubusercontent.com
 #
 # PyPI: Uses PyPI trusted publishing, so no token is stored:

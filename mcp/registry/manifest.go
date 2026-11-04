@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/patsypppe/sentinel/mcp/canonical"
-	"github.com/patsypppe/sentinel/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/canonical"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
 )
 
 // Deterministic manifest construction, docs/HANDOFF.md §8.3:

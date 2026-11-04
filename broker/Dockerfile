@@ -18,7 +18,7 @@ COPY broker ./broker
 WORKDIR /src/broker
 ARG VERSION=0.1.0-dev
 RUN CGO_ENABLED=0 go build -trimpath \
-      -ldflags "-s -w -X github.com/patsypppe/sentinel/broker/internal/version.Version=${VERSION}" \
+      -ldflags "-s -w -X github.com/patsypppe/toolgauge/broker/internal/version.Version=${VERSION}" \
       -o /out/broker ./cmd/broker
 
 FROM alpine:3.20

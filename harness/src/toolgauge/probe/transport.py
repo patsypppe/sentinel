@@ -42,7 +42,7 @@ BACKOFF_BASE_S = 0.1
 
 #: Sent on every request, so the operator of a scanned server can see what is
 #: talking to it and where to read about it. Overridable, never omitted.
-DEFAULT_USER_AGENT = "toolgauge (+https://github.com/patsypppe/sentinel)"
+DEFAULT_USER_AGENT = "toolgauge (+https://github.com/patsypppe/toolgauge)"
 
 
 _CONTEXTS: dict[tuple[str, str], ssl.SSLContext] = {}

@@ -4,7 +4,7 @@
 package version
 
 // Version is the broker's semantic version. Overridden at build time with
-// -ldflags "-X github.com/patsypppe/sentinel/broker/internal/version.Version=..."
+// -ldflags "-X github.com/patsypppe/toolgauge/broker/internal/version.Version=..."
 var Version = "0.1.0-dev"
 
 // Name is the server identity reported in serverInfo. Stable across releases;

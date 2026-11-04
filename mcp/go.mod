@@ -1,4 +1,4 @@
-module github.com/patsypppe/sentinel/mcp
+module github.com/patsypppe/toolgauge/mcp
 
 go 1.23.0
 

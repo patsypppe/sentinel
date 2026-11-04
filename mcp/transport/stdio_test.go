@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
 )
 
 func TestStdioSharesTheDispatchPath(t *testing.T) {

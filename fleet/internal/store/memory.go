@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/patsypppe/sentinel/fleet/internal/model"
+	"github.com/patsypppe/toolgauge/fleet/internal/model"
 )
 
 // Memory is a Store held in process memory. Everything is lost on restart, which is

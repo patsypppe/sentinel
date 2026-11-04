@@ -193,7 +193,7 @@ def render(report: ScanReport, *, anchor: str = DEFAULT_ANCHOR) -> dict[str, Any
                     "driver": {
                         "name": "toolgauge",
                         "version": __version__,
-                        "informationUri": "https://github.com/patsypppe/sentinel",
+                        "informationUri": "https://github.com/patsypppe/toolgauge",
                         "semanticVersion": __version__,
                         "rules": rules,
                     }

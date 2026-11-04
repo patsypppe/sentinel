@@ -3,7 +3,7 @@ package authz
 import (
 	"strings"
 
-	"github.com/patsypppe/sentinel/mcp/envelope"
+	"github.com/patsypppe/toolgauge/mcp/envelope"
 )
 
 // Scope handling.

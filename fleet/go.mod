@@ -1,4 +1,4 @@
-module github.com/patsypppe/sentinel/fleet
+module github.com/patsypppe/toolgauge/fleet
 
 go 1.23.0
 

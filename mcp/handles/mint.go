@@ -21,7 +21,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/patsypppe/sentinel/mcp/registry"
+	"github.com/patsypppe/toolgauge/mcp/registry"
 )
 
 // Prefix makes a handle self-describing in a log or an error message.

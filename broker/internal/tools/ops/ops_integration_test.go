@@ -12,10 +12,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/patsypppe/sentinel/mcp/handles"
-	"github.com/patsypppe/sentinel/mcp/mrtr"
-	"github.com/patsypppe/sentinel/mcp/registry"
-	"github.com/patsypppe/sentinel/mcp/store"
+	"github.com/patsypppe/toolgauge/mcp/handles"
+	"github.com/patsypppe/toolgauge/mcp/mrtr"
+	"github.com/patsypppe/toolgauge/mcp/registry"
+	"github.com/patsypppe/toolgauge/mcp/store"
 )
 
 // The §10 (WP-6) definition of done, end to end through the real tools:
