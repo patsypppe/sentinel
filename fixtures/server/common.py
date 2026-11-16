@@ -131,6 +131,14 @@ def error(request_id: Any, code: int, message: str, data: Any = None) -> dict[st
     return {"jsonrpc": "2.0", "id": request_id, "error": err}
 
 
+class _Server(ThreadingHTTPServer):
+    # socketserver's default backlog is 5. pytest-xdist runs several of these
+    # fixtures at once, and macOS resets a connection instead of queueing it
+    # once the accept queue is full -- seen as a random ConnectionResetError in
+    # the gray-box evidence subprocesses while the server was still healthy.
+    request_queue_size = 128
+
+
 def serve(dispatch: Any, port: int, *, banner: str, **behaviour: Any) -> ThreadingHTTPServer:
     """Start a fixture on `port` and return the server.
 
@@ -140,7 +148,7 @@ def serve(dispatch: Any, port: int, *, banner: str, **behaviour: Any) -> Threadi
     body is still declared in the fixture that seeds it rather than here.
     """
     handler = type("BoundHandler", (Handler,), {"dispatch": dispatch, **behaviour})
-    httpd = ThreadingHTTPServer(("127.0.0.1", port), handler)
+    httpd = _Server(("127.0.0.1", port), handler)
     print(f"{banner} on http://127.0.0.1:{port}/mcp", flush=True)
     return httpd
 
