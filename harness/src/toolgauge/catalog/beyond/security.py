@@ -73,7 +73,23 @@ _STEERING = re.compile(
     r"|without\s+(telling|informing|notifying|alerting)\s+the\s+user"
     r"|<\s*/?\s*(important|system|instructions?)\s*>"
     r"|\bsystem\s+prompt\b"
-    r"|\bbefore\s+(using|calling|invoking)\s+this\s+tool\b.{0,60}\b(read|send|include|call)\b",
+    r"|\bbefore\s+(using|calling|invoking)\s+this\s+tool\b.{0,60}\b(read|send|include|call)\b"
+    # The same override, in the languages a description is most likely to use
+    # when it is trying to slip past an English-only keyword list.
+    r"|ignore[rz]?\b.{0,40}\b(?:toutes?\s+les\s+)?(?:consignes?|instructions?)\b.{0,30}"
+    r"\b(?:pr[ée]c[ée]dentes?|ant[ée]rieures?|ci-dessus)\b"
+    r"|ignor(?:a|e|en|ar|are|ate)\b.{0,40}\b(?:todas?\s+las\s+)?instrucciones\b.{0,30}"
+    r"\b(?:anteriores|previas|precedentes)\b"
+    r"|ignorier(?:e|en|t)?\b.{0,40}\b(?:alle\s+)?(?:vorherigen|bisherigen|vorigen)\s+"
+    r"anweisungen\b"
+    r"|ignor(?:e|em|ar)\b.{0,40}\b(?:todas?\s+as\s+)?instru[çc][õo]es\b.{0,30}"
+    r"\b(?:anteriores|pr[ée]vias)\b"
+    r"|ignor(?:a|are|ate)\b.{0,40}\b(?:tutte\s+le\s+)?istruzioni\b.{0,30}"
+    r"\b(?:precedenti|anteriori)\b"
+    r"|negeer\b.{0,40}\b(?:alle\s+)?(?:vorige|eerdere)\s+instructies\b"
+    r"|игнорир(?:уй|уйте|овать)\b.{0,40}\b(?:предыдущие|прежние|все)\s+инструкции\b"
+    r"|忽略.{0,12}(?:之前|先前|以上|所有)的?(?:指令|指示)"
+    r"|(?:以前|前|上記)の(?:指示|命令)を無視",
     re.IGNORECASE | re.DOTALL,
 )
 _SENSITIVE_PATH = re.compile(
