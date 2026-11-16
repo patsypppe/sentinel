@@ -31,6 +31,16 @@ the endpoint with credentials, query and default port stripped, **or the target'
 scan by name. Create the baseline the way you will scan: `--target-name broker-prod` on both, or
 on neither.
 
+`toolgauge lint` reads the same file. `--write-baseline` records the manifest findings that fail
+today, including for a stdio server, and `--baseline` gates only on anything else:
+
+```bash
+toolgauge lint --command "npx -y @modelcontextprotocol/server-filesystem /tmp" \
+  --write-baseline lint-baseline.json
+toolgauge lint --command "npx -y @modelcontextprotocol/server-filesystem /tmp" \
+  --baseline lint-baseline.json
+```
+
 ## Living with a finding for a while: waivers
 
 ```toml

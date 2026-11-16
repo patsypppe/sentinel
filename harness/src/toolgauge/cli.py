@@ -863,6 +863,14 @@ def lint(
         list[str] | None,
         typer.Option("--env", help="KEY=VALUE passed to the server process. Repeatable."),
     ] = None,
+    baseline: Annotated[
+        pathlib.Path | None,
+        typer.Option(help="Gate only on findings absent from this baseline."),
+    ] = None,
+    write_baseline: Annotated[
+        pathlib.Path | None,
+        typer.Option("--write-baseline", help="Record the current failures as a baseline."),
+    ] = None,
 ) -> None:
     """Lint a server's tool manifest: names, descriptions, parameters, schemas, injection.
 
@@ -870,14 +878,23 @@ def lint(
     """
     import shlex
 
+    from toolgauge import baseline as baseline_mod
     from toolgauge.catalog.base import Outcome
     from toolgauge.grade import LINT_RULES, run_scan
     from toolgauge.probe.client import Probe
     from toolgauge.report import render_report
+    from toolgauge.triage import apply_baseline
+    from toolgauge.waivers import ConfigError
 
     if (command is None) == (endpoint is None):
         typer.echo("toolgauge: give exactly one of --command or --endpoint", err=True)
         raise typer.Exit(EXIT_HARNESS_ERROR)
+    known = None
+    if baseline is not None:
+        try:
+            known = baseline_mod.load(baseline)
+        except ConfigError as exc:
+            raise _fail(str(exc)) from exc
     if command is not None:
         argv = shlex.split(command)
         extra = dict(item.split("=", 1) for item in (env or []) if "=" in item)
@@ -906,7 +923,19 @@ def lint(
     else:
         assert endpoint is not None
         report = run_scan(endpoint, only=set(LINT_RULES), timeout=timeout)
-    failed = any(f.outcome is Outcome.FAIL and not f.rule.is_deprecated for f in report.findings)
+    if known is not None:
+        apply_baseline(report, known)
+    if write_baseline is not None:
+        recorded = baseline_mod.create(report)
+        baseline_mod.save(recorded, write_baseline)
+        typer.echo(
+            f"wrote {write_baseline}: {len(recorded.entries)} known failure(s)",
+            err=True,
+        )
+    failed = any(
+        f.outcome is Outcome.FAIL and not f.baselined and not f.rule.is_deprecated
+        for f in report.findings
+    )
     typer.echo(render_report(fmt, report, color=False, gate_failed=failed, gate="lint"))
     raise typer.Exit(1 if failed else 0)
 

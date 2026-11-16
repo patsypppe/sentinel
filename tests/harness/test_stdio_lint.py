@@ -66,6 +66,65 @@ def test_lint_reads_a_stdio_servers_manifest_and_reports_the_undescribed_paramet
     assert done.returncode == 1
 
 
+def _lint(script: pytest.TempPathFactory, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "toolgauge.cli",
+            "lint",
+            "--command",
+            f"{sys.executable} {script}",
+            "--format",
+            "json",
+            "--timeout",
+            "10",
+            *args,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+
+
+def test_lint_baseline_gates_only_on_failures_it_has_not_seen(
+    tmp_path: pytest.TempPathFactory,
+) -> None:
+    script = tmp_path / "server.py"  # type: ignore[operator]
+    script.write_text(SERVER)
+    baseline = tmp_path / "lint-baseline.json"  # type: ignore[operator]
+
+    first = _lint(script, "--write-baseline", str(baseline))
+    assert first.returncode == 1
+    recorded = json.loads(baseline.read_text())  # type: ignore[union-attr]
+    assert recorded["findings"], "the fixture seeds a failure to record"
+
+    adopted = _lint(script, "--baseline", str(baseline))
+    assert adopted.returncode == 0
+    report = json.loads(adopted.stdout)
+    assert report["summary"]["gating"]["baselined"] == len(recorded["findings"])
+
+
+def test_a_rule_absent_from_the_baseline_still_fails(tmp_path: pytest.TempPathFactory) -> None:
+    rule_id = "TOOLGAUGE/STYLE/parameters-are-described"
+    script = tmp_path / "server.py"  # type: ignore[operator]
+    script.write_text(SERVER)
+    baseline = tmp_path / "lint-baseline.json"  # type: ignore[operator]
+    _lint(script, "--write-baseline", str(baseline))
+
+    data = json.loads(baseline.read_text())  # type: ignore[union-attr]
+    data["ruleIds"] = [rid for rid in data["ruleIds"] if rid != rule_id]
+    data["findings"] = [f for f in data["findings"] if f["ruleId"] != rule_id]
+    baseline.write_text(json.dumps(data))  # type: ignore[union-attr]
+
+    result = _lint(script, "--baseline", str(baseline))
+    assert result.returncode == 1
+    report = json.loads(result.stdout)
+    new = [f["ruleId"] for f in report["findings"] if f["ruleIsNewSinceBaseline"]]
+    assert new == [rule_id]
+
+
 def test_lint_starts_the_server_once_not_once_per_rule(tmp_path: pytest.TempPathFactory) -> None:
     counter = tmp_path / "starts.txt"  # type: ignore[operator]
     script = tmp_path / "server.py"  # type: ignore[operator]
