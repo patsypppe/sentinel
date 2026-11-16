@@ -8,6 +8,8 @@ citation that, read closely, never said what the rule claimed.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import datetime
 import re
 import socket
@@ -81,6 +83,23 @@ _SENSITIVE_PATH = re.compile(
     r"credentials?\.json",
     re.IGNORECASE,
 )
+#: A run long enough that decoding it is cheap and accidental hits are rare.
+#: Padding is optional: a run at the end of a sentence may have lost it.
+_BASE64_RUN = re.compile(r"(?<![A-Za-z0-9+/_-])[A-Za-z0-9+/_-]{24,}={0,2}(?![A-Za-z0-9+/_-])")
+
+
+def _decoded_base64(text: str) -> Iterator[str]:
+    """The UTF-8 text of every base64-looking run in `text`, where it decodes."""
+    for match in _BASE64_RUN.finditer(text):
+        run = match.group(0).rstrip("=").replace("-", "+").replace("_", "/")
+        run += "=" * (-len(run) % 4)
+        try:
+            raw = base64.b64decode(run, validate=True)
+            decoded = raw.decode("utf-8")
+        except (binascii.Error, UnicodeDecodeError, ValueError):
+            continue
+        if decoded.isprintable() or "\n" in decoded:
+            yield decoded
 
 
 def _descriptions(tool: dict[str, Any]) -> Iterator[tuple[str, str]]:
@@ -120,6 +139,24 @@ def injection_findings(tool: dict[str, Any]) -> list[tuple[str, str, str]]:
         sensitive = _SENSITIVE_PATH.search(text)
         if sensitive:
             found.append(("sensitive-path", where, sensitive.group(0)[:80]))
+        # An instruction hidden in base64 evades every pattern above. Decode long
+        # runs and look for the same things in what they spell out.
+        for decoded in _decoded_base64(text):
+            steering = _STEERING.search(decoded)
+            if steering:
+                found.append(("base64-steering", f"{where} (base64)", steering.group(0)[:80]))
+            sensitive = _SENSITIVE_PATH.search(decoded)
+            if sensitive:
+                found.append(
+                    ("base64-sensitive-path", f"{where} (base64)", sensitive.group(0)[:80])
+                )
+            if _HTML_COMMENT.search(decoded):
+                found.append(("base64-html-comment", f"{where} (base64)", decoded[:80]))
+            hidden = _HIDDEN.search(decoded)
+            if hidden:
+                found.append(
+                    ("base64-hidden-unicode", f"{where} (base64)", repr(hidden.group(0))[:80])
+                )
     return found
 
 
