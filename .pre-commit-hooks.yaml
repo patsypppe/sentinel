@@ -30,3 +30,19 @@
   pass_filenames: false
   always_run: true
   stages: [pre-push, manual]
+
+# Lint a repository's own stdio MCP server on every commit. The command is one
+# `args` entry, so a command with spaces stays one argument:
+#
+#   - id: toolgauge-lint
+#     args: ["node dist/server.js"]
+#
+# The server is started once and its manifest is read; it needs no endpoint.
+- id: toolgauge-lint
+  name: toolgauge MCP manifest lint
+  description: Lint a stdio MCP server's tool manifest and fail on a failed rule.
+  entry: toolgauge lint --command
+  language: system
+  pass_filenames: false
+  always_run: true
+  stages: [pre-commit, manual]

@@ -159,7 +159,7 @@ than one from a single scan.
 | GitHub | `uses: patsypppe/sentinel@v0.4.0`. Inputs: `endpoint`, `gate`, `config`, `baseline`, `snapshot`, `targets`, `safe`, `no-exec`, `token`. Writes a Markdown job summary, uploads SARIF. |
 | GitLab | `include:` [`ci/gitlab/toolgauge.gitlab-ci.yml`](../ci/gitlab/toolgauge.gitlab-ci.yml) and `extends: .toolgauge-scan`. Publishes JUnit. |
 | Any CI | `docker run ghcr.io/patsypppe/toolgauge scan --endpoint ...` |
-| pre-commit | the `toolgauge-scan` hook (`pre-push`, so a few hundred requests do not run on every commit) |
+| pre-commit | the `toolgauge-scan` hook (`pre-push`, so a few hundred requests do not run on every commit); `toolgauge-lint` checks a stdio server's manifest on every commit |
 | PyPI | `uvx toolgauge scan --endpoint ...` |
 
 Releases are signed with cosign (keyless, from the release workflow's own identity, so there is no

@@ -167,13 +167,21 @@ def test_every_flag_the_gitlab_template_passes_exists() -> None:
 
 
 def test_the_precommit_hooks_are_well_formed_and_their_flags_exist() -> None:
-    hooks = load(".pre-commit-hooks.yaml")
-    assert {h["id"] for h in hooks} == {"toolgauge-scan", "toolgauge-scan-local"}
-    for hook in hooks:
+    hooks = {h["id"]: h for h in load(".pre-commit-hooks.yaml")}
+    assert set(hooks) == {"toolgauge-scan", "toolgauge-scan-local", "toolgauge-lint"}
+    for hook_id in ("toolgauge-scan", "toolgauge-scan-local"):
+        hook = hooks[hook_id]
         assert hook["pass_filenames"] is False, "a scan is of a server, not of changed files"
         assert hook["language"] in {"docker_image", "system"}
         assert "pre-push" in hook["stages"], "a scan makes hundreds of requests"
         assert set(re.findall(r"--[a-z][a-z0-9-]*", hook["entry"])) <= cli_flags("scan")
+
+    lint = hooks["toolgauge-lint"]
+    assert lint["pass_filenames"] is False
+    assert lint["language"] == "system", "the server runs on the machine being committed"
+    assert "pre-commit" in lint["stages"]
+    assert lint["entry"].endswith("--command"), "the user supplies the command as one argument"
+    assert set(re.findall(r"--[a-z][a-z0-9-]*", lint["entry"])) <= cli_flags("lint")
 
 
 def test_the_gitlab_junit_report_is_what_the_scan_writes() -> None:
