@@ -90,3 +90,37 @@ def test_lint_starts_the_server_once_not_once_per_rule(tmp_path: pytest.TempPath
     )
     # One shared process, plus one extra connection for the two-connections consistency rule.
     assert len(counter.read_text()) <= 2
+
+
+def test_lint_writes_an_html_report_to_the_requested_file(
+    tmp_path: pytest.TempPathFactory,
+) -> None:
+    script = tmp_path / "server.py"  # type: ignore[operator]
+    script.write_text(SERVER)
+    report = tmp_path / "lint.html"  # type: ignore[operator]
+    done = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "toolgauge.cli",
+            "lint",
+            "--command",
+            f"{sys.executable} {script}",
+            "--format",
+            "html",
+            "--out",
+            str(report),
+            "--timeout",
+            "10",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+    assert report.is_file()
+    assert done.stdout.strip() == f"wrote {report}"
+    body = report.read_text()
+    assert body.startswith("<!doctype html>")
+    assert "parameters-are-described" in body
+    assert done.returncode == 1

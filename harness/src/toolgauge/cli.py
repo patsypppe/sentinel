@@ -857,7 +857,12 @@ def lint(
     endpoint: Annotated[
         str | None, typer.Option(help="An HTTP MCP endpoint, instead of --command.")
     ] = None,
-    fmt: Annotated[str, typer.Option("--format", help="text | json | markdown")] = "text",
+    fmt: Annotated[
+        str, typer.Option("--format", help="text | json | sarif | markdown | junit | html")
+    ] = "text",
+    out: Annotated[
+        pathlib.Path | None, typer.Option(help="Write the report here instead of stdout.")
+    ] = None,
     timeout: Annotated[float, typer.Option(help="Seconds to wait for each reply.")] = 30.0,
     env: Annotated[
         list[str] | None,
@@ -907,7 +912,12 @@ def lint(
         assert endpoint is not None
         report = run_scan(endpoint, only=set(LINT_RULES), timeout=timeout)
     failed = any(f.outcome is Outcome.FAIL and not f.rule.is_deprecated for f in report.findings)
-    typer.echo(render_report(fmt, report, color=False, gate_failed=failed, gate="lint"))
+    rendered = render_report(fmt, report, color=False, gate_failed=failed, gate="lint")
+    if out is not None:
+        out.write_text(rendered)
+        typer.echo(f"wrote {out}")
+    else:
+        typer.echo(rendered)
     raise typer.Exit(1 if failed else 0)
 
 
