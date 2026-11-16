@@ -11,6 +11,9 @@
 FROM python:3.12-slim AS build
 WORKDIR /src
 COPY harness/ /src/harness/
+# harness/pyproject.toml force-includes ../fixtures/server in the wheel; without it
+# `python -m build` fails with "Forced include not found".
+COPY fixtures/server/ /src/fixtures/server/
 RUN pip install --no-cache-dir build \
     && python -m build --wheel --outdir /dist /src/harness
 

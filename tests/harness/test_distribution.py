@@ -192,6 +192,13 @@ def test_the_dockerfile_runs_as_a_non_root_user_with_the_cli_as_entrypoint() -> 
     assert (ROOT / "Dockerfile.dockerignore").read_text().count("broker/") == 1
 
 
+def test_the_docker_build_context_carries_the_fixture_package_the_wheel_needs() -> None:
+    text = (ROOT / "Dockerfile").read_text()
+    assert "COPY fixtures/server/ /src/fixtures/server/" in text
+    ignore = (ROOT / "Dockerfile.dockerignore").read_text()
+    assert "!fixtures/server/" in ignore and "!fixtures/server/**" in ignore
+
+
 def test_the_release_workflow_signs_and_ships_an_sbom_without_a_stored_key() -> None:
     workflow = load(".github/workflows/release.yml")
     jobs = workflow["jobs"]
