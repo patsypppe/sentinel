@@ -857,6 +857,16 @@ def lint(
     endpoint: Annotated[
         str | None, typer.Option(help="An HTTP MCP endpoint, instead of --command.")
     ] = None,
+    client_config: Annotated[
+        pathlib.Path | None,
+        typer.Option(
+            "--client-config",
+            help=(
+                "A Claude Desktop, Cursor or VS Code JSON config. Lints every enabled "
+                "server it lists: stdio command/args/env, or a url."
+            ),
+        ),
+    ] = None,
     fmt: Annotated[str, typer.Option("--format", help="text | json | markdown")] = "text",
     timeout: Annotated[float, typer.Option(help="Seconds to wait for each reply.")] = 30.0,
     env: Annotated[
@@ -866,7 +876,8 @@ def lint(
 ) -> None:
     """Lint a server's tool manifest: names, descriptions, parameters, schemas, injection.
 
-    Works on any MCP server, stdio or HTTP, old protocol or new. Exit 1 if a rule failed.
+    Works on one MCP server (stdio or HTTP, old protocol or new) or every enabled server
+    in a client config. Exit 1 if a rule failed.
     """
     import shlex
 
@@ -875,9 +886,126 @@ def lint(
     from toolgauge.probe.client import Probe
     from toolgauge.report import render_report
 
-    if (command is None) == (endpoint is None):
-        typer.echo("toolgauge: give exactly one of --command or --endpoint", err=True)
+    if len([given for given in (command, endpoint, client_config) if given is not None]) != 1:
+        typer.echo(
+            "toolgauge: give exactly one of --command, --endpoint or --client-config", err=True
+        )
         raise typer.Exit(EXIT_HARNESS_ERROR)
+    if client_config is not None:
+        if fmt not in ("text", "markdown", "json"):
+            typer.echo(
+                "toolgauge: --client-config supports --format text, markdown or json", err=True
+            )
+            raise typer.Exit(EXIT_HARNESS_ERROR)
+        if env:
+            typer.echo("toolgauge: put env values in the config file, not --env", err=True)
+            raise typer.Exit(EXIT_HARNESS_ERROR)
+        from toolgauge.client_config import (
+            ClientConfigError,
+            HttpServer,
+            StdioServer,
+            load_client_config,
+            redact_env,
+        )
+        from toolgauge.grade import LINT_RULES as CONFIG_LINT_RULES
+        from toolgauge.grade import ScanReport, run_scan
+
+        try:
+            servers = load_client_config(client_config)
+        except ClientConfigError as exc:
+            typer.echo(f"toolgauge: {exc}", err=True)
+            raise typer.Exit(EXIT_HARNESS_ERROR) from exc
+        results: list[tuple[StdioServer | HttpServer, ScanReport | None, str | None]] = []
+        for server in servers:
+            error: str | None = None
+            report: ScanReport | None = None
+            if isinstance(server, HttpServer):
+                try:
+                    report = run_scan(server.url, only=set(CONFIG_LINT_RULES), timeout=timeout)
+                except Exception as exc:  # one bad server must not hide the rest
+                    error = f"{type(exc).__name__}: {exc}"
+            else:
+                shared = Probe(
+                    "stdio:" + server.name,
+                    timeout=timeout,
+                    legacy=True,
+                    command=server.command,
+                    command_env=server.env,
+                    borrowed=True,
+                )
+
+                def reuse(probe: Probe = shared) -> Probe:
+                    return probe
+
+                try:
+                    report = run_scan(
+                        "stdio:" + server.name,
+                        only=set(CONFIG_LINT_RULES),
+                        probe_factory=reuse,
+                        concurrency=4,
+                        detect_generation=False,
+                    )
+                except Exception as exc:
+                    error = redact_env(f"{type(exc).__name__}: {exc}", server.env)
+                finally:
+                    shared.release()
+                if report is not None:
+                    report.generation, report.generation_detail = "stdio", "run as a child process"
+            results.append((server, report, error))
+
+        def report_failed(report: ScanReport) -> bool:
+            return any(
+                finding.outcome is Outcome.FAIL and not finding.rule.is_deprecated
+                for finding in report.findings
+            )
+
+        gate_failed = any(
+            error is not None or (report is not None and report_failed(report))
+            for _, report, error in results
+        )
+        if fmt == "json":
+            from toolgauge.report.json_report import render as render_json
+
+            payload = {
+                "clientConfig": str(client_config),
+                "servers": [
+                    {
+                        "name": server.name,
+                        "kind": "http" if isinstance(server, HttpServer) else "stdio",
+                        **(
+                            {"error": error}
+                            if error is not None or report is None
+                            else {
+                                "report": render_json(
+                                    report,
+                                    schema_version=2,
+                                    gate={"selected": "lint", "failed": report_failed(report)},
+                                )
+                            }
+                        ),
+                    }
+                    for server, report, error in results
+                ],
+            }
+            typer.echo(json.dumps(payload, indent=2))
+        else:
+            for index, (server, report, error) in enumerate(results):
+                if index:
+                    typer.echo()
+                kind = "http" if isinstance(server, HttpServer) else "stdio"
+                heading = (
+                    f"## {server.name}" if fmt == "markdown" else f"== {server.name} ({kind}) =="
+                )
+                typer.echo(heading)
+                if error is not None or report is None:
+                    typer.echo(f"could not lint: {error or 'no report'}")
+                    continue
+                typer.echo(
+                    render_report(
+                        fmt, report, color=False, gate_failed=report_failed(report), gate="lint"
+                    )
+                )
+        raise typer.Exit(EXIT_GATE_FAILED if gate_failed else EXIT_OK)
     if command is not None:
         argv = shlex.split(command)
         extra = dict(item.split("=", 1) for item in (env or []) if "=" in item)

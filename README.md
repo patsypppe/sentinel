@@ -47,6 +47,15 @@ It starts the server, reads its tool list, and checks names, descriptions, undoc
 schema validity and hidden instructions. It works for old and new protocol versions and exits 1 if a
 rule fails, so it drops straight into CI.
 
+Already have a Claude Desktop, Cursor or VS Code config? Lint every server in it, in one go:
+
+```bash
+toolgauge lint --client-config ~/Library/Application\ Support/Claude/claude_desktop_config.json
+```
+
+Each enabled server is started with its configured command, args and env, and its report is labelled
+with the server's name. Environment values are passed to the child and never printed.
+
 ## Scan your own server
 
 No clone needed:
