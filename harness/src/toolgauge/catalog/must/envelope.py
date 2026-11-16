@@ -188,7 +188,7 @@ def tools_list_deterministic_deprecated(probe: Probe) -> RuleResult:
     ),
 )
 def tools_declare_schema(probe: Probe) -> RuleResult:
-    result = probe.tools_list().result()
+    result = probe.manifest().result()
     if result is None:
         return RuleResult.not_applicable("tools/list did not return a result")
 
@@ -223,7 +223,7 @@ def tools_declare_schema(probe: Probe) -> RuleResult:
     ),
 )
 def tools_are_named(probe: Probe) -> RuleResult:
-    result = probe.tools_list().result()
+    result = probe.manifest().result()
     if result is None:
         return RuleResult.not_applicable("tools/list did not return a result")
 

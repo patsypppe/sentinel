@@ -55,7 +55,7 @@ def tools_sorted(probe: Probe) -> RuleResult:
     superseded_by="TOOLGAUGE/STYLE/tools-have-descriptions",
 )
 def tools_described(probe: Probe) -> RuleResult:
-    result = probe.tools_list().result()
+    result = probe.manifest().result()
     if result is None:
         return RuleResult.not_applicable("tools/list did not return a result")
 

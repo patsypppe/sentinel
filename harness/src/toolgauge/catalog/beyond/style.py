@@ -154,7 +154,7 @@ def parameter_documented(tool: dict[str, object], name: str, definition: object)
 
 
 def _tools(probe: Probe) -> list[dict[str, object]] | None:
-    result = probe.tools_list().result()
+    result = probe.manifest().result()
     tools = (result or {}).get("tools")
     if not isinstance(tools, list):
         return None

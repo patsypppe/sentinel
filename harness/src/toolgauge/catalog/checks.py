@@ -85,7 +85,7 @@ def tools_list_deterministic(probe: Probe) -> RuleResult:
 
 
 def tools_sorted_by_name(probe: Probe) -> RuleResult:
-    result = probe.tools_list().result()
+    result = probe.manifest().result()
     if result is None:
         return RuleResult.not_applicable("tools/list did not return a result")
 

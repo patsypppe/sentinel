@@ -117,6 +117,31 @@ they now share one process. Same rule outcomes, wall-clock for a full lint on th
 Single runs after the packages were already cached, so treat the ratio (4.4x to 6.7x) as the point,
 not the decimals.
 
+## Speed: one `tools/list`, not one per manifest rule
+
+An HTTP scan gave every rule its own connection, so every rule that only reads the tool manifest
+asked for it again. Those rules now share one reply per scan. Rules that judge the request itself
+-- determinism, headers, capability negotiation -- still make every call they want; the determinism
+rule's twenty calls stay twenty.
+
+Against the in-process conformant fixture, counting JSON-RPC methods in `dispatch`:
+
+| | `tools/list` calls | All requests |
+|---|---|---|
+| One per rule | 62 | 122 |
+| Shared | 45 | 105 |
+
+Against `benchmarks/servers/pysdk_demo.py` (the official Python SDK demo, `mcp` 2.3.0) on
+loopback, median of five scans after a warm-up, same 68 findings and 7 FAILs either way:
+
+| | Median wall clock |
+|---|---|
+| One per rule | 38.6 ms |
+| Shared | 33.2 ms |
+
+Loopback has no network latency, so the wall-clock difference here is small; each of the 17 calls
+removed is one roundtrip that a remote server no longer serves.
+
 ## Other tools
 
 I tried [Snyk Agent Scan](https://appsecsanta.com/mcp-scan) (formerly Invariant's `mcp-scan`) on the

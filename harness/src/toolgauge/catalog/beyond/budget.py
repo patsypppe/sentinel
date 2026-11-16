@@ -22,7 +22,7 @@ def _policy(probe: Probe) -> BudgetPolicy:
 
 
 def _tools(probe: Probe) -> list[object] | None:
-    result = probe.tools_list().result()
+    result = probe.manifest().result()
     if result is None:
         return None
     tools = result.get("tools")

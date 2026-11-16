@@ -18,7 +18,7 @@ _ALLOWED = re.compile(r"^[A-Za-z0-9_.\-]{1,128}$")
 
 
 def _names(probe: Probe) -> tuple[list[str] | None, str]:
-    response = probe.tools_list()
+    response = probe.manifest()
     if response.unusable_reason() is not None:
         return None, f"the server was unreachable: {response.unusable_reason()}"
     result = response.result()

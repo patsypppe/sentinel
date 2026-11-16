@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import threading
 import uuid
+from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
 
@@ -92,6 +93,36 @@ def is_read_only(tool: dict[str, Any]) -> bool:
     return read_only and annotations.get("destructiveHint") is not True
 
 
+class ManifestCache:
+    """One `tools/list` reply, shared by the rules that only read the manifest.
+
+    Rules that test the request itself -- determinism, headers, capability
+    negotiation -- keep calling `tools_list()` and still get a fresh reply, so
+    the cache can never turn twenty deliberate calls into one.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._replies: dict[bool, RawResponse] = {}
+
+    def get(self, *, legacy: bool, fetch: Callable[[], RawResponse]) -> RawResponse:
+        """The one usable reply for this wire, or a new attempt after a failure.
+
+        The lock is held across the request so ten rules arriving together
+        produce one call, not ten. A transport error or a 401/429/503 is not
+        cached: the next rule to ask deserves its own attempt, and none of
+        those statuses is ever a FAIL.
+        """
+        with self._lock:
+            cached = self._replies.get(legacy)
+            if cached is not None:
+                return cached
+            response = fetch()
+            if response.unusable_reason() is None:
+                self._replies[legacy] = response
+            return response
+
+
 class Probe:
     """A literal MCP client with an override on every convenience."""
 
@@ -109,6 +140,7 @@ class Probe:
         budgets: BudgetPolicy | None = None,
         safe: bool = False,
         context: dict[str, Any] | None = None,
+        manifest_cache: ManifestCache | None = None,
         legacy: bool = False,
         command: list[str] | None = None,
         command_env: dict[str, str] | None = None,
@@ -134,6 +166,9 @@ class Probe:
         #: probe, like the budgets, so every input a rule reads is reachable from
         #: its single argument and two scans in one process cannot share one.
         self.context: dict[str, Any] = context if context is not None else {}
+        #: Attached by a scan, never copied to a second principal or connection:
+        #: those probes exist to compare what this one saw against something else.
+        self._manifest_cache = manifest_cache
         #: Safe mode is for scanning servers you do not own. Every rule still
         #: runs, but a tools/call naming a tool the server advertises is only
         #: sent when that tool is annotated read-only; otherwise the call is
@@ -404,6 +439,18 @@ class Probe:
 
     def tools_list(self, **overrides: Any) -> RawResponse:
         return self.call("tools/list", **overrides)
+
+    def manifest(self) -> RawResponse:
+        """`tools/list` for a rule that only reads the manifest.
+
+        One HTTP scan asks once instead of once per rule. Rules that judge the
+        request rather than the reply call `tools_list()` directly. Without a
+        scan-attached cache -- a snapshot, a rule's second principal, a probe
+        built by hand -- this is exactly `tools_list()`.
+        """
+        if self._manifest_cache is None:
+            return self.tools_list()
+        return self._manifest_cache.get(legacy=self.legacy, fetch=self.tools_list)
 
     def tools_call(
         self,

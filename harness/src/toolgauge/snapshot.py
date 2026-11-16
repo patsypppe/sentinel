@@ -166,7 +166,7 @@ def fetch_tools(probe: Probe) -> tuple[dict[str, dict[str, Any]] | None, str]:
     cursor: str | None = None
     for _ in range(MAX_PAGES):
         response = (
-            probe.tools_list() if cursor is None else probe.call("tools/list", {"cursor": cursor})
+            probe.manifest() if cursor is None else probe.call("tools/list", {"cursor": cursor})
         )
         if not response.reached_server:
             return None, f"the server was unreachable: {response.transport_error}"

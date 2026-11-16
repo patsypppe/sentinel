@@ -32,7 +32,7 @@ from toolgauge.catalog.base import (
     Verifiability,
 )
 from toolgauge.fingerprint import fingerprint, target_identity
-from toolgauge.probe.client import SAFE_MODE_REFUSAL, Probe
+from toolgauge.probe.client import SAFE_MODE_REFUSAL, ManifestCache, Probe
 from toolgauge.probe.transport import DEFAULT_RETRIES
 
 if TYPE_CHECKING:
@@ -269,6 +269,7 @@ def run_scan(
         rules = [r for r in rules if r.id in only]
     rules = [r for r in rules if r.id not in skip]
     identity = report.target
+    manifest_cache = ManifestCache()
 
     def make_probe(*, legacy: bool = False) -> Probe:
         if probe_factory is not None:
@@ -284,6 +285,7 @@ def run_scan(
             budgets=budgets,
             safe=safe,
             context=context,
+            manifest_cache=manifest_cache,
             legacy=legacy,
         )
 
