@@ -81,6 +81,32 @@ _SENSITIVE_PATH = re.compile(
     r"credentials?\.json",
     re.IGNORECASE,
 )
+#: A credential path is only suspicious when the text around it asks for the
+#: file's contents or points at where to put them. A tool that reads `.env`
+#: names, or deletes a key after confirmation, is not an injection.
+_EXFIL_CUE = re.compile(
+    r"\b(include|send|email|upload|post|forward|exfiltrate|paste|attach|embed)\b"
+    r"|\bpass\b.{0,20}\b(content|contents|it|them)\b"
+    r"|\bas\s+the\b|\bin\s+this\s+field\b|\binto\s+the\b|\bto\s+the\s+user\b",
+    re.IGNORECASE,
+)
+_IMPERATIVE_READ = re.compile(
+    r"(?:^|[.;:\n]\s*|\b(?:then|first|before|after|please|you\s+must|must)\b\s+)"
+    r"(?:read|open|cat|copy|print|dump)\b",
+    re.IGNORECASE,
+)
+_SAFETY_CUE = re.compile(
+    r"\bnever\s+the\s+values?\b|\bnot\s+the\s+values?\b|\bnames?\s+only\b"
+    r"|\bonly\s+(?:the\s+)?names?\b|\bwithout\s+(?:the\s+)?values?\b",
+    re.IGNORECASE,
+)
+
+
+def _credential_access_is_suspicious(text: str, match: re.Match[str]) -> bool:
+    window = text[max(0, match.start() - 120) : match.end() + 120]
+    if _SAFETY_CUE.search(window):
+        return False
+    return bool(_EXFIL_CUE.search(window) or _IMPERATIVE_READ.search(window))
 
 
 def _descriptions(tool: dict[str, Any]) -> Iterator[tuple[str, str]]:
@@ -118,7 +144,7 @@ def injection_findings(tool: dict[str, Any]) -> list[tuple[str, str, str]]:
         if match:
             found.append(("steering-phrase", where, match.group(0)[:80]))
         sensitive = _SENSITIVE_PATH.search(text)
-        if sensitive:
+        if sensitive and _credential_access_is_suspicious(text, sensitive):
             found.append(("sensitive-path", where, sensitive.group(0)[:80]))
     return found
 
