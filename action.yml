@@ -13,6 +13,13 @@ inputs:
     description: The MCP endpoint to scan, e.g. http://localhost:3000/mcp. Optional with config or targets.
     required: false
     default: ''
+  command:
+    description: >-
+      A stdio MCP server to lint instead of scanning an endpoint, e.g.
+      "node dist/server.js". Lint checks the tool manifest and exits 1 on any
+      failed rule; gate, targets, config, baseline and snapshot are not used.
+    required: false
+    default: ''
   version:
     description: >-
       The toolgauge version to install from PyPI. Empty installs the
@@ -79,7 +86,7 @@ inputs:
 outputs:
   exit-code:
     description: 0 = gate passed, 1 = gate failed, 2 = the scanner could not run.
-    value: ${{ steps.scan.outputs.exit-code }}
+    value: ${{ steps.scan.outputs.exit-code || steps.lint.outputs.exit-code }}
   sarif-file:
     description: Path of the SARIF report.
     value: ${{ inputs.sarif-file }}
@@ -104,6 +111,7 @@ runs:
 
     - name: scan
       id: scan
+      if: ${{ inputs.command == '' }}
       shell: bash
       env:
         TOOLGAUGE_ACTION_ENDPOINT: ${{ inputs.endpoint }}
@@ -151,8 +159,43 @@ runs:
           fi
         } >> "$GITHUB_STEP_SUMMARY"
 
+    - name: lint
+      id: lint
+      if: ${{ inputs.command != '' }}
+      shell: bash
+      env:
+        TOOLGAUGE_ACTION_COMMAND: ${{ inputs.command }}
+        TOOLGAUGE_ACTION_ENDPOINT: ${{ inputs.endpoint }}
+        TOOLGAUGE_ACTION_TARGETS: ${{ inputs.targets }}
+      run: |
+        summary="$RUNNER_TEMP/toolgauge-summary.md"
+        if [ -n "$TOOLGAUGE_ACTION_ENDPOINT$TOOLGAUGE_ACTION_TARGETS" ]; then
+          echo "::error::give either command or endpoint/targets, not both"
+          echo "exit-code=2" >> "$GITHUB_OUTPUT"
+          {
+            echo "### toolgauge: lint"
+            echo
+            echo "The action was given both **command** and an endpoint or fleet."
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+        set +e
+        toolgauge lint --command "$TOOLGAUGE_ACTION_COMMAND" --format markdown > "$summary"
+        code=$?
+        set -e
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        {
+          echo "### toolgauge: lint"
+          echo
+          if [ -s "$summary" ]; then
+            cat "$summary"
+          else
+            echo "The lint **could not run** (exit $code). See the job log."
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
+
     - name: upload to code scanning
-      if: ${{ always() && inputs.upload-sarif == 'true' && inputs.targets == '' && hashFiles(inputs.sarif-file) != '' }}
+      if: ${{ always() && inputs.upload-sarif == 'true' && inputs.command == '' && inputs.targets == '' && hashFiles(inputs.sarif-file) != '' }}
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: ${{ inputs.sarif-file }}
@@ -161,5 +204,5 @@ runs:
     - name: apply the gate
       shell: bash
       env:
-        CODE: ${{ steps.scan.outputs.exit-code }}
+        CODE: ${{ steps.scan.outputs.exit-code || steps.lint.outputs.exit-code }}
       run: exit "$CODE"

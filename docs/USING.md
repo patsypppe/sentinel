@@ -156,7 +156,7 @@ than one from a single scan.
 
 | Where | How |
 |---|---|
-| GitHub | `uses: patsypppe/sentinel@v0.4.0`. Inputs: `endpoint`, `gate`, `config`, `baseline`, `snapshot`, `targets`, `safe`, `no-exec`, `token`. Writes a Markdown job summary, uploads SARIF. |
+| GitHub | `uses: patsypppe/sentinel@v0.4.0`. Inputs: `endpoint`, `command`, `gate`, `config`, `baseline`, `snapshot`, `targets`, `safe`, `no-exec`, `token`. Writes a Markdown job summary, uploads SARIF. `command` lints a stdio server instead of scanning an endpoint, and exits 1 on any failed rule. |
 | GitLab | `include:` [`ci/gitlab/toolgauge.gitlab-ci.yml`](../ci/gitlab/toolgauge.gitlab-ci.yml) and `extends: .toolgauge-scan`. Publishes JUnit. |
 | Any CI | `docker run ghcr.io/patsypppe/toolgauge scan --endpoint ...` |
 | pre-commit | the `toolgauge-scan` hook (`pre-push`, so a few hundred requests do not run on every commit) |

@@ -12,6 +12,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import textwrap
 from typing import Any
 
 import pytest
@@ -26,9 +27,17 @@ def load(path: str) -> Any:
     return yaml.safe_load((ROOT / path).read_text())
 
 
-def scan_step() -> str:
+def action_step(step_id: str) -> str:
     steps = load("action.yml")["runs"]["steps"]
-    return next(s for s in steps if s.get("id") == "scan")["run"]
+    return next(s for s in steps if s.get("id") == step_id)["run"]
+
+
+def scan_step() -> str:
+    return action_step("scan")
+
+
+def lint_step() -> str:
+    return action_step("lint")
 
 
 def run_action_scan(env: dict[str, str], tmp_path: pathlib.Path) -> tuple[int, str, pathlib.Path]:
@@ -62,6 +71,80 @@ def run_action_scan(env: dict[str, str], tmp_path: pathlib.Path) -> tuple[int, s
     assert proc.returncode == 0, proc.stderr
     code = int(re.search(r"exit-code=(\d+)", output.read_text()).group(1))  # type: ignore[union-attr]
     return code, summary.read_text(), tmp_path / "out.sarif"
+
+
+LINT_SERVER = textwrap.dedent(
+    """
+    import json, sys
+    TOOLS = [{"name": "lookup_order", "description": "Look up an order by its id.",
+              "inputSchema": {"type": "object", "properties": {"filters": {"type": "object"}}}}]
+    for line in sys.stdin:
+        msg = json.loads(line)
+        if "id" not in msg:
+            continue
+        if msg["method"] == "initialize":
+            result = {"protocolVersion": "2025-11-25", "capabilities": {"tools": {}}}
+        elif msg["method"] == "tools/list":
+            result = {"tools": TOOLS}
+        else:
+            print(json.dumps({"jsonrpc": "2.0", "id": msg["id"],
+                              "error": {"code": -32601, "message": "no"}}), flush=True)
+            continue
+        print(json.dumps({"jsonrpc": "2.0", "id": msg["id"], "result": result}), flush=True)
+    """
+)
+
+
+def run_action_lint(env: dict[str, str], tmp_path: pathlib.Path) -> tuple[int, str]:
+    """Execute the Action's lint step with the inputs GitHub would put in env."""
+    output = tmp_path / "output"
+    summary = tmp_path / "summary"
+    output.write_text("")
+    summary.write_text("")
+    bin_dir = str(pathlib.Path(sys.executable).parent)
+    full = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "RUNNER_TEMP": str(tmp_path),
+        "GITHUB_OUTPUT": str(output),
+        "GITHUB_STEP_SUMMARY": str(summary),
+        **env,
+    }
+    proc = subprocess.run(
+        ["bash", "-c", lint_step()],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=tmp_path,
+        env=full,
+    )
+    assert proc.returncode == 0, proc.stderr
+    code = int(re.search(r"exit-code=(\d+)", output.read_text()).group(1))  # type: ignore[union-attr]
+    return code, summary.read_text()
+
+
+def test_the_action_lints_a_stdio_server_when_given_a_command(tmp_path: pathlib.Path) -> None:
+    script = tmp_path / "server.py"
+    script.write_text(LINT_SERVER)
+    code, summary = run_action_lint(
+        {"TOOLGAUGE_ACTION_COMMAND": f"{sys.executable} {script}"}, tmp_path
+    )
+    assert code == 1
+    assert "FAIL" in summary and "parameters-are-described" in summary
+
+
+def test_the_action_refuses_command_and_endpoint_together(tmp_path: pathlib.Path) -> None:
+    script = tmp_path / "server.py"
+    script.write_text(LINT_SERVER)
+    code, summary = run_action_lint(
+        {
+            "TOOLGAUGE_ACTION_COMMAND": f"{sys.executable} {script}",
+            "TOOLGAUGE_ACTION_ENDPOINT": "http://127.0.0.1:9/mcp",
+        },
+        tmp_path,
+    )
+    assert code == 2
+    assert "both" in summary
 
 
 def test_the_action_passes_a_conformant_server_and_writes_both_reports(
@@ -154,6 +237,11 @@ def cli_flags(command: str) -> set[str]:
 def test_every_flag_the_action_passes_exists() -> None:
     used = set(re.findall(r"--[a-z][a-z0-9-]*", scan_step())) - {"--endpoint"}
     assert used <= cli_flags("scan") | {"--endpoint"}, used - cli_flags("scan")
+
+
+def test_every_flag_the_lint_step_passes_exists() -> None:
+    used = set(re.findall(r"--[a-z][a-z0-9-]*", lint_step()))
+    assert used <= cli_flags("lint"), used - cli_flags("lint")
 
 
 def test_every_flag_the_gitlab_template_passes_exists() -> None:
