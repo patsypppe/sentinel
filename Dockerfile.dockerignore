@@ -8,6 +8,9 @@ broker/
 site/
 docs/
 tests/
-fixtures/
+# The wheel force-includes fixtures/server; nothing else under fixtures is needed.
+fixtures/*
+!fixtures/server/
+!fixtures/server/**
 deploy/
 envoy/
